@@ -1,0 +1,7 @@
+export { default as AccountSettings } from './AccountSettings'
+export { default as PaymentSettings } from './PaymentSettings'
+export { default as Settings } from './Settings'
+export { default as AdminSettings } from './AdminSettings'
+export { default as AdminPayments } from './AdminPayments'
+export { default as AdminProfile } from './AdminProfile'
+export { default as AddBankAccount } from './AddBankAccount'

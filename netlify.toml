@@ -1,0 +1,37 @@
+[build]
+  base = "packages/frontend"
+  publish = "dist"
+  command = "npm run build"
+
+[functions]
+  directory = "packages/frontend/netlify/functions"
+  node_bundler = "esbuild"
+
+[build.environment]
+  NODE_VERSION = "18"
+  VITE_APP_URL = "https://members.clicknich.com"
+  VITE_SUPABASE_URL = "https://cgeqtodbisgwvhkaahiy.supabase.co"
+  VITE_SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNnZXF0b2RiaXNnd3Zoa2FhaGl5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjkxMTk1MDIsImV4cCI6MjA4NDY5NTUwMn0.Ov6_rRlThZUBIoL4oT6BGozEhvTUdFsWB6KylDXpFoY"
+  VITE_API_BASE_URL = "https://cgeqtodbisgwvhkaahiy.supabase.co/functions/v1"
+  VITE_STRIPE_PUBLIC_KEY = "pk_live_51OG75IBfHvR9ZPZBDF7rwfvqAUgUhw6yqa6JfBrrZotMSdZTkZLAkdKFwEDRWWsENKZhHDzHALrcifVBKOEMVcyB00QAxweBsM"
+
+# SPA fallback for all routes
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+
+[[headers]]
+  for = "/static/*"
+  [headers.values]
+    cache-control = "max-age=31536000"
+
+[[headers]]
+  for = "*.js"
+  [headers.values]
+    cache-control = "max-age=31536000"
+
+[[headers]]
+  for = "*.css"
+  [headers.values]
+    cache-control = "max-age=31536000"

@@ -1,0 +1,35 @@
+node_modules/
+dist/
+build/
+.env
+.env.local
+.env.*.local
+*.log
+.DS_Store
+.vscode/settings.json
+coverage/
+.turbo/
+*.swp
+*.swo
+*~
+.idea/
+.next/
+out/
+.nuxt/
+dist/
+.cache/
+.output/
+.env.example
+
+# Arquivos TypeScript compilados (evitar duplicação)
+packages/frontend/src/**/*.js
+packages/frontend/src/**/*.jsx
+!packages/frontend/src/**/*.config.js
+supabase/migrations/**/*.sql
+!supabase/migrations/.keep
+
+# Arquivos TypeScript compilados (evitar duplicação)
+packages/frontend/src/**/*.js
+packages/frontend/src/**/*.jsx
+!packages/frontend/src/**/*.config.js
+# Force deploy dom 01 fev 2026 22:50:06 -03

@@ -1,0 +1,8 @@
+export { default as ProductsManagement } from './ProductsManagement'
+export { default as ProductEdit } from './ProductEdit'
+export { default as ProductContent } from './ProductContent'
+export { default as ProductView } from './ProductView'
+export { default as ProductAccess } from './ProductAccess'
+export { default as ProductIdGuide } from './ProductIdGuide'
+export { default as CreateProduct } from './CreateProduct'
+export { default as Products } from '../Products'
