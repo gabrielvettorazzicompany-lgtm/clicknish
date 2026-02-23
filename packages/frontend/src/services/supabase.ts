@@ -16,11 +16,29 @@ interface FetchOptions extends RequestInit {
   headers?: Record<string, string>
 }
 
+// Fetch para Edge Functions (ex: applications, apps, products, etc.)
 export async function supabaseFetch(endpoint: string, options: FetchOptions = {}): Promise<Response> {
   const url = endpoint.startsWith('http') ? endpoint : `${apiBaseUrl}/${endpoint}`
-
+  
   const headers: Record<string, string> = {
     'Authorization': `Bearer ${supabaseKey}`,
+    'Content-Type': 'application/json',
+    ...options.headers,
+  }
+
+  return fetch(url, {
+    ...options,
+    headers,
+  })
+}
+
+// Fetch para REST API direta do Supabase (tabelas via PostgREST)
+export async function supabaseRestFetch(endpoint: string, options: FetchOptions = {}): Promise<Response> {
+  const url = endpoint.startsWith('http') ? endpoint : `${supabaseUrl}/rest/v1/${endpoint}`
+  
+  const headers: Record<string, string> = {
+    'Authorization': `Bearer ${supabaseKey}`,
+    'apikey': supabaseKey,
     'Content-Type': 'application/json',
     ...options.headers,
   }
@@ -34,6 +52,8 @@ export async function supabaseFetch(endpoint: string, options: FetchOptions = {}
 // Expor globalmente para compatibilidade com código existente
 declare global {
   function supabaseFetch(endpoint: string, options?: FetchOptions): Promise<Response>
+  function supabaseRestFetch(endpoint: string, options?: FetchOptions): Promise<Response>
 }
 
-(window as any).supabaseFetch = supabaseFetch
+(window as any).supabaseFetch = supabaseFetch;
+(window as any).supabaseRestFetch = supabaseRestFetch

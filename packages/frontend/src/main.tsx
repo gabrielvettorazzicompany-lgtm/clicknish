@@ -10,7 +10,7 @@ import { OnboardingProvider } from './contexts/OnboardingContext'
 import { ThemeProvider } from './contexts/ThemeContext'
 import { I18nProvider } from './i18n'
 import { queryClient } from './services/queryClient'
-// Inicializa supabaseFetch global
+// Inicializa funções globais supabaseFetch e supabaseRestFetch
 import './services/supabase'
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
