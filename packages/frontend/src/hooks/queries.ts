@@ -58,37 +58,51 @@ export function useDashboardStatsQuery(
             // Helper para retornar resultado vazio sem fazer query inválida
             const emptyResult = () => Promise.resolve({ data: [], error: null })
 
+            // Buscar member_areas do usuário primeiro
+            const { data: userMemberAreas } = await supabase
+                .from('member_areas')
+                .select('id, price, currency')
+                .eq('owner_id', userId)
+            const memberAreaIds = userMemberAreas?.map(m => m.id) || []
+            const memberAreaPrices = new Map(userMemberAreas?.map(m => [m.id, { price: m.price, currency: m.currency }]) || [])
+
             // Marketplaces usam BRL - pular quando USD selecionado
-            const shouldFetchMarketplaceSales = !selectedCurrency || selectedCurrency !== 'USD'
+            const shouldFetchMarketplaceSales = (!selectedCurrency || selectedCurrency !== 'USD') && memberAreaIds.length > 0
 
             // Buscar vendas de produtos marketplace do usuário
             let marketplaceSalesQuery: any = emptyResult()
             if (shouldFetchMarketplaceSales) {
-                let query = supabase
-                    .from('user_product_access')
-                    .select('*, member_areas!inner(price, currency, owner_id)')
-                    .eq('payment_status', 'completed')
-                    .eq('member_areas.owner_id', userId)
-
-                // Filtrar por marketplace específico se selecionado
-                if (selectedMarketplace) {
-                    query = query.eq('member_area_id', selectedMarketplace)
-                }
-
-                // Filtrar por moeda se selecionada
+                // Filtrar member_areas por moeda se necessário
+                let filteredMemberAreaIds = memberAreaIds
                 if (selectedCurrency) {
-                    query = query.eq('member_areas.currency', selectedCurrency)
+                    filteredMemberAreaIds = memberAreaIds.filter(id => {
+                        const info = memberAreaPrices.get(id)
+                        return info?.currency === selectedCurrency
+                    })
                 }
 
-                if (fromDate) {
-                    query = query.gte('created_at', fromDate.toISOString())
+                if (filteredMemberAreaIds.length > 0) {
+                    let query = supabase
+                        .from('user_product_access')
+                        .select('*, member_area_id')
+                        .eq('payment_status', 'completed')
+                        .in('member_area_id', filteredMemberAreaIds)
+
+                    // Filtrar por marketplace específico se selecionado
+                    if (selectedMarketplace) {
+                        query = query.eq('member_area_id', selectedMarketplace)
+                    }
+
+                    if (fromDate) {
+                        query = query.gte('created_at', fromDate.toISOString())
+                    }
+                    if (toDate) {
+                        const endOfDay = new Date(toDate)
+                        endOfDay.setHours(23, 59, 59, 999)
+                        query = query.lte('created_at', endOfDay.toISOString())
+                    }
+                    marketplaceSalesQuery = query
                 }
-                if (toDate) {
-                    const endOfDay = new Date(toDate)
-                    endOfDay.setHours(23, 59, 59, 999)
-                    query = query.lte('created_at', endOfDay.toISOString())
-                }
-                marketplaceSalesQuery = query
             }
 
             // Buscar vendas de apps do usuário
@@ -133,7 +147,8 @@ export function useDashboardStatsQuery(
 
             // Calcular totais
             const totalSales = allSales.reduce((sum, sale) => {
-                const price = sale.member_areas?.price || sale.products?.price || sale.purchase_price || 0
+                const memberAreaInfo = memberAreaPrices.get(sale.member_area_id)
+                const price = memberAreaInfo?.price || sale.products?.price || sale.purchase_price || 0
                 return sum + price
             }, 0)
 
@@ -143,7 +158,8 @@ export function useDashboardStatsQuery(
             const salesByDate: Record<string, number> = {}
             allSales.forEach(sale => {
                 const date = new Date(sale.created_at).toISOString().split('T')[0]
-                const price = sale.member_areas?.price || sale.products?.price || sale.purchase_price || 0
+                const memberAreaInfo = memberAreaPrices.get(sale.member_area_id)
+                const price = memberAreaInfo?.price || sale.products?.price || sale.purchase_price || 0
                 salesByDate[date] = (salesByDate[date] || 0) + price
             })
 

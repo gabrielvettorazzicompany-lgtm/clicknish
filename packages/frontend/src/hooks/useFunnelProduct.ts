@@ -43,10 +43,12 @@ export function useFunnelProduct(funnelId: string, enabled: boolean) {
                         .from(tableName)
                         .select(selectFields)
                         .eq('id', funnel.product_id)
-                        .single()
+                        .maybeSingle()
 
                     if (productError) throw productError
-                    setProduct({ ...productData, source: funnel.product_type })
+                    if (productData) {
+                        setProduct({ ...productData, source: funnel.product_type })
+                    }
                 }
             } catch (err) {
                 console.error('Error fetching main product:', err)

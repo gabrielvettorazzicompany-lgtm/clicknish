@@ -191,21 +191,16 @@ export function useCustomers() {
             const { data: session } = await supabase.auth.getSession()
             const token = session?.session?.access_token || SUPABASE_ANON_KEY
 
-            console.log('Fetching access for user_id:', customer.user_id, 'app_id:', selectedApp)
             const res = await fetch(
                 `${SUPABASE_URL}/rest/v1/user_product_access?user_id=eq.${customer.user_id}&application_id=eq.${selectedApp}&select=product_id`,
                 { headers: { 'Authorization': `Bearer ${token}`, 'apikey': SUPABASE_ANON_KEY } }
             )
             const data = await res.json()
-            console.log('Access data from DB:', data)
-            console.log('Products list:', productsList.map(p => ({ id: p.id, name: p.name })))
             const accessIds = new Set<string>()
             if (Array.isArray(data)) data.forEach((a: any) => accessIds.add(a.product_id))
-            console.log('Access IDs:', [...accessIds])
 
             const access: Record<string, boolean> = {}
             productsList.forEach(p => { access[p.id] = accessIds.has(p.id) })
-            console.log('Final access state:', access)
             setCustomerProducts(access)
         } catch (err) {
             console.error('Error fetching customer access:', err)

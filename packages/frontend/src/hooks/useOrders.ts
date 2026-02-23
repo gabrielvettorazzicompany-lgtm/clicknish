@@ -58,21 +58,33 @@ export function useOrders(params: UseOrdersParams) {
                 .eq('owner_id', user.id)
             const appIds = userApps?.map(a => a.id) || []
 
+            // IDs dos member_areas do usuário
+            const { data: userMemberAreas } = await supabase
+                .from('member_areas')
+                .select('id, name')
+                .eq('owner_id', user.id)
+            const memberAreaIds = userMemberAreas?.map(m => m.id) || []
+            const memberAreaNames = new Map(userMemberAreas?.map(m => [m.id, m.name]) || [])
+
             // Helper para resultado vazio sem fazer query
             const emptyResult = () => Promise.resolve({ data: [], error: null })
 
-            // ---- Vendas de produtos marketplace ----
-            let mktQuery = supabase
-                .from('user_product_access')
-                .select('id, created_at, purchase_price, payment_method, payment_status, payment_id, user_id, member_area_id, member_areas!inner(name, owner_id)')
-                .eq('member_areas.owner_id', user.id)
-                .neq('access_type', 'manual')
-                .order('created_at', { ascending: false })
+            // ---- Vendas de produtos marketplace - só buscar se tiver member_areas ----
+            let mktQuery: any = emptyResult()
+            if (memberAreaIds.length > 0) {
+                let query = supabase
+                    .from('user_product_access')
+                    .select('id, created_at, purchase_price, payment_method, payment_status, payment_id, user_id, member_area_id')
+                    .in('member_area_id', memberAreaIds)
+                    .neq('access_type', 'manual')
+                    .order('created_at', { ascending: false })
 
-            if (fromDate) mktQuery = mktQuery.gte('created_at', fromDate.toISOString())
-            if (toDate) {
-                const end = new Date(toDate); end.setHours(23, 59, 59, 999)
-                mktQuery = mktQuery.lte('created_at', end.toISOString())
+                if (fromDate) query = query.gte('created_at', fromDate.toISOString())
+                if (toDate) {
+                    const end = new Date(toDate); end.setHours(23, 59, 59, 999)
+                    query = query.lte('created_at', end.toISOString())
+                }
+                mktQuery = query
             }
 
             // ---- Vendas de apps - só buscar se tiver apps ----
@@ -152,7 +164,7 @@ export function useOrders(params: UseOrdersParams) {
                     seenIds.add(key)
                     rawAll.push({
                         ...sale,
-                        productName: (sale as any).member_areas?.name || 'Produto',
+                        productName: memberAreaNames.get(sale.member_area_id) || 'Produto',
                         source: 'marketplace'
                     })
                 }

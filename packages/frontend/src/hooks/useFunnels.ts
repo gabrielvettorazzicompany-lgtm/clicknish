@@ -34,7 +34,31 @@ export const useFunnels = () => {
 
             if (error) throw error
 
-            setFunnels(funnelsData || [])
+            // Batch fetch product names para evitar N+1 queries
+            const productIds = [...new Set((funnelsData || []).map(f => f.product_id).filter(Boolean))]
+            
+            let productNames = new Map<string, string>()
+            if (productIds.length > 0) {
+                const [memberAreasResult, applicationsResult] = await Promise.all([
+                    supabase.from('member_areas').select('id, name').in('id', productIds),
+                    supabase.from('applications').select('id, name').in('id', productIds)
+                ])
+                
+                for (const ma of (memberAreasResult.data || [])) {
+                    productNames.set(ma.id, ma.name)
+                }
+                for (const app of (applicationsResult.data || [])) {
+                    productNames.set(app.id, app.name)
+                }
+            }
+
+            // Attach productName to each funnel
+            const funnelsWithProducts = (funnelsData || []).map(f => ({
+                ...f,
+                productName: f.product_id ? productNames.get(f.product_id) || '' : ''
+            }))
+
+            setFunnels(funnelsWithProducts)
         } catch (error) {
             console.error('Error fetching funnels:', error)
         } finally {

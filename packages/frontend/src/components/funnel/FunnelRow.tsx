@@ -4,8 +4,6 @@
 
 import { Trash2, Copy, Pencil } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
-import { useEffect, useState } from 'react'
-import { supabase } from '@/services/supabase'
 import { Funnel, FunnelActions } from '@/types/funnel'
 import { formatDate, getStatusLabel } from '@/utils/funnelUtils'
 import { useI18n } from '@/i18n'
@@ -18,44 +16,8 @@ interface FunnelRowProps {
 export default function FunnelRow({ funnel, actions }: FunnelRowProps) {
     const navigate = useNavigate()
     const { t } = useI18n()
-    const [productName, setProductName] = useState<string>('')
-
-    useEffect(() => {
-        if (funnel.product_id) {
-            fetchProductName()
-        }
-    }, [funnel.product_id])
-
-    const fetchProductName = async () => {
-        if (!funnel.product_id) return
-
-        try {
-            // Try fetching from member_areas first (usando maybeSingle para evitar erro se não existir)
-            const { data: memberArea } = await supabase
-                .from('member_areas')
-                .select('name')
-                .eq('id', funnel.product_id)
-                .maybeSingle()
-
-            if (memberArea?.name) {
-                setProductName(memberArea.name)
-                return
-            }
-
-            // If not found, try in applications
-            const { data: application } = await supabase
-                .from('applications')
-                .select('name')
-                .eq('id', funnel.product_id)
-                .maybeSingle()
-
-            if (application?.name) {
-                setProductName(application.name)
-            }
-        } catch (error) {
-            console.error('Error fetching product name:', error)
-        }
-    }
+    // productName já vem do useFunnels (batch fetch)
+    const productName = (funnel as any).productName || ''
 
     const getStatusColor = (status: string) => {
         switch (status) {

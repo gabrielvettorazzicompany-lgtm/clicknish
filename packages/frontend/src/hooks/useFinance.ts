@@ -87,47 +87,74 @@ export function useFinance(params: UseFinanceParams) {
                 const fromDate = params.dateRange?.from
                 const toDate = params.dateRange?.to
 
-                // ── Buscar vendas de produtos de apps (user_product_access) ──────────
-                let appSalesQuery = supabase
-                    .from('user_product_access')
-                    .select(`
-                        id,
-                        payment_id,
-                        purchase_price,
-                        payment_status,
-                        payment_method,
-                        created_at,
-                        applications!inner(owner_id, name)
-                    `)
-                    .eq('applications.owner_id', user.id)
-                    .not('payment_status', 'eq', 'failed')
+                // Helper para resultado vazio sem fazer query
+                const emptyResult = () => Promise.resolve({ data: [], error: null })
 
-                if (fromDate) appSalesQuery = appSalesQuery.gte('created_at', fromDate.toISOString())
-                if (toDate) {
-                    const end = new Date(toDate)
-                    end.setHours(23, 59, 59, 999)
-                    appSalesQuery = appSalesQuery.lte('created_at', end.toISOString())
+                // Buscar apps do usuário
+                const { data: userApps } = await supabase
+                    .from('applications')
+                    .select('id, name')
+                    .eq('owner_id', user.id)
+                const appIds = userApps?.map(a => a.id) || []
+                const appNames = new Map(userApps?.map(a => [a.id, a.name]) || [])
+
+                // Buscar member_areas do usuário
+                const { data: userMemberAreas } = await supabase
+                    .from('member_areas')
+                    .select('id, name, currency')
+                    .eq('owner_id', user.id)
+                const memberAreaIds = userMemberAreas?.map(m => m.id) || []
+                const memberAreaInfo = new Map(userMemberAreas?.map(m => [m.id, { name: m.name, currency: m.currency }]) || [])
+
+                // ── Buscar vendas de produtos de apps - só se tiver apps ──────────
+                let appSalesQuery: any = emptyResult()
+                if (appIds.length > 0) {
+                    let query = supabase
+                        .from('user_product_access')
+                        .select(`
+                            id,
+                            payment_id,
+                            purchase_price,
+                            payment_status,
+                            payment_method,
+                            created_at,
+                            application_id
+                        `)
+                        .in('application_id', appIds)
+                        .not('payment_status', 'eq', 'failed')
+
+                    if (fromDate) query = query.gte('created_at', fromDate.toISOString())
+                    if (toDate) {
+                        const end = new Date(toDate)
+                        end.setHours(23, 59, 59, 999)
+                        query = query.lte('created_at', end.toISOString())
+                    }
+                    appSalesQuery = query
                 }
 
-                // ── Buscar vendas de áreas de membros (user_member_area_access) ──────
-                let memberSalesQuery = supabase
-                    .from('user_member_area_access')
-                    .select(`
-                        id,
-                        purchase_price,
-                        payment_status,
-                        payment_method,
-                        created_at,
-                        member_areas!inner(owner_id, name, currency)
-                    `)
-                    .eq('member_areas.owner_id', user.id)
-                    .not('payment_status', 'eq', 'failed')
+                // ── Buscar vendas de áreas de membros - só se tiver member_areas ──────
+                let memberSalesQuery: any = emptyResult()
+                if (memberAreaIds.length > 0) {
+                    let query = supabase
+                        .from('user_member_area_access')
+                        .select(`
+                            id,
+                            member_area_id,
+                            purchase_price,
+                            payment_status,
+                            payment_method,
+                            created_at
+                        `)
+                        .in('member_area_id', memberAreaIds)
+                        .not('payment_status', 'eq', 'failed')
 
-                if (fromDate) memberSalesQuery = memberSalesQuery.gte('created_at', fromDate.toISOString())
-                if (toDate) {
-                    const end = new Date(toDate)
-                    end.setHours(23, 59, 59, 999)
-                    memberSalesQuery = memberSalesQuery.lte('created_at', end.toISOString())
+                    if (fromDate) query = query.gte('created_at', fromDate.toISOString())
+                    if (toDate) {
+                        const end = new Date(toDate)
+                        end.setHours(23, 59, 59, 999)
+                        query = query.lte('created_at', end.toISOString())
+                    }
+                    memberSalesQuery = query
                 }
 
                 const [appSalesResult, memberSalesResult] = await Promise.all([
@@ -143,7 +170,7 @@ export function useFinance(params: UseFinanceParams) {
                     const paymentKey = row.payment_id ?? row.id // fallback se não tiver payment_id
                     if (seenAppPayments.has(paymentKey)) return acc
                     seenAppPayments.add(paymentKey)
-                    const productName = row.applications?.name ?? 'Produto'
+                    const productName = appNames.get(row.application_id) ?? 'Produto'
                     const status = row.payment_status ?? 'completed'
                     acc.push({
                         id: `app-${row.id}`,
@@ -161,14 +188,15 @@ export function useFinance(params: UseFinanceParams) {
 
                 // ── Mapear vendas de áreas de membros para Transaction ────────────────
                 const memberTransactions: Transaction[] = (memberSalesResult.data ?? []).map((row: any) => {
-                    const productName = row.member_areas?.name ?? 'Produto'
+                    const maInfo = memberAreaInfo.get(row.member_area_id)
+                    const productName = maInfo?.name ?? 'Produto'
                     const status = row.payment_status ?? 'completed'
                     return {
                         id: `member-${row.id}`,
                         description: `Venda - ${productName}`,
                         type: mapTransactionType(status),
                         amount: Number(row.purchase_price ?? 0),
-                        currency: (row.member_areas?.currency ?? 'USD').toUpperCase(),
+                        currency: (maInfo?.currency ?? 'USD').toUpperCase(),
                         direction: mapDirection(status),
                         date: row.created_at,
                         status: mapPaymentStatus(status),
