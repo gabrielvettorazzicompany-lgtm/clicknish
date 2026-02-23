@@ -137,7 +137,7 @@ export function useCustomers() {
         } catch { setMarketplaceProducts([]) }
     }
 
-    const fetchProducts = async (appId: string) => {
+    const fetchProducts = async (appId: string): Promise<Product[]> => {
         try {
             const userId = currentUserId
             const appRes = await fetch(
@@ -173,7 +173,8 @@ export function useCustomers() {
             if (Array.isArray(mktData)) combined.push(...mktData)
             if (Array.isArray(communityData)) combined.push(...communityData.map(m => ({ id: m.id, name: m.title, price: 0 })))
             setProducts(combined)
-        } catch { setProducts([]) }
+            return combined
+        } catch { setProducts([]); return [] }
     }
 
     const fetchCustomers = async (id: string, type?: 'app' | 'marketplace') => {
@@ -213,7 +214,7 @@ export function useCustomers() {
         finally { setLoading(false) }
     }
 
-    const fetchCustomerAccess = async (customer: Customer) => {
+    const fetchCustomerAccess = async (customer: Customer, productsList: Product[]) => {
         try {
             const [r1, r2] = await Promise.all([
                 fetch(`${SUPABASE_URL}/rest/v1/user_product_access?user_id=eq.${customer.user_id}&select=product_id`, {
@@ -227,7 +228,7 @@ export function useCustomers() {
             const d2 = await r2.json()
             if (Array.isArray(d1) || Array.isArray(d2)) {
                 const access: Record<string, boolean> = {}
-                products.forEach(p => {
+                productsList.forEach(p => {
                     access[p.id] =
                         (Array.isArray(d1) && d1.some((a: any) => a.product_id === p.id)) ||
                         (Array.isArray(d2) && d2.some((a: any) => a.member_area_id === p.id))
@@ -237,7 +238,7 @@ export function useCustomers() {
         } catch { /* ignore */ }
     }
 
-    const fetchCustomerProductMembers = async (customer: Customer) => {
+    const fetchCustomerProductMembers = async (customer: Customer, productsList: Product[]) => {
         try {
             const res = await fetch(
                 `${SUPABASE_URL}/rest/v1/product_members?user_id=eq.${customer.user_id}&select=product_id`,
@@ -246,7 +247,7 @@ export function useCustomers() {
             const data = await res.json()
             if (Array.isArray(data)) {
                 const members: Record<string, boolean> = {}
-                products.forEach(p => { members[p.id] = data.some((m: any) => m.product_id === p.id) })
+                productsList.forEach(p => { members[p.id] = data.some((m: any) => m.product_id === p.id) })
                 setProductMembers(members)
             }
         } catch { /* ignore */ }
@@ -311,7 +312,8 @@ export function useCustomers() {
                         `${SUPABASE_URL}/rest/v1/user_product_access?user_id=eq.${existingUser.user_id}&application_id=eq.${selectedApp}&select=product_id`,
                         { headers: { 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'apikey': SUPABASE_ANON_KEY } }
                     )
-                    const curr = await currentRes.json()
+                    const currRaw = await currentRes.json()
+                    const curr = Array.isArray(currRaw) ? currRaw : []
                     const currIds = curr.map((a: any) => a.product_id)
                     const newProds = formData.selectedProducts.filter(id => !currIds.includes(id))
                     if (newProds.length > 0) {
@@ -342,9 +344,9 @@ export function useCustomers() {
 
     const handleManageAccess = async (customer: Customer) => {
         setEditingCustomer(customer)
-        await fetchProducts(selectedApp)
-        await fetchCustomerAccess(customer)
-        await fetchCustomerProductMembers(customer)
+        const loadedProducts = await fetchProducts(selectedApp)
+        await fetchCustomerAccess(customer, loadedProducts)
+        await fetchCustomerProductMembers(customer, loadedProducts)
         setShowAccessModal(true)
     }
 
@@ -364,8 +366,12 @@ export function useCustomers() {
                     headers: { 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'apikey': SUPABASE_ANON_KEY }
                 })
             ])
-            const currApp = await r1.json()
-            const currMkt = await r2.json()
+            const currAppRaw = await r1.json()
+            const currMktRaw = await r2.json()
+
+            // Garantir que são arrays
+            const currApp = Array.isArray(currAppRaw) ? currAppRaw : []
+            const currMkt = Array.isArray(currMktRaw) ? currMktRaw : []
 
             const appToManage = newIds.filter(id => !mktProdIds.includes(id))
             for (const a of currApp.filter((a: any) => !appToManage.includes(a.product_id))) {
@@ -411,7 +417,8 @@ export function useCustomers() {
                 `${SUPABASE_URL}/rest/v1/product_members?user_id=eq.${editingCustomer.user_id}&select=id,product_id`,
                 { headers: { 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'apikey': SUPABASE_ANON_KEY } }
             )
-            const curr = await res.json()
+            const currRaw = await res.json()
+            const curr = Array.isArray(currRaw) ? currRaw : []
             const currIds = curr.map((m: any) => m.product_id)
             const newIds = Object.keys(productMembers).filter(id => productMembers[id])
             for (const m of curr.filter((m: any) => !newIds.includes(m.product_id))) {
@@ -473,7 +480,8 @@ export function useCustomers() {
                             { headers: { 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'apikey': SUPABASE_ANON_KEY } }
                         )
                         if (accessRes.ok) {
-                            const accessData = await accessRes.json()
+                            const accessDataRaw = await accessRes.json()
+                            const accessData = Array.isArray(accessDataRaw) ? accessDataRaw : []
                             const ids = accessData.map((a: any) => a.product_id)
                             if (ids.length > 0) {
                                 const pr = await fetch(
