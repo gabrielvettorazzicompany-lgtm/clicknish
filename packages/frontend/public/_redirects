@@ -1,6 +1,6 @@
 # Proxy routes for custom domains via Cloudflare Worker
 /api/domains/*    https://cgeqtodbisgwvhkaahiy.supabase.co/functions/v1/domains/:splat    200
-/api/applications/*    https://cgeqtodbisgwvhkaahiy.supabase.co/functions/v1/applications/:splat    200
+/api/applications/*    https://api.clicknich.com/api/applications/:splat    200
 /api/superadmin/*    https://cgeqtodbisgwvhkaahiy.supabase.co/functions/v1/superadmin/:splat    200
 
 # SPA - All other routes serve index.html (works for custom domains via Worker)

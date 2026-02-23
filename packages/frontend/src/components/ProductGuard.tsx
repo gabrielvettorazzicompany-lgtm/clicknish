@@ -34,7 +34,7 @@ export default function ProductGuard({ children }: ProductGuardProps) {
       // Resolver slug do app se necessário
       if (appId && !appSlug) {
         try {
-          const appResponse = await fetch(`https://cgeqtodbisgwvhkaahiy.supabase.co/functions/v1/applications/${appId}`, {
+          const appResponse = await fetch(`https://api.clicknich.com/api/applications/${appId}`, {
             headers: {
               'Authorization': `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNnZXF0b2RiaXNnd3Zoa2FhaGl5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjkxMTk1MDIsImV4cCI6MjA4NDY5NTUwMn0.Ov6_rRlThZUBIoL4oT6BGozEhvTUdFsWB6KylDXpFoY`
             }

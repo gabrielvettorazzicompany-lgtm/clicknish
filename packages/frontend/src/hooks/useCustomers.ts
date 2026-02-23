@@ -109,7 +109,7 @@ export function useCustomers() {
             setLoading(true)
             const { data: { user } } = await supabase.auth.getUser()
             const userId = user?.id || currentUserId
-            const res = await fetch(`${SUPABASE_URL}/functions/v1/applications`, {
+            const res = await fetch(`https://api.clicknich.com/api/applications`, {
                 headers: { 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'apikey': SUPABASE_ANON_KEY, 'x-user-id': userId || '' }
             })
             const data = await res.json()

@@ -50,7 +50,7 @@ export default function CommunityManagement() {
 
   const fetchApp = async () => {
     try {
-      const response = await fetch(`https://cgeqtodbisgwvhkaahiy.supabase.co/functions/v1/applications/${appId}`, {
+      const response = await fetch(`https://api.clicknich.com/api/applications/${appId}`, {
         headers: {
           'Authorization': `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNnZXF0b2RiaXNnd3Zoa2FhaGl5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjkxMTk1MDIsImV4cCI6MjA4NDY5NTUwMn0.Ov6_rRlThZUBIoL4oT6BGozEhvTUdFsWB6KylDXpFoY`
         }
@@ -67,7 +67,7 @@ export default function CommunityManagement() {
   const fetchPosts = async () => {
     try {
       const userId = localStorage.getItem('user_id') || '1'
-      const response = await fetch(`https://cgeqtodbisgwvhkaahiy.supabase.co/functions/v1/applications/${appId}/community/posts`, {
+      const response = await fetch(`https://api.clicknich.com/api/applications/${appId}/community/posts`, {
         headers: {
           'Authorization': `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNnZXF0b2RiaXNnd3Zoa2FhaGl5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjkxMTk1MDIsImV4cCI6MjA4NDY5NTUwMn0.Ov6_rRlThZUBIoL4oT6BGozEhvTUdFsWB6KylDXpFoY`,
           'x-user-id': userId
@@ -109,7 +109,7 @@ export default function CommunityManagement() {
       }
 
       const userId = localStorage.getItem('user_id') || '1'
-      const response = await fetch(`https://cgeqtodbisgwvhkaahiy.supabase.co/functions/v1/applications/${appId}/community/posts`, {
+      const response = await fetch(`https://api.clicknich.com/api/applications/${appId}/community/posts`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -162,7 +162,7 @@ export default function CommunityManagement() {
 
     try {
       const userId = localStorage.getItem('user_id') || '1'
-      const response = await fetch(`https://cgeqtodbisgwvhkaahiy.supabase.co/functions/v1/applications/community/posts/${postId}`, {
+      const response = await fetch(`https://api.clicknich.com/api/applications/community/posts/${postId}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNnZXF0b2RiaXNnd3Zoa2FhaGl5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjkxMTk1MDIsImV4cCI6MjA4NDY5NTUwMn0.Ov6_rRlThZUBIoL4oT6BGozEhvTUdFsWB6KylDXpFoY`,

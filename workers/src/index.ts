@@ -9,6 +9,7 @@
 
 import { handleProcessPayment } from './handlers/process-payment'
 import { handleProcessUpsell } from './handlers/process-upsell'
+import { handleApplications } from './handlers/applications'
 
 export interface Env {
     // Variáveis públicas
@@ -91,6 +92,11 @@ async function handleApiRoute(
     // POST /api/process-upsell
     if (pathname === '/api/process-upsell' && request.method === 'POST') {
         return handleProcessUpsell(request, env, ctx)
+    }
+
+    // /api/applications/* - CRUD de aplicações
+    if (pathname.startsWith('/api/applications')) {
+        return handleApplications(request, env, ctx)
     }
 
     // 404 para rotas não encontradas

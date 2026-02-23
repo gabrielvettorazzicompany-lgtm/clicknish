@@ -57,7 +57,7 @@ export function CreateAppPage() {
 
 
 
-      const response = await fetch('https://cgeqtodbisgwvhkaahiy.supabase.co/functions/v1/applications', {
+      const response = await fetch('https://api.clicknich.com/api/applications', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

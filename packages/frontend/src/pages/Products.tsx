@@ -157,7 +157,7 @@ function Products({ embedded = false }: { embedded?: boolean }) {
 
   const fetchApp = async () => {
     try {
-      const response = await fetch(`https://cgeqtodbisgwvhkaahiy.supabase.co/functions/v1/applications/${validAppId}`, {
+      const response = await fetch(`https://api.clicknich.com/api/applications/${validAppId}`, {
         headers: {
           'Authorization': `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNnZXF0b2RiaXNnd3Zoa2FhaGl5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjkxMTk1MDIsImV4cCI6MjA4NDY5NTUwMn0.Ov6_rRlThZUBIoL4oT6BGozEhvTUdFsWB6KylDXpFoY`,
           'x-user-id': user?.id || 'user-default'
@@ -174,7 +174,7 @@ function Products({ embedded = false }: { embedded?: boolean }) {
 
   const fetchProducts = async () => {
     try {
-      const response = await fetch(`https://cgeqtodbisgwvhkaahiy.supabase.co/functions/v1/applications/${validAppId}/products`, {
+      const response = await fetch(`https://api.clicknich.com/api/applications/${validAppId}/products`, {
         headers: {
           'Authorization': `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNnZXF0b2RiaXNnd3Zoa2FhaGl5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjkxMTk1MDIsImV4cCI6MjA4NDY5NTUwMn0.Ov6_rRlThZUBIoL4oT6BGozEhvTUdFsWB6KylDXpFoY`,
           'x-user-id': user?.id || 'user-default'
@@ -199,7 +199,7 @@ function Products({ embedded = false }: { embedded?: boolean }) {
 
   const fetchProductContents = async (productId: string) => {
     try {
-      const url = `https://cgeqtodbisgwvhkaahiy.supabase.co/functions/v1/applications/${validAppId}/products/${productId}/contents`
+      const url = `https://api.clicknich.com/api/applications/${validAppId}/products/${productId}/contents`
 
       const response = await fetch(url, {
         headers: {
@@ -236,8 +236,8 @@ function Products({ embedded = false }: { embedded?: boolean }) {
 
 
       const url = selectedProduct
-        ? `https://cgeqtodbisgwvhkaahiy.supabase.co/functions/v1/applications/${validAppId}/products/${selectedProduct.id}`
-        : `https://cgeqtodbisgwvhkaahiy.supabase.co/functions/v1/applications/${validAppId}/products`
+        ? `https://api.clicknich.com/api/applications/${validAppId}/products/${selectedProduct.id}`
+        : `https://api.clicknich.com/api/applications/${validAppId}/products`
 
       const method = selectedProduct ? 'PUT' : 'POST'
 
@@ -274,7 +274,7 @@ function Products({ embedded = false }: { embedded?: boolean }) {
   const handleDeleteProduct = async (productId: string) => {
     if (confirm(t('products.alerts.confirm_delete'))) {
       try {
-        const response = await fetch(`https://cgeqtodbisgwvhkaahiy.supabase.co/functions/v1/applications/${validAppId}/products/${productId}`, {
+        const response = await fetch(`https://api.clicknich.com/api/applications/${validAppId}/products/${productId}`, {
           method: 'DELETE',
           headers: {
             'Authorization': `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNnZXF0b2RiaXNnd3Zoa2FhaGl5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjkxMTk1MDIsImV4cCI6MjA4NDY5NTUwMn0.Ov6_rRlThZUBIoL4oT6BGozEhvTUdFsWB6KylDXpFoY`,
@@ -414,8 +414,8 @@ ${t('products.access.team', { name: app?.name || '' })}
       }
 
       const url = isEditingContent
-        ? `https://cgeqtodbisgwvhkaahiy.supabase.co/functions/v1/applications/${validAppId}/products/${selectedProductId}/contents/${editingContent?.id}`
-        : `https://cgeqtodbisgwvhkaahiy.supabase.co/functions/v1/applications/${validAppId}/products/${selectedProductId}/contents`
+        ? `https://api.clicknich.com/api/applications/${validAppId}/products/${selectedProductId}/contents/${editingContent?.id}`
+        : `https://api.clicknich.com/api/applications/${validAppId}/products/${selectedProductId}/contents`
 
       const method = isEditingContent ? 'PUT' : 'POST'
 
@@ -461,7 +461,7 @@ ${t('products.access.team', { name: app?.name || '' })}
   const handleDeleteContent = async (content: any) => {
     if (confirm(t('products.alerts.confirm_delete_content'))) {
       try {
-        const response = await fetch(`https://cgeqtodbisgwvhkaahiy.supabase.co/functions/v1/applications/${validAppId}/products/${content.product_id}/contents/${content.id}`, {
+        const response = await fetch(`https://api.clicknich.com/api/applications/${validAppId}/products/${content.product_id}/contents/${content.id}`, {
           method: 'DELETE',
           headers: {
             'Authorization': `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNnZXF0b2RiaXNnd3Zoa2FhaGl5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjkxMTk1MDIsImV4cCI6MjA4NDY5NTUwMn0.Ov6_rRlThZUBIoL4oT6BGozEhvTUdFsWB6KylDXpFoY`,
@@ -492,7 +492,7 @@ ${t('products.access.team', { name: app?.name || '' })}
         // Criar nova lista de anexos sem o item removido
         const updatedAttachments = currentContent.attachments?.filter((_, index) => index !== attachmentIndex) || []
 
-        const response = await fetch(`https://cgeqtodbisgwvhkaahiy.supabase.co/functions/v1/applications/${validAppId}/products/${currentContent.product_id}/contents/${contentId}`, {
+        const response = await fetch(`https://api.clicknich.com/api/applications/${validAppId}/products/${currentContent.product_id}/contents/${contentId}`, {
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json',
