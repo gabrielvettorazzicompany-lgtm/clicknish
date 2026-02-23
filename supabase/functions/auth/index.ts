@@ -60,7 +60,7 @@ Deno.serve(async (req) => {
             const normalizedEmail = email.toLowerCase().trim()
 
             // Verificar se usuário já existe no auth.users
-            const { data: existingUsers } = await supabaseAdmin.auth.admin.listUsers()
+            const { data: existingUsers } = await supabaseAdmin.auth.admin.listUsers({ perPage: 1000 })
             const existingAuthUser = existingUsers?.users?.find(u => u.email === normalizedEmail)
 
             let authUser = existingAuthUser
@@ -84,14 +84,30 @@ Deno.serve(async (req) => {
                 })
 
                 if (createError) {
-                    console.error('Erro ao criar usuário:', createError)
-                    return new Response(JSON.stringify({ error: 'Erro ao criar conta: ' + createError.message }), {
-                        status: 500,
-                        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-                    })
+                    // Se o erro é de usuário já existente, buscar novamente
+                    if (createError.message?.includes('already been registered') || createError.message?.includes('already exists')) {
+                        // Tentar buscar novamente com filtro mais específico
+                        const { data: retryUsers } = await supabaseAdmin.auth.admin.listUsers({ perPage: 1000 })
+                        const foundUser = retryUsers?.users?.find(u => u.email === normalizedEmail)
+                        if (foundUser) {
+                            authUser = foundUser
+                        } else {
+                            console.error('User exists but not found:', normalizedEmail)
+                            return new Response(JSON.stringify({ error: 'Erro ao localizar conta existente. Tente novamente.' }), {
+                                status: 500,
+                                headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+                            })
+                        }
+                    } else {
+                        console.error('Erro ao criar usuário:', createError)
+                        return new Response(JSON.stringify({ error: 'Erro ao criar conta: ' + createError.message }), {
+                            status: 500,
+                            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+                        })
+                    }
+                } else {
+                    authUser = newUser.user
                 }
-
-                authUser = newUser.user
             }
 
             // Fazer login para obter tokens

@@ -243,10 +243,8 @@ export default function Customers() {
                     products={products}
                     saving={saving}
                     customerProducts={customerProducts}
-                    productMembers={productMembers}
                     onToggleAccess={toggleProductAccess}
-                    onToggleMember={toggleProductMember}
-                    onSave={async () => { await handleSaveAccess(); await handleSaveProductMembers() }}
+                    onSave={handleSaveAccess}
                     onClose={() => setShowAccessModal(false)}
                 />
             )}

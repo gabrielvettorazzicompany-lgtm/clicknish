@@ -7,17 +7,15 @@ interface ManageAccessModalProps {
     products: Product[]
     saving: boolean
     customerProducts: Record<string, boolean>
-    productMembers: Record<string, boolean>
     onToggleAccess: (id: string) => void
-    onToggleMember: (id: string) => void
     onSave: () => void
     onClose: () => void
 }
 
 export default function ManageAccessModal({
     customer, products, saving,
-    customerProducts, productMembers,
-    onToggleAccess, onToggleMember, onSave, onClose
+    customerProducts,
+    onToggleAccess, onSave, onClose
 }: ManageAccessModalProps) {
     const { t } = useI18n()
 
@@ -46,8 +44,8 @@ export default function ManageAccessModal({
                                     key={product.id}
                                     onClick={() => onToggleAccess(product.id)}
                                     className={`p-4 border-2 rounded-lg cursor-pointer transition-all ${customerProducts[product.id]
-                                            ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/30 dark:border-indigo-400'
-                                            : 'border-gray-200 dark:border-[#2a2f45] bg-white dark:bg-[#0f1117] hover:border-gray-300 dark:hover:border-gray-500'
+                                        ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/30 dark:border-indigo-400'
+                                        : 'border-gray-200 dark:border-[#2a2f45] bg-white dark:bg-[#0f1117] hover:border-gray-300 dark:hover:border-gray-500'
                                         }`}
                                 >
                                     <div className="flex items-start justify-between">
@@ -65,39 +63,6 @@ export default function ManageAccessModal({
                             ))}
                         </div>
                     )}
-
-                    <div className="mt-8 pt-8 border-t border-gray-200 dark:border-[#2a2f45]">
-                        <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-2">{t('customers.modal.product_members')}</h3>
-                        <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">{t('customers.modal.product_members_desc')}</p>
-                        {products.length === 0 ? (
-                            <p className="text-center text-gray-500 dark:text-gray-400">{t('customers.modal.no_products')}</p>
-                        ) : (
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                {products.map((product) => (
-                                    <div
-                                        key={product.id}
-                                        onClick={() => onToggleMember(product.id)}
-                                        className={`p-4 border-2 rounded-lg cursor-pointer transition-all ${productMembers[product.id]
-                                                ? 'border-green-500 bg-green-50 dark:bg-green-900/30 dark:border-green-400'
-                                                : 'border-gray-200 dark:border-[#2a2f45] bg-white dark:bg-[#0f1117] hover:border-gray-300 dark:hover:border-gray-500'
-                                            }`}
-                                    >
-                                        <div className="flex items-start justify-between">
-                                            <div className="flex-1 min-w-0">
-                                                <h3 className="font-medium text-gray-900 dark:text-white truncate">{product.name}</h3>
-                                                <p className={`text-sm mt-1 ${productMembers[product.id] ? 'text-green-600 dark:text-green-400 font-medium' : 'text-gray-500 dark:text-gray-400'}`}>
-                                                    {productMembers[product.id] ? t('customers.modal.member') : t('customers.modal.not_member')}
-                                                </p>
-                                            </div>
-                                            {productMembers[product.id] && (
-                                                <CheckCircle className="w-5 h-5 text-green-500 dark:text-green-400 ml-2 flex-shrink-0" />
-                                            )}
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        )}
-                    </div>
 
                     <div className="flex gap-3 justify-end pt-4 border-t border-gray-200 dark:border-[#2a2f45] mt-8">
                         <button

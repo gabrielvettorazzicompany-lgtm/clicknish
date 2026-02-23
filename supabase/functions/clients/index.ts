@@ -44,34 +44,49 @@ Deno.serve(async (req) => {
         }
 
         let userId: string
+        let existingAuthUser = false
 
         // 2. Check if the user already exists in auth (may have been created in another app/member area)
-        const { data: existingAuthUsers } = await supabase.auth.admin.listUsers()
-        const existingAuthUser = existingAuthUsers?.users?.find(u => u.email === email)
+        // First try to create - if fails with duplicate, then get existing
+        const { data: authData, error: authError } = await supabase.auth.admin.createUser({
+            email: email,
+            email_confirm: true,
+            user_metadata: {
+                created_via: 'admin_manual',
+                application_id: applicationId,
+                name: name
+            }
+        })
 
-        if (existingAuthUser) {
-            // User already exists in auth, just use the existing ID
-            userId = existingAuthUser.id
-
-        } else {
-            // Create new user in Supabase Auth
-            const { data: authData, error: authError } = await supabase.auth.admin.createUser({
-                email: email,
-                email_confirm: true, // Auto-confirm the email
-                user_metadata: {
-                    created_via: 'admin_manual',
-                    application_id: applicationId,
-                    name: name
+        if (authError) {
+            // Check if it's a duplicate email error
+            if (authError.message?.includes('already been registered') || authError.message?.includes('already exists')) {
+                // User exists in auth, get their ID via listUsers
+                const { data: allUsers } = await supabase.auth.admin.listUsers({ perPage: 1000 })
+                const found = allUsers?.users?.find(u => u.email === email)
+                if (found) {
+                    userId = found.id
+                    existingAuthUser = true
+                } else {
+                    // Last attempt - getUserByEmail (if available)
+                    try {
+                        const { data: userByEmail } = await supabase.auth.admin.getUserById(email)
+                        if (userByEmail?.user) {
+                            userId = userByEmail.user.id
+                            existingAuthUser = true
+                        } else {
+                            throw new Error('Could not find existing user')
+                        }
+                    } catch {
+                        throw new Error('User already registered in another app. Contact support.')
+                    }
                 }
-            })
-
-            if (authError) {
+            } else {
                 console.error('Error creating auth user:', authError)
                 throw authError
             }
-
+        } else {
             userId = authData.user.id
-
         }
 
         // 3. Create record in app_users

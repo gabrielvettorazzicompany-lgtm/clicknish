@@ -31,7 +31,6 @@ export function useCustomers() {
     const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null)
     const [customerToDelete, setCustomerToDelete] = useState<Customer | null>(null)
     const [customerProducts, setCustomerProducts] = useState<Record<string, boolean>>({})
-    const [productMembers, setProductMembers] = useState<Record<string, boolean>>({})
     const [formData, setFormData] = useState<CustomerFormData>({
         name: '', email: '', phone: '', selectedProducts: []
     })
@@ -139,39 +138,12 @@ export function useCustomers() {
 
     const fetchProducts = async (appId: string): Promise<Product[]> => {
         try {
-            const userId = currentUserId
             const appRes = await fetch(
                 `${SUPABASE_URL}/rest/v1/products?application_id=eq.${appId}&select=id,name,price`,
                 { headers: { 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'apikey': SUPABASE_ANON_KEY } }
             )
             const appData = await appRes.json()
-
-            let mktData: Product[] = []
-            let mktIds: string[] = []
-            if (userId) {
-                try {
-                    const r = await fetch(
-                        `${SUPABASE_URL}/rest/v1/marketplace_products?owner_id=eq.${userId}&select=id,name,price,owner_id`,
-                        { headers: { 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'apikey': SUPABASE_ANON_KEY } }
-                    )
-                    if (r.ok) { const d = await r.json(); if (Array.isArray(d)) { mktData = d; mktIds = d.map((p: Product) => p.id) } }
-                } catch { /* ignore */ }
-            }
-
-            let communityData: { id: string; title: string }[] = []
-            if (userId && mktIds.length > 0) {
-                const filter = mktIds.map(id => `member_area_id=eq.${id}`).join('&')
-                const r = await fetch(
-                    `${SUPABASE_URL}/rest/v1/community_modules?${filter}&select=id,title`,
-                    { headers: { 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'apikey': SUPABASE_ANON_KEY } }
-                )
-                communityData = await r.json()
-            }
-
-            const combined: Product[] = []
-            if (Array.isArray(appData)) combined.push(...appData)
-            if (Array.isArray(mktData)) combined.push(...mktData)
-            if (Array.isArray(communityData)) combined.push(...communityData.map(m => ({ id: m.id, name: m.title, price: 0 })))
+            const combined: Product[] = Array.isArray(appData) ? appData : []
             setProducts(combined)
             return combined
         } catch { setProducts([]); return [] }
@@ -216,41 +188,28 @@ export function useCustomers() {
 
     const fetchCustomerAccess = async (customer: Customer, productsList: Product[]) => {
         try {
-            const [r1, r2] = await Promise.all([
-                fetch(`${SUPABASE_URL}/rest/v1/user_product_access?user_id=eq.${customer.user_id}&select=product_id`, {
-                    headers: { 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'apikey': SUPABASE_ANON_KEY }
-                }),
-                fetch(`${SUPABASE_URL}/rest/v1/user_product_access?user_id=eq.${customer.user_id}&select=member_area_id`, {
-                    headers: { 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'apikey': SUPABASE_ANON_KEY }
-                })
-            ])
-            const d1 = await r1.json()
-            const d2 = await r2.json()
-            if (Array.isArray(d1) || Array.isArray(d2)) {
-                const access: Record<string, boolean> = {}
-                productsList.forEach(p => {
-                    access[p.id] =
-                        (Array.isArray(d1) && d1.some((a: any) => a.product_id === p.id)) ||
-                        (Array.isArray(d2) && d2.some((a: any) => a.member_area_id === p.id))
-                })
-                setCustomerProducts(access)
-            }
-        } catch { /* ignore */ }
-    }
+            const { data: session } = await supabase.auth.getSession()
+            const token = session?.session?.access_token || SUPABASE_ANON_KEY
 
-    const fetchCustomerProductMembers = async (customer: Customer, productsList: Product[]) => {
-        try {
+            console.log('Fetching access for user_id:', customer.user_id, 'app_id:', selectedApp)
             const res = await fetch(
-                `${SUPABASE_URL}/rest/v1/product_members?user_id=eq.${customer.user_id}&select=product_id`,
-                { headers: { 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'apikey': SUPABASE_ANON_KEY } }
+                `${SUPABASE_URL}/rest/v1/user_product_access?user_id=eq.${customer.user_id}&application_id=eq.${selectedApp}&select=product_id`,
+                { headers: { 'Authorization': `Bearer ${token}`, 'apikey': SUPABASE_ANON_KEY } }
             )
             const data = await res.json()
-            if (Array.isArray(data)) {
-                const members: Record<string, boolean> = {}
-                productsList.forEach(p => { members[p.id] = data.some((m: any) => m.product_id === p.id) })
-                setProductMembers(members)
-            }
-        } catch { /* ignore */ }
+            console.log('Access data from DB:', data)
+            console.log('Products list:', productsList.map(p => ({ id: p.id, name: p.name })))
+            const accessIds = new Set<string>()
+            if (Array.isArray(data)) data.forEach((a: any) => accessIds.add(a.product_id))
+            console.log('Access IDs:', [...accessIds])
+
+            const access: Record<string, boolean> = {}
+            productsList.forEach(p => { access[p.id] = accessIds.has(p.id) })
+            console.log('Final access state:', access)
+            setCustomerProducts(access)
+        } catch (err) {
+            console.error('Error fetching customer access:', err)
+        }
     }
 
     const handleSelectAll = (checked: boolean) =>
@@ -269,9 +228,6 @@ export function useCustomers() {
 
     const toggleProductAccess = (productId: string) =>
         setCustomerProducts(prev => ({ ...prev, [productId]: !prev[productId] }))
-
-    const toggleProductMember = (productId: string) =>
-        setProductMembers(prev => ({ ...prev, [productId]: !prev[productId] }))
 
     const handleAddCustomer = async (e: React.FormEvent) => {
         e.preventDefault()
@@ -300,9 +256,12 @@ export function useCustomers() {
                 fetchCustomers(selectedMarketplace); return
             }
 
+            const { data: sessionData } = await supabase.auth.getSession()
+            const adminToken = sessionData?.session?.access_token || SUPABASE_ANON_KEY
+
             const checkRes = await fetch(
                 `${SUPABASE_URL}/rest/v1/app_users?email=eq.${formData.email}&application_id=eq.${selectedApp}&select=id,user_id`,
-                { headers: { 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'apikey': SUPABASE_ANON_KEY } }
+                { headers: { 'Authorization': `Bearer ${adminToken}`, 'apikey': SUPABASE_ANON_KEY } }
             )
             const existingUsers = await checkRes.json()
             if (existingUsers?.length > 0) {
@@ -310,7 +269,7 @@ export function useCustomers() {
                 if (formData.selectedProducts.length > 0) {
                     const currentRes = await fetch(
                         `${SUPABASE_URL}/rest/v1/user_product_access?user_id=eq.${existingUser.user_id}&application_id=eq.${selectedApp}&select=product_id`,
-                        { headers: { 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'apikey': SUPABASE_ANON_KEY } }
+                        { headers: { 'Authorization': `Bearer ${adminToken}`, 'apikey': SUPABASE_ANON_KEY } }
                     )
                     const currRaw = await currentRes.json()
                     const curr = Array.isArray(currRaw) ? currRaw : []
@@ -319,7 +278,7 @@ export function useCustomers() {
                     if (newProds.length > 0) {
                         await fetch(`${SUPABASE_URL}/rest/v1/user_product_access`, {
                             method: 'POST',
-                            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'apikey': SUPABASE_ANON_KEY },
+                            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${adminToken}`, 'apikey': SUPABASE_ANON_KEY },
                             body: JSON.stringify(newProds.map(productId => ({ user_id: existingUser.user_id, product_id: productId, application_id: selectedApp, access_type: 'manual', is_active: true })))
                         })
                         alert(`Access granted! ${newProds.length} new product(s) added to ${formData.email}`)
@@ -346,7 +305,6 @@ export function useCustomers() {
         setEditingCustomer(customer)
         const loadedProducts = await fetchProducts(selectedApp)
         await fetchCustomerAccess(customer, loadedProducts)
-        await fetchCustomerProductMembers(customer, loadedProducts)
         setShowAccessModal(true)
     }
 
@@ -354,89 +312,45 @@ export function useCustomers() {
         if (!editingCustomer) return
         setSaving(true)
         try {
-            const appProdIds = products.filter(p => p.id.startsWith('app-') || !p.id.includes('-marketplace')).map(p => p.id)
-            const mktProdIds = products.filter(p => p.id.includes('-marketplace') || !appProdIds.includes(p.id)).map(p => p.id)
+            const { data: session } = await supabase.auth.getSession()
+            const token = session?.session?.access_token || SUPABASE_ANON_KEY
             const newIds = Object.keys(customerProducts).filter(id => customerProducts[id])
 
-            const [r1, r2] = await Promise.all([
-                fetch(`${SUPABASE_URL}/rest/v1/user_product_access?user_id=eq.${editingCustomer.user_id}&select=id,product_id`, {
-                    headers: { 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'apikey': SUPABASE_ANON_KEY }
-                }),
-                fetch(`${SUPABASE_URL}/rest/v1/user_product_access?user_id=eq.${editingCustomer.user_id}&select=id,member_area_id`, {
-                    headers: { 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'apikey': SUPABASE_ANON_KEY }
-                })
-            ])
-            const currAppRaw = await r1.json()
-            const currMktRaw = await r2.json()
+            // Buscar acessos atuais
+            const res = await fetch(`${SUPABASE_URL}/rest/v1/user_product_access?user_id=eq.${editingCustomer.user_id}&application_id=eq.${selectedApp}&select=id,product_id`, {
+                headers: { 'Authorization': `Bearer ${token}`, 'apikey': SUPABASE_ANON_KEY }
+            })
+            const currRaw = await res.json()
+            const curr = Array.isArray(currRaw) ? currRaw : []
 
-            // Garantir que são arrays
-            const currApp = Array.isArray(currAppRaw) ? currAppRaw : []
-            const currMkt = Array.isArray(currMktRaw) ? currMktRaw : []
-
-            const appToManage = newIds.filter(id => !mktProdIds.includes(id))
-            for (const a of currApp.filter((a: any) => !appToManage.includes(a.product_id))) {
+            // Remover acessos desmarcados
+            const toRemove = curr.filter((a: any) => !newIds.includes(a.product_id))
+            for (const a of toRemove) {
                 await fetch(`${SUPABASE_URL}/rest/v1/user_product_access?id=eq.${a.id}`, {
-                    method: 'DELETE', headers: { 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'apikey': SUPABASE_ANON_KEY }
+                    method: 'DELETE', headers: { 'Authorization': `Bearer ${token}`, 'apikey': SUPABASE_ANON_KEY }
                 })
             }
-            const appToAdd = appToManage.filter(id => !currApp.map((a: any) => a.product_id).includes(id))
-            if (appToAdd.length > 0) {
+
+            // Adicionar novos acessos
+            const currIds = curr.map((a: any) => a.product_id)
+            const toAdd = newIds.filter(id => !currIds.includes(id))
+            if (toAdd.length > 0) {
                 await fetch(`${SUPABASE_URL}/rest/v1/user_product_access`, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'apikey': SUPABASE_ANON_KEY },
-                    body: JSON.stringify(appToAdd.map(id => ({ user_id: editingCustomer.user_id, product_id: id, application_id: selectedApp, access_type: 'manual', is_active: true })))
-                })
-            }
-
-            const mktToManage = newIds.filter(id => mktProdIds.includes(id))
-            for (const a of currMkt.filter((a: any) => !mktToManage.includes(a.member_area_id))) {
-                await fetch(`${SUPABASE_URL}/rest/v1/user_product_access?id=eq.${a.id}`, {
-                    method: 'DELETE', headers: { 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'apikey': SUPABASE_ANON_KEY }
-                })
-            }
-            const mktToAdd = mktToManage.filter(id => !currMkt.map((a: any) => a.member_area_id).includes(id))
-            if (mktToAdd.length > 0) {
-                await fetch(`${SUPABASE_URL}/rest/v1/user_product_access`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'apikey': SUPABASE_ANON_KEY },
-                    body: JSON.stringify(mktToAdd.map(id => ({ user_id: editingCustomer.user_id, member_area_id: id, access_type: 'manual', is_active: true })))
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}`, 'apikey': SUPABASE_ANON_KEY },
+                    body: JSON.stringify(toAdd.map(id => ({
+                        user_id: editingCustomer.user_id,
+                        product_id: id,
+                        application_id: selectedApp,
+                        access_type: 'manual',
+                        is_active: true
+                    })))
                 })
             }
 
             alert('Access updated successfully!')
             setShowAccessModal(false); setEditingCustomer(null); fetchCustomers(selectedApp)
         } catch (error) { alert(`Error saving access: ${error instanceof Error ? error.message : 'Unknown error'}`) }
-        finally { setSaving(false) }
-    }
-
-    const handleSaveProductMembers = async () => {
-        if (!editingCustomer) return
-        setSaving(true)
-        try {
-            const res = await fetch(
-                `${SUPABASE_URL}/rest/v1/product_members?user_id=eq.${editingCustomer.user_id}&select=id,product_id`,
-                { headers: { 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'apikey': SUPABASE_ANON_KEY } }
-            )
-            const currRaw = await res.json()
-            const curr = Array.isArray(currRaw) ? currRaw : []
-            const currIds = curr.map((m: any) => m.product_id)
-            const newIds = Object.keys(productMembers).filter(id => productMembers[id])
-            for (const m of curr.filter((m: any) => !newIds.includes(m.product_id))) {
-                await fetch(`${SUPABASE_URL}/rest/v1/product_members?id=eq.${m.id}`, {
-                    method: 'DELETE', headers: { 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'apikey': SUPABASE_ANON_KEY }
-                })
-            }
-            const toAdd = newIds.filter(id => !currIds.includes(id))
-            if (toAdd.length > 0) {
-                await fetch(`${SUPABASE_URL}/rest/v1/product_members`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'apikey': SUPABASE_ANON_KEY },
-                    body: JSON.stringify(toAdd.map(id => ({ user_id: editingCustomer.user_id, product_id: id, role: 'member', joined_at: new Date().toISOString() })))
-                })
-            }
-            alert('Product members updated successfully!')
-            setShowAccessModal(false); setEditingCustomer(null); fetchCustomers(selectedApp)
-        } catch (error) { alert(`Error saving product members: ${error instanceof Error ? error.message : 'Unknown error'}`) }
         finally { setSaving(false) }
     }
 
@@ -474,10 +388,12 @@ export function useCustomers() {
                 if (app) {
                     appName = app.name; appSlug = app.slug || ''
                     loginUrl = `${window.location.origin}/access/${app.slug}`
+                    const { data: sess } = await supabase.auth.getSession()
+                    const tkn = sess?.session?.access_token || SUPABASE_ANON_KEY
                     try {
                         const accessRes = await fetch(
                             `${SUPABASE_URL}/rest/v1/user_product_access?user_id=eq.${customer.user_id}&application_id=eq.${selectedApp}&select=product_id`,
-                            { headers: { 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'apikey': SUPABASE_ANON_KEY } }
+                            { headers: { 'Authorization': `Bearer ${tkn}`, 'apikey': SUPABASE_ANON_KEY } }
                         )
                         if (accessRes.ok) {
                             const accessDataRaw = await accessRes.json()
@@ -624,14 +540,14 @@ export function useCustomers() {
         showExportMenu, setShowExportMenu,
         editingCustomer,
         customerToDelete, setCustomerToDelete,
-        customerProducts, productMembers,
+        customerProducts,
         formData, setFormData,
         selectedAppName,
         handleSelectAll, handleSelectCustomer,
         handleCombinedItemChange,
-        toggleProductSelection, toggleProductAccess, toggleProductMember,
+        toggleProductSelection, toggleProductAccess,
         handleAddCustomer, handleManageAccess,
-        handleSaveAccess, handleSaveProductMembers,
+        handleSaveAccess,
         handleEditCustomer, handleSaveCustomerEdit,
         handleSendEmail, handleDeleteCustomer, handleDeleteAllSelected,
         handleReload, handleExportCSV, handleExportPDF,
