@@ -37,13 +37,13 @@ function Dashboard() {
         const { data: apps } = await supabase
           .from('applications')
           .select('id, name')
-          .eq('user_id', user.id)
+          .eq('owner_id', user.id)
 
         // Buscar produtos do marketplace
         const { data: marketplace } = await supabase
-          .from('marketplace_products')
+          .from('member_areas')
           .select('id, name')
-          .eq('user_id', user.id)
+          .eq('owner_id', user.id)
 
         const combined: CombinedItem[] = [
           ...(apps || []).map(app => ({ id: app.id, name: app.name, type: 'app' as const })),

@@ -30,12 +30,12 @@ export default function FunnelRow({ funnel, actions }: FunnelRowProps) {
         if (!funnel.product_id) return
 
         try {
-            // Try fetching from member_areas first
+            // Try fetching from member_areas first (usando maybeSingle para evitar erro se não existir)
             const { data: memberArea } = await supabase
                 .from('member_areas')
                 .select('name')
                 .eq('id', funnel.product_id)
-                .single()
+                .maybeSingle()
 
             if (memberArea?.name) {
                 setProductName(memberArea.name)
@@ -47,7 +47,7 @@ export default function FunnelRow({ funnel, actions }: FunnelRowProps) {
                 .from('applications')
                 .select('name')
                 .eq('id', funnel.product_id)
-                .single()
+                .maybeSingle()
 
             if (application?.name) {
                 setProductName(application.name)

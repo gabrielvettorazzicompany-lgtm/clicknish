@@ -58,6 +58,9 @@ export function useOrders(params: UseOrdersParams) {
                 .eq('owner_id', user.id)
             const appIds = userApps?.map(a => a.id) || []
 
+            // Helper para resultado vazio sem fazer query
+            const emptyResult = () => Promise.resolve({ data: [], error: null })
+
             // ---- Vendas de produtos marketplace ----
             let mktQuery = supabase
                 .from('user_product_access')
@@ -72,18 +75,22 @@ export function useOrders(params: UseOrdersParams) {
                 mktQuery = mktQuery.lte('created_at', end.toISOString())
             }
 
-            // ---- Vendas de apps ----
-            let appQuery = supabase
-                .from('user_product_access')
-                .select('id, created_at, purchase_price, payment_method, payment_status, payment_id, user_id, application_id, product_id, products(name), applications(name)')
-                .in('application_id', appIds.length > 0 ? appIds : ['none'])
-                .neq('access_type', 'manual')
-                .order('created_at', { ascending: false })
+            // ---- Vendas de apps - só buscar se tiver apps ----
+            let appQuery: any = emptyResult()
+            if (appIds.length > 0) {
+                let query = supabase
+                    .from('user_product_access')
+                    .select('id, created_at, purchase_price, payment_method, payment_status, payment_id, user_id, application_id, product_id, products(name), applications(name)')
+                    .in('application_id', appIds)
+                    .neq('access_type', 'manual')
+                    .order('created_at', { ascending: false })
 
-            if (fromDate) appQuery = appQuery.gte('created_at', fromDate.toISOString())
-            if (toDate) {
-                const end = new Date(toDate); end.setHours(23, 59, 59, 999)
-                appQuery = appQuery.lte('created_at', end.toISOString())
+                if (fromDate) query = query.gte('created_at', fromDate.toISOString())
+                if (toDate) {
+                    const end = new Date(toDate); end.setHours(23, 59, 59, 999)
+                    query = query.lte('created_at', end.toISOString())
+                }
+                appQuery = query
             }
 
             // ---- Emails dos clientes via sale_locations ----

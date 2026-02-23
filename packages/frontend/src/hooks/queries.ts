@@ -55,30 +55,40 @@ export function useDashboardStatsQuery(
             const fromDate = dateRange?.from
             const toDate = dateRange?.to
 
+            // Helper para retornar resultado vazio sem fazer query inválida
+            const emptyResult = () => Promise.resolve({ data: [], error: null })
+
+            // Marketplaces usam BRL - pular quando USD selecionado
+            const shouldFetchMarketplaceSales = !selectedCurrency || selectedCurrency !== 'USD'
+
             // Buscar vendas de produtos marketplace do usuário
-            let marketplaceSalesQuery = supabase
-                .from('user_product_access')
-                .select('*, member_areas!inner(price, currency, owner_id)')
-                .eq('payment_status', 'completed')
-                .eq('member_areas.owner_id', userId)
+            let marketplaceSalesQuery: any = emptyResult()
+            if (shouldFetchMarketplaceSales) {
+                let query = supabase
+                    .from('user_product_access')
+                    .select('*, member_areas!inner(price, currency, owner_id)')
+                    .eq('payment_status', 'completed')
+                    .eq('member_areas.owner_id', userId)
 
-            // Filtrar por marketplace específico se selecionado
-            if (selectedMarketplace) {
-                marketplaceSalesQuery = marketplaceSalesQuery.eq('member_area_id', selectedMarketplace)
-            }
+                // Filtrar por marketplace específico se selecionado
+                if (selectedMarketplace) {
+                    query = query.eq('member_area_id', selectedMarketplace)
+                }
 
-            // Filtrar por moeda se selecionada
-            if (selectedCurrency) {
-                marketplaceSalesQuery = marketplaceSalesQuery.eq('member_areas.currency', selectedCurrency)
-            }
+                // Filtrar por moeda se selecionada
+                if (selectedCurrency) {
+                    query = query.eq('member_areas.currency', selectedCurrency)
+                }
 
-            if (fromDate) {
-                marketplaceSalesQuery = marketplaceSalesQuery.gte('created_at', fromDate.toISOString())
-            }
-            if (toDate) {
-                const endOfDay = new Date(toDate)
-                endOfDay.setHours(23, 59, 59, 999)
-                marketplaceSalesQuery = marketplaceSalesQuery.lte('created_at', endOfDay.toISOString())
+                if (fromDate) {
+                    query = query.gte('created_at', fromDate.toISOString())
+                }
+                if (toDate) {
+                    const endOfDay = new Date(toDate)
+                    endOfDay.setHours(23, 59, 59, 999)
+                    query = query.lte('created_at', endOfDay.toISOString())
+                }
+                marketplaceSalesQuery = query
             }
 
             // Buscar vendas de apps do usuário
@@ -88,9 +98,6 @@ export function useDashboardStatsQuery(
                 .eq('owner_id', userId)
 
             const appIds = userApps?.map(a => a.id) || []
-
-            // Helper para retornar resultado vazio sem fazer query inválida
-            const emptyResult = () => Promise.resolve({ data: [], error: null })
 
             // Apps usam USD por padrão - só buscar se moeda for USD ou não filtrada
             const shouldFetchAppSales = (!selectedCurrency || selectedCurrency === 'USD') && appIds.length > 0
