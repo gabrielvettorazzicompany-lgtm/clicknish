@@ -10,6 +10,8 @@ import { OnboardingProvider } from './contexts/OnboardingContext'
 import { ThemeProvider } from './contexts/ThemeContext'
 import { I18nProvider } from './i18n'
 import { queryClient } from './services/queryClient'
+// Inicializa supabaseFetch global
+import './services/supabase'
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
