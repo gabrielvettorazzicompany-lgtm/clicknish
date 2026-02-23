@@ -5,6 +5,7 @@
     "main": "src/index.ts",
     "scripts": {
         "dev": "wrangler dev",
+        "build": "echo 'Wrangler handles build'",
         "deploy": "wrangler deploy",
         "tail": "wrangler tail"
     },
