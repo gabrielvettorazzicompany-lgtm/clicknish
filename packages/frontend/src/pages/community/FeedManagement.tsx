@@ -332,7 +332,7 @@ export default function FeedManagement({ embedded = false }: { embedded?: boolea
 
   const updatePostStatus = async (postId: string, newStatus: 'cancelled' | 'republish') => {
     try {
-      const response = await fetch(`https://members.clicknich.com/api/feed/posts/${postId}/status`, {
+      const response = await fetch(`https://app.clicknich.com/api/feed/posts/${postId}/status`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: newStatus })

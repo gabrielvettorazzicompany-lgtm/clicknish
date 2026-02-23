@@ -58,7 +58,7 @@ export default function ClientAccessManagement() {
 
   const getAccessUrl = (productSlug: string) => {
     const baseUrl = import.meta.env.MODE === 'production'
-      ? 'https://members.clicknich.com'
+      ? 'https://app.clicknich.com'
       : window.location.origin
     return `${baseUrl}/access/${app?.slug}/${productSlug}`
   }

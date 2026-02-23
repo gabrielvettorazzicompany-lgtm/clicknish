@@ -9,7 +9,7 @@
 
 [build.environment]
   NODE_VERSION = "18"
-  VITE_APP_URL = "https://members.clicknich.com"
+  VITE_APP_URL = "https://app.clicknich.com"
   VITE_SUPABASE_URL = "https://cgeqtodbisgwvhkaahiy.supabase.co"
   VITE_SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNnZXF0b2RiaXNnd3Zoa2FhaGl5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjkxMTk1MDIsImV4cCI6MjA4NDY5NTUwMn0.Ov6_rRlThZUBIoL4oT6BGozEhvTUdFsWB6KylDXpFoY"
   VITE_API_BASE_URL = "https://cgeqtodbisgwvhkaahiy.supabase.co/functions/v1"

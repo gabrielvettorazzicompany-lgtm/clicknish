@@ -69,7 +69,7 @@ export default function ModuleView() {
   const fetchProduct = async () => {
     try {
       const { data: { session } } = await supabase.auth.getSession()
-      const response = await fetch(`https://members.clicknich.com/api/products/${productId}`, {
+      const response = await fetch(`https://app.clicknich.com/api/products/${productId}`, {
         headers: {
           'Authorization': `Bearer ${session?.access_token || ''}`
         }
@@ -90,7 +90,7 @@ export default function ModuleView() {
   const fetchContents = async () => {
     try {
       const { data: { session } } = await supabase.auth.getSession()
-      const response = await fetch(`https://members.clicknich.com/api/products/${productId}/contents`, {
+      const response = await fetch(`https://app.clicknich.com/api/products/${productId}/contents`, {
         headers: {
           'Authorization': `Bearer ${session?.access_token || ''}`
         }
@@ -123,8 +123,8 @@ export default function ModuleView() {
   const handleSaveContent = async (contentData: any) => {
     try {
       const url = isEditing
-        ? `https://members.clicknich.com/api/contents/${editingContent?.id}`
-        : `https://members.clicknich.com/api/products/${productId}/contents`
+        ? `https://app.clicknich.com/api/contents/${editingContent?.id}`
+        : `https://app.clicknich.com/api/products/${productId}/contents`
 
       const method = isEditing ? 'PUT' : 'POST'
 
@@ -163,7 +163,7 @@ export default function ModuleView() {
 
     try {
       const { data: { session } } = await supabase.auth.getSession()
-      const response = await fetch(`https://members.clicknich.com/api/contents/${content.id}`, {
+      const response = await fetch(`https://app.clicknich.com/api/contents/${content.id}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${session?.access_token || ''}`

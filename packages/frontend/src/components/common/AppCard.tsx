@@ -1,4 +1,4 @@
-import { Edit, Trash2 } from 'lucide-react'
+import { Edit, Trash2, Link, Check } from 'lucide-react'
 
 interface Application {
     id?: string
@@ -29,12 +29,15 @@ export default function AppCard({
     app,
     onEdit,
     onDelete,
+    onCopyLink,
+    copiedLinks,
 }: AppCardProps) {
     const formatDate = (dateString: string) => {
         return new Date(dateString).toLocaleDateString('pt-BR')
     }
 
     const isPending = app.review_status === 'pending_review'
+    const isCopied = copiedLinks?.has(app.slug)
 
     return (
         <div className="bg-white dark:bg-white/5 dark:backdrop-blur-xl rounded-2xl shadow-xl shadow-black/5 dark:shadow-black/10 border border-gray-200 dark:border-white/10 overflow-hidden hover:shadow-2xl hover:shadow-blue-500/10 transition-all duration-300">
@@ -42,6 +45,19 @@ export default function AppCard({
             <div className="h-24 bg-gray-50 dark:bg-white/5 relative overflow-hidden flex items-center justify-center">
                 {/* Action Icons - Top Right */}
                 <div className="absolute top-2 right-2 flex gap-1">
+                    {onCopyLink && (
+                        <button
+                            onClick={() => onCopyLink(app.slug)}
+                            className="p-1.5 bg-white dark:bg-[#1a1d2e] hover:bg-gray-100 dark:hover:bg-[#252941] border border-gray-200 dark:border-[#1e2139] rounded-lg shadow-xl shadow-black/5 dark:shadow-black/10 hover:shadow transition-all"
+                            title={isCopied ? 'Link copied!' : 'Copy access link'}
+                        >
+                            {isCopied ? (
+                                <Check size={14} className="text-green-500" />
+                            ) : (
+                                <Link size={14} className="text-blue-500" />
+                            )}
+                        </button>
+                    )}
                     <button
                         onClick={() => !isPending && app.id && onEdit(app.id)}
                         disabled={isPending}

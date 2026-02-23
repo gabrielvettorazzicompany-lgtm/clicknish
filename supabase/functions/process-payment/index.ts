@@ -77,7 +77,7 @@ const corsHeaders = {
 const supabaseUrl = Deno.env.get('SUPABASE_URL')!
 const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 const stripeSecretKey = Deno.env.get('STRIPE_SECRET_KEY')!
-const baseUrl = Deno.env.get('FRONTEND_URL') || 'https://members.clicknich.com'
+const baseUrl = Deno.env.get('FRONTEND_URL') || 'https://app.clicknich.com'
 
 const stripe = new Stripe(stripeSecretKey, {
     apiVersion: '2023-10-16',

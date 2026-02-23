@@ -47,7 +47,7 @@ export default function AppPreviewPage() {
 
   const fetchApp = async () => {
     try {
-      const response = await fetch(`https://members.clicknich.com/api/applications/${appId}`)
+      const response = await fetch(`https://app.clicknich.com/api/applications/${appId}`)
       if (response.ok) {
         const appData = await response.json()
         setApp({
@@ -89,7 +89,7 @@ export default function AppPreviewPage() {
 
   const fetchProducts = async () => {
     try {
-      const response = await fetch(`https://members.clicknich.com/api/applications/${appId}/products`)
+      const response = await fetch(`https://app.clicknich.com/api/applications/${appId}/products`)
       if (response.ok) {
         const productsData = await response.json()
         const formattedProducts = productsData.map((product: any) => ({
@@ -105,7 +105,7 @@ export default function AppPreviewPage() {
       }
 
       // Buscar banners
-      const bannersResponse = await fetch(`https://members.clicknich.com/api/applications/${appId}/banners`)
+      const bannersResponse = await fetch(`https://app.clicknich.com/api/applications/${appId}/banners`)
       if (bannersResponse.ok) {
         const bannersData = await bannersResponse.json()
         setBanners(bannersData.sort((a: Banner, b: Banner) => a.order - b.order))
