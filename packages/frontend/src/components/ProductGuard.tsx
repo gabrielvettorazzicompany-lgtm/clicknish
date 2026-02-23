@@ -83,15 +83,8 @@ export default function ProductGuard({ children }: ProductGuardProps) {
           }
         }
 
-        // Token antigo (mock) - permitir por compatibilidade temporária
-        const userData = localStorage.getItem('user_data')
-        if (userData) {
-          const parsedUser = JSON.parse(userData)
-          await verifyProductAccess(parsedUser.id, parsedUser.email || '')
-          return
-        }
-
-        setError('Invalid session')
+        // Tokens antigos (mock/member_) não são mais suportados - exigir re-login
+        setError('Invalid session - please login again')
         setLoading(false)
         return
       }

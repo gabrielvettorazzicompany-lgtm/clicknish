@@ -162,11 +162,11 @@ export default function AppDashboard() {
       // Buscar produtos do app com controle de acesso
       // Primeiro, tentar obter o usuário autenticado via Supabase Auth
       const { data: { user: authUserData } } = await supabase.auth.getUser()
-      
+
       // Fallback para localStorage se não estiver autenticado
       let userId = authUserData?.id
       let userEmail = authUserData?.email || ''
-      
+
       if (!userId) {
         const userData = localStorage.getItem('user_data')
         if (userData) {
@@ -235,8 +235,8 @@ export default function AppDashboard() {
             }
           }
         } else {
-          // Sem usuário autenticado, mostrar todos desbloqueados (fallback)
-          setProducts(allProducts.map((p: Product) => ({ ...p, has_access: true })))
+          // Sem usuário autenticado, marcar todos como bloqueados
+          setProducts(allProducts.map((p: Product) => ({ ...p, has_access: false })))
         }
       }
 
