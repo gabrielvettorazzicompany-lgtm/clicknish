@@ -19,7 +19,7 @@ interface FetchOptions extends RequestInit {
 // Fetch para Edge Functions (ex: applications, apps, products, etc.)
 export async function supabaseFetch(endpoint: string, options: FetchOptions = {}): Promise<Response> {
   const url = endpoint.startsWith('http') ? endpoint : `${apiBaseUrl}/${endpoint}`
-  
+
   const headers: Record<string, string> = {
     'Authorization': `Bearer ${supabaseKey}`,
     'Content-Type': 'application/json',
@@ -35,7 +35,7 @@ export async function supabaseFetch(endpoint: string, options: FetchOptions = {}
 // Fetch para REST API direta do Supabase (tabelas via PostgREST)
 export async function supabaseRestFetch(endpoint: string, options: FetchOptions = {}): Promise<Response> {
   const url = endpoint.startsWith('http') ? endpoint : `${supabaseUrl}/rest/v1/${endpoint}`
-  
+
   const headers: Record<string, string> = {
     'Authorization': `Bearer ${supabaseKey}`,
     'apikey': supabaseKey,

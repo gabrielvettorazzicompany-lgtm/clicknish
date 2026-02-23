@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { Mail, Key, AlertCircle, Loader, Lock, CheckCircle, ArrowRight, Eye, Download } from 'lucide-react'
+import { Mail, Key, AlertCircle, Loader, Lock } from 'lucide-react'
 import InstallAppModal from '@/components/InstallAppModal'
 import { getTranslation, type Language } from '@/locales/translations'
 import { useI18n } from '@/i18n'
@@ -31,16 +31,11 @@ export default function ProductAccess() {
   const [appId, setAppId] = useState<string | null>(null)
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [newPassword, setNewPassword] = useState('')
-  const [confirmPassword, setConfirmPassword] = useState('')
   const [purchaseCode, setPurchaseCode] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const [pageLoading, setPageLoading] = useState(true)
   const [showInstallModal, setShowInstallModal] = useState(false)
-  const [showFreeSignup, setShowFreeSignup] = useState(false)
-  const [isFirstAccess, setIsFirstAccess] = useState(false)
-  const [showPassword, setShowPassword] = useState(false)
 
   useEffect(() => {
     fetchProductAccess()
@@ -77,8 +72,8 @@ export default function ProductAccess() {
         localStorage.setItem('session_expires', data.expires_at)
         navigate(`/app/${appId}`)
       }
-    } catch (error) {
-      console.error('Anonymous login error:', error)
+    } catch {
+      // Silent fail for anonymous login
     }
   }
 
@@ -97,9 +92,7 @@ export default function ProductAccess() {
         if (appResponse.ok) {
           appData = await appResponse.json()
 
-          setAppId(appData.id) // Salvar o ID do app para usar no redirecionamento
-        } else {
-          console.error('❌ [ProductAccess] Failed to load app data:', appResponse.status)
+          setAppId(appData.id)
         }
 
         // Buscar informações do produto se existe um slug específico
@@ -110,8 +103,8 @@ export default function ProductAccess() {
             if (productResponse.ok) {
               productData = await productResponse.json()
             }
-          } catch (err) {
-            console.warn('Specific product not found, using app data')
+          } catch {
+            // Use app data if product fetch fails
           }
         }
 
@@ -149,30 +142,10 @@ export default function ProductAccess() {
         }
 
         setProductAccess(productAccess)
-      } catch (error) {
-        console.error('Error fetching app/product data:', error)
-
-        // Fallback para dados mock se a API falhar
-        const mockProductAccess: ProductAccess = {
-          product_id: '1',
-          product_name: productSlug ? 'Produto' : 'Todos os Produtos',
-          app_name: 'Aplicativo',
-          access_type: 'email-password',
-          language: 'pt-br',
-          app_theme: 'light',
-          welcome_message: productSlug ?
-            getTranslation('pt-br', 'welcomeMessage', { productName: 'o produto' }) :
-            getTranslation('pt-br', 'welcomeMessageAll', { appName: 'a plataforma' }),
-          theme: {
-            primary_color: '#2563eb',
-            secondary_color: '#7c3aed',
-            background_gradient: 'from-blue-500 to-blue-700'
-          }
-        }
-        setProductAccess(mockProductAccess)
+      } catch {
+        setError(t('common.app_not_found'))
       }
-    } catch (error) {
-      console.error('Error fetching product access:', error)
+    } catch {
       setError(t('common.app_not_found'))
     } finally {
       setPageLoading(false)
@@ -284,51 +257,10 @@ export default function ProductAccess() {
       if (appId) {
         navigate(`/app/${appId}`)
       } else {
-        console.error('AppId not found')
         setError(t('common.error_accessing_app'))
       }
-    } catch (err: unknown) {
+    } catch {
       setError(t('common.error_free_account'))
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  // Function for quick demo access
-  const handleDemoAccess = async () => {
-    setEmail('demo@exemplo.com')
-    setPassword('demo123')
-    setError('')
-    setLoading(true)
-
-    try {
-      // Use real authentication system
-      const response = await fetch('https://app.clicknich.com/api/auth/login', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          email: 'demo@exemplo.com',
-          password: 'demo123',
-          appId: appId,
-          access_type: 'email-password'
-        }),
-      })
-
-      if (response.ok) {
-        const data = await response.json()
-        localStorage.setItem('access_token', data.access_token)
-        localStorage.setItem('refresh_token', data.refresh_token)
-        localStorage.setItem('user_data', JSON.stringify(data.user))
-        localStorage.setItem('app_language', data.preferences?.language || productAccess?.language || 'pt-br')
-        localStorage.setItem('session_expires', data.expires_at)
-        navigate(`/app/${appId}`)
-      } else {
-        setError(t('common.error_demo_access'))
-      }
-    } catch (err) {
-      setError(t('common.error_demo_access'))
     } finally {
       setLoading(false)
     }
