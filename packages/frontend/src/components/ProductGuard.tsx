@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useParams, Navigate } from 'react-router-dom'
 import { AlertCircle, CheckCircle } from 'lucide-react'
+import { supabase, supabaseRestFetch } from '@/services/supabase'
 
 interface ProductGuardProps {
   children: React.ReactNode
@@ -15,7 +16,7 @@ interface UserAccess {
 }
 
 export default function ProductGuard({ children }: ProductGuardProps) {
-  const { appId, appSlug, productSlug } = useParams()
+  const { appId, appSlug, productSlug, productId } = useParams()
   const [access, setAccess] = useState<UserAccess | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -23,14 +24,14 @@ export default function ProductGuard({ children }: ProductGuardProps) {
 
   useEffect(() => {
     checkAccess()
-  }, [appId, appSlug, productSlug])
+  }, [appId, appSlug, productSlug, productId])
 
   const checkAccess = async () => {
     try {
       setLoading(true)
       setError('')
 
-
+      // Resolver slug do app se necessário
       if (appId && !appSlug) {
         try {
           const appResponse = await fetch(`https://cgeqtodbisgwvhkaahiy.supabase.co/functions/v1/applications/${appId}`, {
@@ -44,45 +45,151 @@ export default function ProductGuard({ children }: ProductGuardProps) {
           }
         } catch (err) {
           console.warn('Erro ao buscar dados do app')
-          setResolvedAppSlug('app1') // fallback
+          setResolvedAppSlug('app1')
         }
       }
 
-      // Verificar se há token de acesso válido
-      const accessToken = localStorage.getItem('access_token')
-      const sessionExpires = localStorage.getItem('session_expires')
+      // 1. Verificar sessão real do Supabase
+      const { data: { user }, error: authError } = await supabase.auth.getUser()
 
-      if (!accessToken) {
-        setError('No access token found')
+      if (authError || !user) {
+        // Fallback: verificar localStorage (compatibilidade)
+        const accessToken = localStorage.getItem('access_token')
+        if (!accessToken) {
+          setError('No access token found')
+          setLoading(false)
+          return
+        }
+
+        // Se tem token no localStorage mas não sessão, tentar restaurar
+        const refreshToken = localStorage.getItem('refresh_token')
+        if (accessToken && refreshToken && !accessToken.startsWith('member_') && !accessToken.startsWith('mock_')) {
+          const { error: sessionError } = await supabase.auth.setSession({
+            access_token: accessToken,
+            refresh_token: refreshToken
+          })
+
+          if (sessionError) {
+            setError('Invalid session')
+            setLoading(false)
+            return
+          }
+
+          // Tentar obter usuário novamente
+          const { data: { user: restoredUser } } = await supabase.auth.getUser()
+          if (restoredUser) {
+            await verifyProductAccess(restoredUser.id, restoredUser.email || '')
+            return
+          }
+        }
+
+        // Token antigo (mock) - permitir por compatibilidade temporária
+        const userData = localStorage.getItem('user_data')
+        if (userData) {
+          const parsedUser = JSON.parse(userData)
+          await verifyProductAccess(parsedUser.id, parsedUser.email || '')
+          return
+        }
+
+        setError('Invalid session')
         setLoading(false)
         return
       }
 
-      // Se chegou até aqui, o usuário tem acesso (token existe)
-      // Para sistema simplificado, não vamos validar expiração rigorosamente
-      const userData = localStorage.getItem('user_data')
-      if (userData) {
-        const user = JSON.parse(userData)
+      // 2. Verificar acesso ao produto específico
+      await verifyProductAccess(user.id, user.email || '')
+
+    } catch (error) {
+      console.error('Error checking access:', error)
+      setError('Error validating session')
+      setLoading(false)
+    }
+  }
+
+  const verifyProductAccess = async (userId: string, userEmail: string) => {
+    try {
+      // Se não há productId específico, só verificar se tem sessão válida
+      if (!productId && !productSlug) {
         setAccess({
           has_access: true,
-          user_id: user.id,
-          user_email: user.email,
-          purchase_date: new Date().toISOString(),
-          expires_at: sessionExpires || undefined
+          user_id: userId,
+          user_email: userEmail,
+          purchase_date: new Date().toISOString()
         })
+        setLoading(false)
+        return
+      }
+
+      // Verificar acesso ao produto na tabela user_product_access
+      // A RLS policy vai garantir que só retorna se user_id = auth.uid()
+      let query = `user_product_access?user_id=eq.${userId}&is_active=eq.true&select=id,product_id,created_at,expires_at`
+
+      if (productId) {
+        query += `&product_id=eq.${productId}`
+      }
+
+      if (appId) {
+        query += `&application_id=eq.${appId}`
+      }
+
+      const response = await supabaseRestFetch(query)
+
+      if (response.ok) {
+        const accessData = await response.json()
+
+        if (accessData && accessData.length > 0) {
+          // Verificar se não expirou
+          const accessRecord = accessData[0]
+          if (accessRecord.expires_at) {
+            const expiresAt = new Date(accessRecord.expires_at)
+            if (expiresAt < new Date()) {
+              setAccess({
+                has_access: false,
+                user_id: userId,
+                user_email: userEmail,
+                purchase_date: accessRecord.created_at,
+                expires_at: accessRecord.expires_at
+              })
+              setLoading(false)
+              return
+            }
+          }
+
+          setAccess({
+            has_access: true,
+            user_id: userId,
+            user_email: userEmail,
+            purchase_date: accessRecord.created_at,
+            expires_at: accessRecord.expires_at
+          })
+        } else {
+          // Sem registro de acesso
+          setAccess({
+            has_access: false,
+            user_id: userId,
+            user_email: userEmail,
+            purchase_date: new Date().toISOString()
+          })
+        }
       } else {
+        // Erro na query - pode ser RLS bloqueando
         setAccess({
-          has_access: true,
-          user_id: 'user',
-          user_email: 'user@app.local',
+          has_access: false,
+          user_id: userId,
+          user_email: userEmail,
           purchase_date: new Date().toISOString()
         })
       }
 
       setLoading(false)
-    } catch (error) {
-      console.error('Error checking access:', error)
-      setError('Error validating session')
+    } catch (err) {
+      console.error('Error verifying product access:', err)
+      setAccess({
+        has_access: false,
+        user_id: userId,
+        user_email: userEmail,
+        purchase_date: new Date().toISOString()
+      })
       setLoading(false)
     }
   }
