@@ -83,6 +83,7 @@ const Settings = lazy(() => import('./pages/settings/Settings'))
 
 // Components (sempre carregados)
 import ProductGuard from './components/ProductGuard'
+import MemberGuard from './components/MemberGuard'
 import SuperAdminRoute from './components/SuperAdminRoute'
 import ProtectedRoute from './components/ProtectedRoute'
 
@@ -485,9 +486,11 @@ export default function App() {
           <Route
             path="/app/:appId"
             element={
-              <Suspense fallback={<PageLoader />}>
-                <AppDashboard />
-              </Suspense>
+              <MemberGuard>
+                <Suspense fallback={<PageLoader />}>
+                  <AppDashboard />
+                </Suspense>
+              </MemberGuard>
             }
           />
           <Route
