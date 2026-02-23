@@ -56,7 +56,7 @@ export default function ProductAccess() {
 
   const handleAnonymousLogin = async () => {
     try {
-      const response = await fetch('https://members.clicknich.com/api/auth/login', {
+      const response = await fetch('https://app.clicknich.com/api/auth/login', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -106,7 +106,7 @@ export default function ProductAccess() {
         let productData = null
         if (productSlug) {
           try {
-            const productResponse = await fetch(`https://members.clicknich.com/api/apps/${appSlug}/products/${productSlug}`)
+            const productResponse = await fetch(`https://app.clicknich.com/api/apps/${appSlug}/products/${productSlug}`)
             if (productResponse.ok) {
               productData = await productResponse.json()
             }
@@ -303,7 +303,7 @@ export default function ProductAccess() {
 
     try {
       // Use real authentication system
-      const response = await fetch('https://members.clicknich.com/api/auth/login', {
+      const response = await fetch('https://app.clicknich.com/api/auth/login', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

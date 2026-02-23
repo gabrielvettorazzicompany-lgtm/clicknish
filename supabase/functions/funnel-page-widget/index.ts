@@ -184,7 +184,7 @@ function generateWidgetScript(
   pageId: string,
   checkoutShortUrl: string | null
 ): string {
-  const frontendUrl = Deno.env.get('FRONTEND_URL') || 'https://members.clicknich.com'
+  const frontendUrl = Deno.env.get('FRONTEND_URL') || 'https://app.clicknich.com'
   const supabaseUrl = Deno.env.get('SUPABASE_URL')
 
   return `

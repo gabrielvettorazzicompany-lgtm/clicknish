@@ -64,7 +64,7 @@ const generateSlug = (name: string): string => {
 const generateAccessUrl = (appSlug: string = 'app', productSlug: string): string => {
   const baseUrl = window.location.hostname === 'localhost'
     ? window.location.origin
-    : 'https://members.clicknich.com'
+    : 'https://app.clicknich.com'
   return `${baseUrl}/access/${appSlug}/${productSlug}`
 }
 
@@ -572,7 +572,7 @@ ${t('products.access.team', { name: app?.name || '' })}
     try {
       const baseUrl = window.location.hostname === 'localhost'
         ? 'http://localhost:5173'
-        : 'https://members.clicknich.com'
+        : 'https://app.clicknich.com'
       const updatePromises = productContents.map((content, index) =>
         fetch(`${baseUrl}/api/contents/${content.id}/order`, {
           method: 'PUT',
@@ -627,7 +627,7 @@ ${t('products.access.team', { name: app?.name || '' })}
     try {
       const baseUrl = window.location.hostname === 'localhost'
         ? 'http://localhost:5173'
-        : 'https://members.clicknich.com'
+        : 'https://app.clicknich.com'
       const updatePromises = reorderedProducts.map((product, index) =>
         fetch(`${baseUrl}/api/products/${product.id}/order`, {
           method: 'PUT',

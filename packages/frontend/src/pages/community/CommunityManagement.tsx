@@ -184,7 +184,7 @@ export default function CommunityManagement() {
 
   const togglePin = async (postId: string, currentPinned: boolean) => {
     try {
-      const response = await fetch(`https://members.clicknich.com/api/community/posts/${postId}/pin`, {
+      const response = await fetch(`https://app.clicknich.com/api/community/posts/${postId}/pin`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ is_pinned: !currentPinned })

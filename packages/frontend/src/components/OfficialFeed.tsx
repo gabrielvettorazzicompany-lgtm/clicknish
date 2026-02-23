@@ -30,7 +30,7 @@ export default function OfficialFeed() {
 
 
       // Buscar posts do backend
-      const response = await fetch(`https://members.clicknich.com/api/applications/${appId}/feed/posts`)
+      const response = await fetch(`https://app.clicknich.com/api/applications/${appId}/feed/posts`)
 
 
 

@@ -258,7 +258,7 @@ serve(async (req) => {
       acceptBtn.disabled = true;
       
       // Redirect to offer checkout
-      const checkoutUrl = '${Deno.env.get('FRONTEND_URL') || 'https://members.clicknich.com'}/checkout/' + CHECKOUT_ID + '?offer_id=' + offer.id + '&purchase_id=' + purchaseIdFromUrl;
+      const checkoutUrl = '${Deno.env.get('FRONTEND_URL') || 'https://app.clicknich.com'}/checkout/' + CHECKOUT_ID + '?offer_id=' + offer.id + '&purchase_id=' + purchaseIdFromUrl;
       window.location.href = checkoutUrl;
       
     } catch (error) {

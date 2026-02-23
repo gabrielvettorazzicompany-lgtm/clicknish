@@ -22,7 +22,7 @@ serve(async (req) => {
 
         const supabaseUrl = Deno.env.get('SUPABASE_URL')!
         const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-        const frontendUrl = Deno.env.get('FRONTEND_URL') || 'https://members.clicknich.com'
+        const frontendUrl = Deno.env.get('FRONTEND_URL') || 'https://app.clicknich.com'
 
         const supabase = createClient(supabaseUrl, supabaseServiceKey)
 

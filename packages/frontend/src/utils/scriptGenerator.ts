@@ -22,7 +22,7 @@ export interface ScriptOutput {
 }
 
 export const generateFunnelPageScript = (config: ScriptConfig): ScriptOutput => {
-  const frontendUrl = (import.meta.env as any).VITE_APP_URL || 'https://members.clicknich.com'
+  const frontendUrl = (import.meta.env as any).VITE_APP_URL || 'https://app.clicknich.com'
   const supabaseUrl = (import.meta.env as any).VITE_SUPABASE_URL || ''
   const supabaseAnonKey = (import.meta.env as any).VITE_SUPABASE_ANON_KEY || ''
 
