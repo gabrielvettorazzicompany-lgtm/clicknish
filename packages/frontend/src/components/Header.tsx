@@ -1,6 +1,7 @@
 import { memo } from 'react'
 import { Menu } from 'lucide-react'
 import UserProfileDropdown from '@/components/UserProfileDropdown'
+import ThemeToggle from '@/components/ThemeToggle'
 import { useI18n } from '@/i18n'
 
 interface HeaderProps {
@@ -32,6 +33,7 @@ const Header = memo(function Header({ onMenuClick }: HeaderProps) {
 
       {/* Right Section */}
       <div className="flex items-center gap-3 flex-1 justify-end pointer-events-auto">
+        <ThemeToggle />
         <select
           value={language}
           onChange={e => setLanguage(e.target.value as 'pt' | 'es' | 'en')}

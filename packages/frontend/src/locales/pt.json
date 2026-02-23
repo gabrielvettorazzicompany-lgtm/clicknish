@@ -882,6 +882,7 @@
             "date_of_birth": "Data de Nascimento",
             "select_date": "Selecionar data",
             "phone_number": "Número de Telefone",
+            "phone_placeholder": "+55 (11) 99999-9999",
             "ssn_tax_id": "CPF/CNPJ (últimos 4 dígitos)",
             "ssn_required": "Necessário para fins fiscais",
             "residential_address": "Endereço Residencial",

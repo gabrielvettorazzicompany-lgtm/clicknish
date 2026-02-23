@@ -597,13 +597,13 @@ export default function AdminPayments() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     <div className="md:col-span-2">
                         <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                            Full Legal Name <span className="text-red-400">*</span>
+                            {t('settings.payment.full_legal_name')} <span className="text-red-400">*</span>
                         </label>
                         <input
                             type="text"
                             value={formData.accountHolderName}
                             onChange={(e) => setFormData({ ...formData, accountHolderName: e.target.value })}
-                            placeholder="Name as it appears on the bank account"
+                            placeholder={t('settings.payment.name_as_appears')}
                             className="w-full px-3 py-2 text-sm bg-white dark:bg-[#0f1117] border border-gray-300 dark:border-[#252941] rounded-lg focus:outline-none focus:border-blue-500/50 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-600 transition-colors"
                             required
                         />
@@ -611,13 +611,13 @@ export default function AdminPayments() {
 
                     <div>
                         <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                            Date of Birth <span className="text-red-400">*</span>
+                            {t('settings.payment.date_of_birth')} <span className="text-red-400">*</span>
                         </label>
                         <DatePicker
                             selected={formData.dateOfBirth ? new Date(formData.dateOfBirth) : null}
                             onChange={(date: Date | null) => setFormData({ ...formData, dateOfBirth: date ? date.toISOString().split('T')[0] : '' })}
                             dateFormat="MM/dd/yyyy"
-                            placeholderText="Select date"
+                            placeholderText={t('settings.payment.select_date')}
                             showMonthDropdown
                             showYearDropdown
                             dropdownMode="select"
@@ -630,13 +630,13 @@ export default function AdminPayments() {
 
                     <div>
                         <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                            Phone Number <span className="text-red-400">*</span>
+                            {t('settings.payment.phone_number')} <span className="text-red-400">*</span>
                         </label>
                         <input
                             type="tel"
                             value={formData.phoneNumber}
                             onChange={(e) => setFormData({ ...formData, phoneNumber: e.target.value })}
-                            placeholder="+1 (555) 123-4567"
+                            placeholder={t('settings.payment.phone_placeholder')}
                             className="w-full px-3 py-2 text-sm bg-white dark:bg-[#0f1117] border border-gray-300 dark:border-[#252941] rounded-lg focus:outline-none focus:border-blue-500/50 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-600 transition-colors"
                             required
                         />
@@ -644,7 +644,7 @@ export default function AdminPayments() {
 
                     <div>
                         <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                            SSN / Tax ID (Last 4 digits)
+                            {t('settings.payment.ssn_tax_id')}
                         </label>
                         <input
                             type="text"
@@ -654,7 +654,7 @@ export default function AdminPayments() {
                             maxLength={4}
                             className="w-full px-3 py-2 text-sm bg-white dark:bg-[#0f1117] border border-gray-300 dark:border-[#252941] rounded-lg focus:outline-none focus:border-blue-500/50 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-600 transition-colors"
                         />
-                        <p className="text-[10px] text-gray-500 mt-1">Required for tax reporting purposes</p>
+                        <p className="text-[10px] text-gray-500 mt-1">{t('settings.payment.ssn_required')}</p>
                     </div>
                 </div>
             </div>
@@ -667,13 +667,13 @@ export default function AdminPayments() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     <div className="md:col-span-2">
                         <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                            Address Line 1 <span className="text-red-400">*</span>
+                            {t('settings.payment.address_line_1')} <span className="text-red-400">*</span>
                         </label>
                         <input
                             type="text"
                             value={formData.addressLine1}
                             onChange={(e) => setFormData({ ...formData, addressLine1: e.target.value })}
-                            placeholder="Street address"
+                            placeholder={t('settings.payment.street_address')}
                             className="w-full px-3 py-2 text-sm bg-white dark:bg-[#0f1117] border border-gray-300 dark:border-[#252941] rounded-lg focus:outline-none focus:border-blue-500/50 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-600 transition-colors"
                             required
                         />
@@ -681,26 +681,26 @@ export default function AdminPayments() {
 
                     <div className="md:col-span-2">
                         <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                            Address Line 2
+                            {t('settings.payment.address_line_2')}
                         </label>
                         <input
                             type="text"
                             value={formData.addressLine2}
                             onChange={(e) => setFormData({ ...formData, addressLine2: e.target.value })}
-                            placeholder="Apt, suite, unit (optional)"
+                            placeholder={t('settings.payment.address_optional')}
                             className="w-full px-3 py-2 text-sm bg-white dark:bg-[#0f1117] border border-gray-300 dark:border-[#252941] rounded-lg focus:outline-none focus:border-blue-500/50 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-600 transition-colors"
                         />
                     </div>
 
                     <div>
                         <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                            City <span className="text-red-400">*</span>
+                            {t('settings.payment.city')} <span className="text-red-400">*</span>
                         </label>
                         <input
                             type="text"
                             value={formData.city}
                             onChange={(e) => setFormData({ ...formData, city: e.target.value })}
-                            placeholder="City"
+                            placeholder={t('settings.payment.city')}
                             className="w-full px-3 py-2 text-sm bg-white dark:bg-[#0f1117] border border-gray-300 dark:border-[#252941] rounded-lg focus:outline-none focus:border-blue-500/50 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-600 transition-colors"
                             required
                         />
@@ -708,13 +708,13 @@ export default function AdminPayments() {
 
                     <div>
                         <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                            State / Province <span className="text-red-400">*</span>
+                            {t('settings.payment.state')} <span className="text-red-400">*</span>
                         </label>
                         <input
                             type="text"
                             value={formData.state}
                             onChange={(e) => setFormData({ ...formData, state: e.target.value })}
-                            placeholder="State or Province"
+                            placeholder={t('settings.payment.state_placeholder')}
                             className="w-full px-3 py-2 text-sm bg-white dark:bg-[#0f1117] border border-gray-300 dark:border-[#252941] rounded-lg focus:outline-none focus:border-blue-500/50 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-600 transition-colors"
                             required
                         />
@@ -722,13 +722,13 @@ export default function AdminPayments() {
 
                     <div>
                         <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                            Postal Code <span className="text-red-400">*</span>
+                            {t('settings.payment.postal_code')} <span className="text-red-400">*</span>
                         </label>
                         <input
                             type="text"
                             value={formData.postalCode}
                             onChange={(e) => setFormData({ ...formData, postalCode: e.target.value })}
-                            placeholder="ZIP Code"
+                            placeholder={t('settings.payment.zip_code')}
                             className="w-full px-3 py-2 text-sm bg-white dark:bg-[#0f1117] border border-gray-300 dark:border-[#252941] rounded-lg focus:outline-none focus:border-blue-500/50 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-600 transition-colors"
                             required
                         />
@@ -736,7 +736,7 @@ export default function AdminPayments() {
 
                     <div>
                         <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                            Country <span className="text-red-400">*</span>
+                            {t('settings.payment.country')} <span className="text-red-400">*</span>
                         </label>
                         <div className="relative">
                             <select
