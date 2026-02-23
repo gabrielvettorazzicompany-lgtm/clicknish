@@ -98,9 +98,9 @@ Deno.serve(async (req) => {
 
         console.log('✅ Member profile created:', userId)
 
-        // 4. Criar acesso ao produto de marketplace
+        // 4. Criar acesso ao member area (marketplace)
         const { error: accessError } = await supabase
-            .from('user_product_access')
+            .from('user_member_area_access')
             .insert({
                 user_id: userId,
                 member_area_id: marketplaceProductId,
@@ -110,11 +110,11 @@ Deno.serve(async (req) => {
             })
 
         if (accessError) {
-            console.error('Error creating marketplace access:', accessError)
+            console.error('Error creating member area access:', accessError)
             throw accessError
         }
 
-        console.log('✅ Marketplace access created')
+        console.log('✅ Member area access created')
 
         return new Response(
             JSON.stringify({

@@ -4,6 +4,7 @@ import { Mail, Key, AlertCircle, Loader, Lock } from 'lucide-react'
 import InstallAppModal from '@/components/InstallAppModal'
 import { getTranslation, type Language } from '@/locales/translations'
 import { useI18n } from '@/i18n'
+import { supabase, supabaseFetch } from '@/services/supabase'
 
 interface ProductAccess {
   product_id: string
@@ -51,11 +52,8 @@ export default function ProductAccess() {
 
   const handleAnonymousLogin = async () => {
     try {
-      const response = await fetch('https://app.clicknich.com/api/auth/login', {
+      const response = await supabaseFetch('auth/login', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
         body: JSON.stringify({
           email: `anonymous_${Date.now()}@app.local`,
           appId: appId,
@@ -65,6 +63,15 @@ export default function ProductAccess() {
 
       if (response.ok) {
         const data = await response.json()
+        
+        // Configurar sessão real do Supabase se tokens válidos
+        if (data.access_token && data.refresh_token && !data.access_token.startsWith('member_')) {
+          await supabase.auth.setSession({
+            access_token: data.access_token,
+            refresh_token: data.refresh_token
+          })
+        }
+        
         localStorage.setItem('access_token', data.access_token)
         localStorage.setItem('refresh_token', data.refresh_token)
         localStorage.setItem('user_data', JSON.stringify(data.user))
@@ -173,8 +180,8 @@ export default function ProductAccess() {
         return
       }
 
-      // Fazer login real via API
-      const response = await supabaseFetch('apps/verify-access', {
+      // Fazer login real via Edge Function de Auth
+      const response = await supabaseFetch('auth/login', {
         method: 'POST',
         body: JSON.stringify({
           email: email || purchaseCode,
@@ -192,6 +199,14 @@ export default function ProductAccess() {
       }
 
       const data = await response.json()
+
+      // Configurar sessão real do Supabase se tokens válidos
+      if (data.access_token && data.refresh_token && !data.access_token.startsWith('member_')) {
+        await supabase.auth.setSession({
+          access_token: data.access_token,
+          refresh_token: data.refresh_token
+        })
+      }
 
       // Salvar tokens e dados no localStorage
       localStorage.setItem('access_token', data.access_token)
@@ -228,12 +243,13 @@ export default function ProductAccess() {
         return
       }
 
-      // Create free account via API
-      const response = await supabaseFetch('apps/free-signup', {
+      // Create free account via Auth Edge Function
+      const response = await supabaseFetch('auth/login', {
         method: 'POST',
         body: JSON.stringify({
           email,
-          appId: appId
+          appId: appId,
+          access_type: 'email-only'
         }),
       })
 
@@ -245,6 +261,14 @@ export default function ProductAccess() {
       }
 
       const data = await response.json()
+
+      // Configurar sessão real do Supabase se tokens válidos
+      if (data.access_token && data.refresh_token && !data.access_token.startsWith('member_')) {
+        await supabase.auth.setSession({
+          access_token: data.access_token,
+          refresh_token: data.refresh_token
+        })
+      }
 
       // Salvar tokens e dados no localStorage
       localStorage.setItem('access_token', data.access_token)

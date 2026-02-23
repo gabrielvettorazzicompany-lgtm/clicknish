@@ -36,8 +36,12 @@ export async function supabaseFetch(endpoint: string, options: FetchOptions = {}
 export async function supabaseRestFetch(endpoint: string, options: FetchOptions = {}): Promise<Response> {
   const url = endpoint.startsWith('http') ? endpoint : `${supabaseUrl}/rest/v1/${endpoint}`
 
+  // Obter token do usuário logado (se disponível)
+  const { data: { session } } = await supabase.auth.getSession()
+  const authToken = session?.access_token || supabaseKey
+
   const headers: Record<string, string> = {
-    'Authorization': `Bearer ${supabaseKey}`,
+    'Authorization': `Bearer ${authToken}`,
     'apikey': supabaseKey,
     'Content-Type': 'application/json',
     ...options.headers,
