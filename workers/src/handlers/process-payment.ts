@@ -362,6 +362,52 @@ export async function handleProcessPayment(
         }
 
         // ═══════════════════════════════════════════════════════════════════
+        // DETERMINAR REDIRECT URL (upsell ou login)
+        // ═══════════════════════════════════════════════════════════════════
+
+        let redirectUrl: string | null = null
+
+        if (checkoutId) {
+            // Buscar primeiro upsell/downsell ativo
+            const { data: upsellOffer } = await supabase
+                .from('checkout_offers')
+                .select('id, page_id, offer_type')
+                .eq('checkout_id', checkoutId)
+                .eq('is_active', true)
+                .in('offer_type', ['upsell', 'downsell'])
+                .order('offer_position', { ascending: true })
+                .limit(1)
+                .maybeSingle()
+
+            if (upsellOffer?.page_id) {
+                // Buscar external_url da página de upsell
+                const { data: funnelPage } = await supabase
+                    .from('funnel_pages')
+                    .select('external_url')
+                    .eq('id', upsellOffer.page_id)
+                    .maybeSingle()
+
+                if (funnelPage?.external_url) {
+                    // Adicionar purchaseId e token na URL de upsell
+                    const upsellUrl = funnelPage.external_url
+                    const separator = upsellUrl.includes('?') ? '&' : '?'
+                    redirectUrl = `${upsellUrl}${separator}purchase_id=${purchaseId}&token=${thankyouToken}`
+                }
+            }
+        }
+
+        // Se não tem upsell, redirecionar para login do produto
+        if (!redirectUrl) {
+            const productSlug = productData.slug || productId
+            // Apps usam /access/{slug}, Marketplace usa /members-login/{slug}
+            if (productType === 'app') {
+                redirectUrl = `/access/${productSlug}`
+            } else {
+                redirectUrl = `/members-login/${productSlug}`
+            }
+        }
+
+        // ═══════════════════════════════════════════════════════════════════
         // UTMify TRACKING (background)
         // ═══════════════════════════════════════════════════════════════════
 
@@ -385,7 +431,8 @@ export async function handleProcessPayment(
                 success: true,
                 purchaseId: purchaseId,
                 thankyouToken: thankyouToken,
-                productType: productType
+                productType: productType,
+                redirectUrl: redirectUrl
             }),
             {
                 headers: { ...corsHeaders, 'Content-Type': 'application/json' },

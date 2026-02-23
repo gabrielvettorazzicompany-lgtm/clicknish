@@ -36,14 +36,14 @@ export const useFunnels = () => {
 
             // Batch fetch product names para evitar N+1 queries
             const productIds = [...new Set((funnelsData || []).map(f => f.product_id).filter(Boolean))]
-            
+
             let productNames = new Map<string, string>()
             if (productIds.length > 0) {
                 const [memberAreasResult, applicationsResult] = await Promise.all([
                     supabase.from('member_areas').select('id, name').in('id', productIds),
                     supabase.from('applications').select('id, name').in('id', productIds)
                 ])
-                
+
                 for (const ma of (memberAreasResult.data || [])) {
                     productNames.set(ma.id, ma.name)
                 }
@@ -114,7 +114,7 @@ export const useFunnels = () => {
 
             if (error) throw error
 
-            // Create default pages
+            // Create default pages (only Checkout - upsells/downsells are added manually)
             const defaultPages = [
                 {
                     funnel_id: newFunnel.id,
@@ -124,22 +124,6 @@ export const useFunnels = () => {
                     position: 1,
                     is_published: false,
                     ...(createData.checkout_id && { checkout_id: createData.checkout_id })
-                },
-                {
-                    funnel_id: newFunnel.id,
-                    name: 'Thank You',
-                    slug: 'thank-you',
-                    page_type: 'thankyou',
-                    position: 2,
-                    is_published: false
-                },
-                {
-                    funnel_id: newFunnel.id,
-                    name: 'Inactive Page',
-                    slug: 'inactive',
-                    page_type: 'custom',
-                    position: 3,
-                    is_published: false
                 }
             ]
 

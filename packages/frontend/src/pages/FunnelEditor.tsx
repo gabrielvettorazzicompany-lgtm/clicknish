@@ -112,34 +112,6 @@ export default function FunnelEditor() {
                 }
             }
 
-            // Check if thank you page exists
-            const hasThankYouPage = pages.some(p => p.page_type === 'thankyou')
-
-            if (!hasThankYouPage) {
-
-                const maxPosition = pages.length > 0 ? Math.max(...pages.map(p => p.position)) : 0
-
-                const { data: newThankYouPage, error: createError } = await supabase
-                    .from('funnel_pages')
-                    .insert([{
-                        funnel_id: id,
-                        name: 'Thank You',
-                        slug: 'thank-you',
-                        page_type: 'thankyou',
-                        position: maxPosition + 1,
-                        is_published: false
-                    }])
-                    .select()
-                    .single()
-
-                if (createError) {
-                    console.error('Error creating thank you page:', createError)
-                } else if (newThankYouPage) {
-
-                    pages.push(newThankYouPage)
-                }
-            }
-
 
             setPages(pages)
 
@@ -229,23 +201,9 @@ export default function FunnelEditor() {
                 .replace(/[^a-z0-9]+/g, '-')
                 .replace(/^-+|-+$/g, '')
 
-            // Find the Thank You page position to insert before it
-            const thankYouPage = pages.find(p => p.page_type === 'thankyou')
-            const thankYouPosition = thankYouPage?.position ?? (pages.length > 0 ? Math.max(...pages.map(p => p.position)) + 1 : 1)
-
-            // New page goes at the Thank You position; Thank You gets bumped up
-            const newPagePosition = thankYouPosition
-
-            // Bump Thank You page (and anything after) up by 1
-            if (thankYouPage) {
-                const pagesToBump = pages.filter(p => p.position >= thankYouPosition)
-                for (const p of pagesToBump) {
-                    await supabase
-                        .from('funnel_pages')
-                        .update({ position: p.position + 1 })
-                        .eq('id', p.id)
-                }
-            }
+            // Calculate new page position (add at the end)
+            const maxPosition = pages.length > 0 ? Math.max(...pages.map(p => p.position)) : 0
+            const newPagePosition = maxPosition + 1
 
             const newPage = {
                 funnel_id: id,

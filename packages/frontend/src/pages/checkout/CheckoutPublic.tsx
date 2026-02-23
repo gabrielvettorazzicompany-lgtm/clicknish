@@ -587,7 +587,7 @@ export default function CheckoutPublic() {
                 }
 
                 const result = paymentResult || paymentResultRef.current
-                if (!result?.purchaseId) return
+                if (!result) return
 
                 const urlParams = new URLSearchParams(window.location.search)
                 const postPurchaseRedirect = urlParams.get('redirect')
@@ -605,6 +605,12 @@ export default function CheckoutPublic() {
                         ? `${baseUrl}&purchase_id=${result.purchaseId}&token=${result.thankyouToken}`
                         : `${baseUrl}?purchase_id=${result.purchaseId}&token=${result.thankyouToken}`
                     setTimeout(() => { window.location.href = finalUrl }, 1500)
+                    return
+                }
+
+                // Usar redirectUrl do backend (upsell ou login)
+                if (result.redirectUrl) {
+                    setTimeout(() => { window.location.href = result.redirectUrl }, 1500)
                     return
                 }
 

@@ -5,7 +5,6 @@ import OrderBumpSection from './OrderBumpSection'
 import ScriptGenerator from './ScriptGenerator'
 import ExternalUrlConfig from './ExternalUrlConfig'
 import ProductCheckoutCard from './ProductCheckoutCard'
-import ThankYouPageEditor from './ThankYouPageEditor'
 import OfferPageConfig from './OfferPageConfig'
 import RedirectConfig from './RedirectConfig'
 import CheckoutRedirectConfig from './CheckoutRedirectConfig'
@@ -30,8 +29,6 @@ interface PageConfigProps {
 export default function PageConfig({ page, funnelId, onUpdate }: PageConfigProps) {
     const { t } = useI18n()
     const { user } = useAuthStore()
-    const [pageContent, setPageContent] = useState<any>(null)
-    const [loadingContent, setLoadingContent] = useState(false)
     const [scriptKey, setScriptKey] = useState(0)
     const [offerProductId, setOfferProductId] = useState<string | undefined>(undefined)
     const [offerOneClick, setOfferOneClick] = useState(false)
@@ -41,34 +38,7 @@ export default function PageConfig({ page, funnelId, onUpdate }: PageConfigProps
     const [configuredRejectUrl, setConfiguredRejectUrl] = useState<string | undefined>(undefined)
 
     const isCheckoutPage = page.page_type === 'checkout'
-    const isThankYouPage = page.page_type === 'thankyou'
-    const needsScript = ['upsell', 'downsell'].includes(page.page_type) // Removed thankyou
-
-    // Fetch page content if thank you
-    useEffect(() => {
-        if (isThankYouPage && user) {
-            fetchPageContent()
-        }
-    }, [isThankYouPage, user, page.id])
-
-    const fetchPageContent = async () => {
-        try {
-            setLoadingContent(true)
-            const { data, error } = await supabase
-                .from('funnel_pages')
-                .select('content')
-                .eq('id', page.id)
-                .single()
-
-            if (error) throw error
-            setPageContent(data?.content || {})
-        } catch (error) {
-            console.error('Error fetching content:', error)
-            setPageContent({})
-        } finally {
-            setLoadingContent(false)
-        }
-    }
+    const needsScript = ['upsell', 'downsell'].includes(page.page_type)
 
     // Hooks customizados
     const { product, loading: loadingProduct } = useFunnelProduct(
@@ -90,25 +60,6 @@ export default function PageConfig({ page, funnelId, onUpdate }: PageConfigProps
 
     return (
         <div className="p-6 space-y-6">
-            {/* Thank You Page Editor - Internal System */}
-            {isThankYouPage && !loadingContent && (
-                <ThankYouPageEditor
-                    pageId={page.id}
-                    initialContent={pageContent}
-                    onUpdate={onUpdate}
-                />
-            )}
-
-            {/* Loading for thank you page */}
-            {isThankYouPage && loadingContent && (
-                <div className="bg-white dark:bg-[#0f1117] rounded-lg border border-gray-200 dark:border-zinc-800 p-4">
-                    <div className="flex items-center justify-center py-12">
-                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
-                        <span className="ml-3 text-gray-600 dark:text-zinc-400 text-xs">{t('funnel_components.loading_editor')}</span>
-                    </div>
-                </div>
-            )}
-
             {/* External URL Configuration - For pages with scripts */}
             {needsScript && (
                 <div className="bg-white dark:bg-[#0f1117] rounded-lg border border-gray-200 dark:border-zinc-800 p-4 space-y-4">

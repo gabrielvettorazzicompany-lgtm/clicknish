@@ -14,7 +14,6 @@ export { default as OfferModal } from './OfferModal'
 export { default as PageConfig } from './PageConfig'
 export { default as ExternalUrlConfig } from './ExternalUrlConfig'
 export { default as ScriptGenerator } from './ScriptGenerator'
-export { default as ThankYouPageEditor } from './ThankYouPageEditor'
 
 // Product & Checkout components
 export { default as ProductCheckoutCard } from './ProductCheckoutCard'

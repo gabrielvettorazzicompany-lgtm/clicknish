@@ -124,19 +124,22 @@ function CheckoutDigital({
                         await onPaymentSuccess(result)
                     } catch (e) {
                         console.error('Callback error:', e)
-                        // Fallback to thankyou if callback fails
-                        if (result?.purchaseId && result?.thankyouToken) {
-                            window.location.href = `/thankyou/${result.purchaseId}?token=${result.thankyouToken}`
+                        // Fallback: usar redirectUrl do backend ou login
+                        if (result?.redirectUrl) {
+                            window.location.href = result.redirectUrl.startsWith('/')
+                                ? result.redirectUrl
+                                : result.redirectUrl
                         }
                     }
                 }, 2000)
-            } else if (result?.success && result?.purchaseId && result?.thankyouToken) {
-                // Fallback: redirecionar para thank you page padrão
-                const redirectUrl = `/thankyou/${result.purchaseId}?token=${result.thankyouToken}`
-
+            } else if (result?.success) {
+                // Usar redirectUrl do backend (upsell ou login)
+                const redirectUrl = result.redirectUrl || '/members-login'
 
                 setTimeout(() => {
-                    window.location.href = redirectUrl
+                    window.location.href = redirectUrl.startsWith('/')
+                        ? redirectUrl
+                        : redirectUrl
                 }, 2000)
             }
         } catch (error: any) {

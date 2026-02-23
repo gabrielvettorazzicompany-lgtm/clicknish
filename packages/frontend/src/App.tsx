@@ -55,7 +55,6 @@ const ProductAccess = lazy(() => import('./pages/products/ProductAccess'))
 const CheckoutBuilder = lazy(() => import('./pages/checkout/CheckoutBuilder'))
 const CheckoutPublic = lazy(() => import('./pages/checkout/CheckoutPublic'))
 const Success = lazy(() => import('./pages/Success'))
-const ThankYouPage = lazy(() => import('./pages/ThankYouPage'))
 const OfferPage = lazy(() => import('./pages/checkout/OfferPage'))
 
 // Pages - Community (lazy loaded)
@@ -320,13 +319,6 @@ export default function App() {
           <Route path="/success" element={
             <Suspense fallback={<PageLoader />}>
               <Success />
-            </Suspense>
-          } />
-
-          {/* Thank You Page (with token validation) */}
-          <Route path="/thankyou/:purchaseId" element={
-            <Suspense fallback={<PageLoader />}>
-              <ThankYouPage />
             </Suspense>
           } />
 
