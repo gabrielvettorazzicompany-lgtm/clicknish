@@ -93,7 +93,7 @@ function CheckoutForm({ productId, productType = 'marketplace', applicationId, c
             }
 
             // Enviar para nossa Edge Function processar o pagamento
-            const response = await fetch(`${SUPABASE_URL}/functions/v1/process-payment`, {
+            const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/process-payment`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',

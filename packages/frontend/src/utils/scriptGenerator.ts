@@ -23,7 +23,7 @@ export interface ScriptOutput {
 
 export const generateFunnelPageScript = (config: ScriptConfig): ScriptOutput => {
   const frontendUrl = (import.meta.env as any).VITE_APP_URL || 'https://app.clicknich.com'
-  const supabaseUrl = (import.meta.env as any).VITE_SUPABASE_URL || ''
+  const apiUrl = (import.meta.env as any).VITE_API_BASE_URL || 'https://api.clicknich.com/api'
   const supabaseAnonKey = (import.meta.env as any).VITE_SUPABASE_ANON_KEY || ''
 
   const rejectUrl = config.nextPageUrl || '#'
@@ -42,7 +42,7 @@ export const generateFunnelPageScript = (config: ScriptConfig): ScriptOutput => 
 <script>
 initClicknishOffer({
   oneClick: true,
-  apiUrl: "${supabaseUrl}/functions/v1/process-upsell",
+  apiUrl: "${apiUrl}/process-upsell",
   anonKey: "${supabaseAnonKey}",
   offerId: "${config.offerId}",
   successUrl: "${acceptNextUrl}",

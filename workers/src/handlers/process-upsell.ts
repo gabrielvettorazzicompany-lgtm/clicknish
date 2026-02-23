@@ -1,5 +1,11 @@
-import Stripe from 'https://esm.sh/stripe@14.11.0'
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+/**
+ * Handler: Process Upsell
+ * Processa upsells/downsells com 1-click (usa cartão salvo)
+ */
+
+import { createClient } from '../lib/supabase'
+import { createStripeClient } from '../lib/stripe'
+import type { Env } from '../index'
 
 const corsHeaders = {
     'Access-Control-Allow-Origin': '*',
@@ -7,31 +13,24 @@ const corsHeaders = {
     'Access-Control-Allow-Methods': 'POST, OPTIONS',
 }
 
-const supabaseUrl = Deno.env.get('SUPABASE_URL')!
-const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-const stripeSecretKey = Deno.env.get('STRIPE_SECRET_KEY')!
-
-const stripe = new Stripe(stripeSecretKey, {
-    apiVersion: '2023-10-16',
-    httpClient: Stripe.createFetchHttpClient(),
-})
-
-const supabase = createClient(supabaseUrl, supabaseServiceKey)
-
-Deno.serve(async (req) => {
-    if (req.method === 'OPTIONS') {
-        return new Response('ok', { headers: corsHeaders })
-    }
-
+export async function handleProcessUpsell(
+    request: Request,
+    env: Env,
+    ctx: ExecutionContext
+): Promise<Response> {
     try {
         const {
             purchase_id,   // ID from user_product_access
             offer_id,      // checkout_offers.id
-        } = await req.json()
+        } = await request.json()
 
         if (!purchase_id || !offer_id) {
             throw new Error('Missing required fields: purchase_id, offer_id')
         }
+
+        // Inicializar clientes
+        const supabase = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY)
+        const stripe = createStripeClient(env.STRIPE_SECRET_KEY)
 
         // 1. Fetch the offer details
         const { data: offer, error: offerError } = await supabase
@@ -56,7 +55,6 @@ Deno.serve(async (req) => {
         let parentApplicationId: string | null = null
 
         if (offer.product_type === 'app_product') {
-            // Individual product inside an app
             const { data: appProduct } = await supabase
                 .from('products')
                 .select('id, name, application_id')
@@ -69,7 +67,6 @@ Deno.serve(async (req) => {
                 parentApplicationId = appProduct.application_id
             }
         } else {
-            // Try as member_area first, then application
             const { data: memberProduct } = await supabase
                 .from('marketplace_products')
                 .select('id, name, price, currency')
@@ -97,10 +94,8 @@ Deno.serve(async (req) => {
         }
 
         // 3. Find the original purchase to get stripe customer/payment method
-        // Try user_product_access first
         let stripeCustomerId: string | null = null
         let stripePaymentMethodId: string | null = null
-        let customerEmail: string | null = null
         let userId: string | null = null
 
         const { data: productAccess } = await supabase
@@ -124,7 +119,6 @@ Deno.serve(async (req) => {
         if (stripeCustomer.deleted) {
             throw new Error('Stripe customer was deleted')
         }
-        customerEmail = stripeCustomer.email
 
         // 4. Determine the price
         const finalPrice = offer.offer_price || offer.original_price || product.price
@@ -163,11 +157,9 @@ Deno.serve(async (req) => {
 
         // 6. Grant access to the upsell product
         let newAccess: any = null
-        let accessError: any = null
 
         if (isAppProduct && parentApplicationId) {
-            // Grant access to specific product inside app
-            const { data, error } = await supabase
+            const { data } = await supabase
                 .from('user_product_access')
                 .upsert({
                     user_id: userId,
@@ -185,10 +177,8 @@ Deno.serve(async (req) => {
                 .select('id')
                 .single()
             newAccess = data
-            accessError = error
         } else if (isApplication) {
-            // Application access via user_product_access
-            const { data, error } = await supabase
+            const { data } = await supabase
                 .from('user_product_access')
                 .upsert({
                     user_id: userId,
@@ -205,10 +195,8 @@ Deno.serve(async (req) => {
                 .select('id')
                 .single()
             newAccess = data
-            accessError = error
         } else {
-            // Member area access via user_product_access
-            const { data, error } = await supabase
+            const { data } = await supabase
                 .from('user_product_access')
                 .upsert({
                     user_id: userId,
@@ -229,26 +217,16 @@ Deno.serve(async (req) => {
                 .select('id')
                 .single()
             newAccess = data
-            accessError = error
         }
 
-        if (accessError) {
-            console.error('Error granting upsell access:', accessError)
-            // Payment went through but access failed — log but don't fail the response
-        }
-
-        // 7. Record analytics
-        try {
-            await supabase.from('offer_analytics').insert({
+        // 7. Record analytics em background
+        ctx.waitUntil(
+            supabase.from('offer_analytics').insert({
                 checkout_offer_id: offer.id,
                 user_id: userId,
                 event_type: 'accepted',
             })
-        } catch (analyticsError) {
-            console.warn('Failed to record analytics:', analyticsError)
-        }
-
-
+        )
 
         return new Response(
             JSON.stringify({
@@ -267,7 +245,6 @@ Deno.serve(async (req) => {
     } catch (error: any) {
         console.error('Upsell payment error:', error)
 
-        // Check if it's a Stripe card error (e.g. declined)
         const isCardError = error?.type === 'StripeCardError'
 
         return new Response(
@@ -284,4 +261,4 @@ Deno.serve(async (req) => {
             }
         )
     }
-})
+}

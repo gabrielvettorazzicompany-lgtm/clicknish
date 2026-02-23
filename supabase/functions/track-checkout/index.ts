@@ -1,9 +1,7 @@
 // Edge Function para tracking de checkout otimizada
 // Deploy: supabase functions deploy track-checkout
 
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import { securityMiddleware } from '../_shared/security-middleware.ts'
 
 const corsHeaders = {
     'Access-Control-Allow-Origin': '*',
@@ -20,23 +18,10 @@ interface TrackingPayload {
     metadata?: Record<string, any>
 }
 
-serve(async (req) => {
+Deno.serve(async (req) => {
     // Handle CORS preflight requests
     if (req.method === 'OPTIONS') {
         return new Response('ok', { headers: corsHeaders })
-    }
-
-    // 🔒 SECURITY: Rate limiting para tracking
-    const securityCheck = await securityMiddleware(req, {
-        rateLimit: {
-            maxRequests: 50, // Tracking pode ser mais frequente
-            windowMs: 60000,
-            blockDurationMs: 180000
-        }
-    })
-
-    if (!securityCheck.allowed) {
-        return securityCheck.response!
     }
 
     try {
@@ -51,32 +36,12 @@ serve(async (req) => {
         // Parse do body da requisição
         const payload: TrackingPayload = await req.json()
 
-        // Buscar dados de geolocalização de forma otimizada
-        let geoData = null
-        if (clientIP !== 'unknown' && !clientIP.startsWith('127.') && !clientIP.startsWith('192.168.')) {
-            try {
-                // Usar ip-api.com que é gratuito e rápido
-                const geoResponse = await fetch(`http://ip-api.com/json/${clientIP}?fields=status,country,regionName,city,timezone,lat,lon`, {
-                    method: 'GET',
-                    headers: { 'User-Agent': 'HuskyApp-Analytics/1.0' },
-                })
-
-                if (geoResponse.ok) {
-                    const geoResult = await geoResponse.json()
-                    if (geoResult.status === 'success') {
-                        geoData = {
-                            country: geoResult.country,
-                            region: geoResult.regionName,
-                            city: geoResult.city,
-                            timezone: geoResult.timezone,
-                            latitude: geoResult.lat,
-                            longitude: geoResult.lon
-                        }
-                    }
-                }
-            } catch (geoError) {
-                console.warn('⚠️ [EdgeFunction] Geo lookup failed:', geoError.message)
-            }
+        // Geolocalização via headers (0ms) - CF ou Deno Deploy
+        const geoData = {
+            country: req.headers.get('cf-ipcountry') || req.headers.get('x-country') || null,
+            region: req.headers.get('cf-region') || null,
+            city: req.headers.get('cf-ipcity') || req.headers.get('x-city') || null,
+            timezone: req.headers.get('cf-timezone') || null
         }
 
         // Conectar ao Supabase usando service role
@@ -98,18 +63,16 @@ serve(async (req) => {
             user_agent: payload.userAgent || req.headers.get('user-agent') || '',
             referrer: payload.referrer || req.headers.get('referer') || '',
             session_id: payload.sessionId || crypto.randomUUID(),
-            country: geoData?.country || null,
-            region: geoData?.region || null,
-            city: geoData?.city || null,
-            timezone: geoData?.timezone || null,
-            latitude: geoData?.latitude || null,
-            longitude: geoData?.longitude || null,
+            country: geoData.country,
+            region: geoData.region,
+            city: geoData.city,
+            timezone: geoData.timezone,
             metadata: {
                 ...payload.metadata,
                 user_agent: payload.userAgent || req.headers.get('user-agent'),
                 accept_language: req.headers.get('accept-language'),
-                cf_country: req.headers.get('cf-ipcountry'), // Cloudflare country
-                cf_ray: req.headers.get('cf-ray'), // Cloudflare ray ID
+                cf_country: req.headers.get('cf-ipcountry'),
+                cf_ray: req.headers.get('cf-ray'),
                 timestamp: new Date().toISOString()
             },
             created_at: new Date().toISOString()

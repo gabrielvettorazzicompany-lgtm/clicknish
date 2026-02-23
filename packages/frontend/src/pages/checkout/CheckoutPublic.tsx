@@ -507,7 +507,7 @@ export default function CheckoutPublic() {
 
     const handleProcessPayment = async (paymentData: { formData: { name: string; email: string; phone: string }, selectedOrderBumps: any[], totalAmount: number }) => {
         try {
-            const response = await fetch(`${SUPABASE_URL}/functions/v1/process-payment`, {
+            const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/process-payment`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',

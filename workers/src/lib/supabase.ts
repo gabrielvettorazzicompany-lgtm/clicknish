@@ -1,0 +1,234 @@
+/**
+ * Cliente Supabase para Cloudflare Workers
+ * Versão leve sem dependências pesadas
+ */
+
+export interface SupabaseConfig {
+    url: string
+    serviceKey: string
+}
+
+export class SupabaseClient {
+    private url: string
+    private serviceKey: string
+
+    constructor(config: SupabaseConfig) {
+        this.url = config.url
+        this.serviceKey = config.serviceKey
+    }
+
+    /**
+     * Query genérica para tabelas
+     */
+    from(table: string) {
+        return new SupabaseQuery(this.url, this.serviceKey, table)
+    }
+
+    /**
+     * Chamar RPC function
+     */
+    async rpc(fn: string, params?: Record<string, any>) {
+        const response = await fetch(`${this.url}/rest/v1/rpc/${fn}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'apikey': this.serviceKey,
+                'Authorization': `Bearer ${this.serviceKey}`,
+            },
+            body: JSON.stringify(params || {}),
+        })
+
+        const data = await response.json()
+        return { data, error: response.ok ? null : data }
+    }
+
+    /**
+     * Admin auth operations
+     */
+    get auth() {
+        return {
+            admin: {
+                createUser: async (options: {
+                    email: string
+                    email_confirm?: boolean
+                    user_metadata?: Record<string, any>
+                }) => {
+                    const response = await fetch(`${this.url}/auth/v1/admin/users`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'apikey': this.serviceKey,
+                            'Authorization': `Bearer ${this.serviceKey}`,
+                        },
+                        body: JSON.stringify(options),
+                    })
+
+                    const data = await response.json()
+                    if (!response.ok) {
+                        return { data: null, error: data }
+                    }
+                    return { data: { user: data }, error: null }
+                }
+            }
+        }
+    }
+}
+
+class SupabaseQuery {
+    private url: string
+    private serviceKey: string
+    private table: string
+    private queryParams: string[] = []
+    private selectColumns: string = '*'
+    private method: string = 'GET'
+    private bodyData: any = null
+    private upsertOptions: { onConflict?: string; ignoreDuplicates?: boolean } = {}
+    private returnData: boolean = false
+    private singleResult: boolean = false
+    private maybeSingleResult: boolean = false
+
+    constructor(url: string, serviceKey: string, table: string) {
+        this.url = url
+        this.serviceKey = serviceKey
+        this.table = table
+    }
+
+    select(columns: string = '*') {
+        this.selectColumns = columns
+        this.method = 'GET'
+        return this
+    }
+
+    insert(data: Record<string, any> | Record<string, any>[]) {
+        this.method = 'POST'
+        this.bodyData = data
+        return this
+    }
+
+    update(data: Record<string, any>) {
+        this.method = 'PATCH'
+        this.bodyData = data
+        return this
+    }
+
+    upsert(data: Record<string, any> | Record<string, any>[], options?: { onConflict?: string; ignoreDuplicates?: boolean }) {
+        this.method = 'POST'
+        this.bodyData = data
+        this.upsertOptions = options || {}
+        return this
+    }
+
+    delete() {
+        this.method = 'DELETE'
+        return this
+    }
+
+    eq(column: string, value: any) {
+        this.queryParams.push(`${column}=eq.${value}`)
+        return this
+    }
+
+    neq(column: string, value: any) {
+        this.queryParams.push(`${column}=neq.${value}`)
+        return this
+    }
+
+    in(column: string, values: any[]) {
+        this.queryParams.push(`${column}=in.(${values.join(',')})`)
+        return this
+    }
+
+    is(column: string, value: any) {
+        this.queryParams.push(`${column}=is.${value}`)
+        return this
+    }
+
+    order(column: string, options?: { ascending?: boolean }) {
+        const dir = options?.ascending === false ? 'desc' : 'asc'
+        this.queryParams.push(`order=${column}.${dir}`)
+        return this
+    }
+
+    limit(count: number) {
+        this.queryParams.push(`limit=${count}`)
+        return this
+    }
+
+    single() {
+        this.singleResult = true
+        this.returnData = true
+        return this
+    }
+
+    maybeSingle() {
+        this.maybeSingleResult = true
+        this.returnData = true
+        return this
+    }
+
+    /**
+     * Executar a query
+     */
+    async then<T>(resolve: (result: { data: T | null; error: any }) => void) {
+        try {
+            const headers: Record<string, string> = {
+                'Content-Type': 'application/json',
+                'apikey': this.serviceKey,
+                'Authorization': `Bearer ${this.serviceKey}`,
+            }
+
+            // Prefer header para retornar dados após insert/update
+            if (this.returnData && (this.method === 'POST' || this.method === 'PATCH')) {
+                headers['Prefer'] = 'return=representation'
+            }
+
+            // Upsert via Prefer header
+            if (this.upsertOptions.onConflict) {
+                headers['Prefer'] = `resolution=merge-duplicates,return=representation`
+            }
+
+            let url = `${this.url}/rest/v1/${this.table}`
+
+            // Adicionar select columns
+            if (this.selectColumns && this.selectColumns !== '*') {
+                this.queryParams.push(`select=${this.selectColumns}`)
+            }
+
+            // Adicionar query params
+            if (this.queryParams.length > 0) {
+                url += `?${this.queryParams.join('&')}`
+            }
+
+            const response = await fetch(url, {
+                method: this.method,
+                headers,
+                body: this.bodyData ? JSON.stringify(this.bodyData) : undefined,
+            })
+
+            let data = await response.json()
+
+            if (!response.ok) {
+                resolve({ data: null, error: data })
+                return
+            }
+
+            // Handle single/maybeSingle
+            if (this.singleResult || this.maybeSingleResult) {
+                if (Array.isArray(data)) {
+                    data = data[0] || null
+                }
+            }
+
+            resolve({ data, error: null })
+        } catch (error: any) {
+            resolve({ data: null, error: { message: error.message } })
+        }
+    }
+}
+
+/**
+ * Factory function
+ */
+export function createClient(url: string, serviceKey: string): SupabaseClient {
+    return new SupabaseClient({ url, serviceKey })
+}
