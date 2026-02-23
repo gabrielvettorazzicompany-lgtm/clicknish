@@ -882,6 +882,7 @@
             "date_of_birth": "Fecha de Nacimiento",
             "select_date": "Seleccionar fecha",
             "phone_number": "Número de Teléfono",
+            "phone_placeholder": "+1 (555) 123-4567",
             "ssn_tax_id": "NIF / Número Fiscal (Últimos 4 dígitos)",
             "ssn_required": "Necesario para fines fiscales",
             "residential_address": "Dirección Residencial",

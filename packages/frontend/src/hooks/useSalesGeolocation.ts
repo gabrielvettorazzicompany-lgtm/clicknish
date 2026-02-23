@@ -17,7 +17,7 @@ interface SalesGeolocationData {
     totalRevenue: number
 }
 
-export function useSalesGeolocation(userId?: string): SalesGeolocationData {
+export function useSalesGeolocation(userId?: string, currency?: string): SalesGeolocationData {
     const [rawData, setRawData] = useState<{
         countries: CountryData[]
         totalSales: number
@@ -44,18 +44,26 @@ export function useSalesGeolocation(userId?: string): SalesGeolocationData {
             // Buscar todas as vendas com localização
             const { data: sales, error: salesError } = await supabase
                 .from('sale_locations')
-                .select('country, amount, city, customer_ip, sale_date')
+                .select('country, amount, city, customer_ip, sale_date, currency')
                 .eq('user_id', userId)
                 .order('sale_date', { ascending: false })
 
             if (salesError) throw salesError
+
+            // Filtrar por moeda no frontend (comparação case-insensitive)
+            const filteredSales = currency
+                ? sales?.filter(sale => {
+                    const saleCurrency = (sale.currency || 'USD').toUpperCase()
+                    return saleCurrency === currency.toUpperCase()
+                })
+                : sales
 
             // 3. Agregar dados por país
             const countryStats: Record<string, number> = {}
             let total = 0
             let revenue = 0
 
-            sales?.forEach(sale => {
+            filteredSales?.forEach(sale => {
                 const country = sale.country || 'Desconhecido'
                 countryStats[country] = (countryStats[country] || 0) + 1
                 total += 1
@@ -88,7 +96,7 @@ export function useSalesGeolocation(userId?: string): SalesGeolocationData {
         } finally {
             setLoading(false)
         }
-    }, [userId])
+    }, [userId, currency])
 
     // useEffect para executar fetch quando userId mudar
     useEffect(() => {

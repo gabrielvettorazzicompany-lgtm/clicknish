@@ -882,6 +882,7 @@
             "date_of_birth": "Date of Birth",
             "select_date": "Select date",
             "phone_number": "Phone Number",
+            "phone_placeholder": "+1 (555) 123-4567",
             "ssn_tax_id": "SSN / Tax ID (Last 4 digits)",
             "ssn_required": "Required for tax reporting purposes",
             "residential_address": "Residential Address",
