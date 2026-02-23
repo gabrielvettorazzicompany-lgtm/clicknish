@@ -57,6 +57,9 @@ export function useDashboardStats(
     })
     const [loading, setLoading] = useState(true)
 
+    // Helper para criar resultado vazio sem fazer query
+    const emptyResult = () => Promise.resolve({ data: [], error: null })
+
     // Memoizar função de fetch para evitar recriações
     const fetchStats = useCallback(async () => {
         if (!userId) return
@@ -101,25 +104,26 @@ export function useDashboardStats(
 
             const appIds = selectedApp ? [selectedApp] : (userApps?.map(app => app.id) || [])
 
-            let appSalesQuery = supabase
-                .from('user_product_access')
-                .select('*')
-                .eq('payment_status', 'completed')
-                .in('application_id', appIds.length > 0 ? appIds : [''])
-
             // Apps usam USD por padrão - só buscar se moeda for USD ou não filtrada
-            const shouldFetchAppSales = !selectedCurrency || selectedCurrency === 'USD'
-            if (!shouldFetchAppSales) {
-                appSalesQuery = supabase.from('user_product_access').select('*').eq('id', '')
-            }
+            const shouldFetchAppSales = (!selectedCurrency || selectedCurrency === 'USD') && appIds.length > 0
 
-            if (fromDate) {
-                appSalesQuery = appSalesQuery.gte('created_at', fromDate.toISOString())
-            }
-            if (toDate) {
-                const endOfDay = new Date(toDate)
-                endOfDay.setHours(23, 59, 59, 999)
-                appSalesQuery = appSalesQuery.lte('created_at', endOfDay.toISOString())
+            let appSalesQuery: any = emptyResult()
+            if (shouldFetchAppSales) {
+                let query = supabase
+                    .from('user_product_access')
+                    .select('*')
+                    .eq('payment_status', 'completed')
+                    .in('application_id', appIds)
+                
+                if (fromDate) {
+                    query = query.gte('created_at', fromDate.toISOString())
+                }
+                if (toDate) {
+                    const endOfDay = new Date(toDate)
+                    endOfDay.setHours(23, 59, 59, 999)
+                    query = query.lte('created_at', endOfDay.toISOString())
+                }
+                appSalesQuery = query
             }
 
             // Buscar checkouts
@@ -147,23 +151,22 @@ export function useDashboardStats(
                 marketplaceCheckoutsQuery = marketplaceCheckoutsQuery.lte('created_at', endOfDay.toISOString())
             }
 
-            let appCheckoutsQuery = supabase
-                .from('checkout_urls')
-                .select('*')
-                .in('application_id', appIds.length > 0 ? appIds : [''])
+            // Checkouts de apps - só buscar se shouldFetchAppSales
+            let appCheckoutsQuery: any = emptyResult()
+            if (shouldFetchAppSales) {
+                appCheckoutsQuery = supabase
+                    .from('checkout_urls')
+                    .select('*')
+                    .in('application_id', appIds)
 
-            // Apps usam USD por padrão - só buscar se moeda for USD ou não filtrada
-            if (!shouldFetchAppSales) {
-                appCheckoutsQuery = supabase.from('checkout_urls').select('*').eq('id', '')
-            }
-
-            if (fromDate) {
-                appCheckoutsQuery = appCheckoutsQuery.gte('created_at', fromDate.toISOString())
-            }
-            if (toDate) {
-                const endOfDay = new Date(toDate)
-                endOfDay.setHours(23, 59, 59, 999)
-                appCheckoutsQuery = appCheckoutsQuery.lte('created_at', endOfDay.toISOString())
+                if (fromDate) {
+                    appCheckoutsQuery = appCheckoutsQuery.gte('created_at', fromDate.toISOString())
+                }
+                if (toDate) {
+                    const endOfDay = new Date(toDate)
+                    endOfDay.setHours(23, 59, 59, 999)
+                    appCheckoutsQuery = appCheckoutsQuery.lte('created_at', endOfDay.toISOString())
+                }
             }
 
             // Pagamentos pendentes (marketplace)
@@ -184,15 +187,13 @@ export function useDashboardStats(
             }
 
             // Pagamentos pendentes (apps)
-            let appPendingQuery = supabase
-                .from('user_product_access')
-                .select('purchase_price')
-                .eq('payment_status', 'pending')
-                .in('application_id', appIds.length > 0 ? appIds : [''])
-
-            // Apps usam USD por padrão - só buscar se moeda for USD ou não filtrada
-            if (!shouldFetchAppSales) {
-                appPendingQuery = supabase.from('user_product_access').select('purchase_price').eq('id', '')
+            let appPendingQuery: any = emptyResult()
+            if (shouldFetchAppSales) {
+                appPendingQuery = supabase
+                    .from('user_product_access')
+                    .select('purchase_price')
+                    .eq('payment_status', 'pending')
+                    .in('application_id', appIds)
             }
 
             // Reembolsos (marketplace)
@@ -213,15 +214,13 @@ export function useDashboardStats(
             }
 
             // Reembolsos (apps)
-            let appRefundsQuery = supabase
-                .from('user_product_access')
-                .select('id')
-                .in('payment_status', ['refunded', 'reversed'])
-                .in('application_id', appIds.length > 0 ? appIds : [''])
-
-            // Apps usam USD por padrão - só buscar se moeda for USD ou não filtrada
-            if (!shouldFetchAppSales) {
-                appRefundsQuery = supabase.from('user_product_access').select('id').eq('id', '')
+            let appRefundsQuery: any = emptyResult()
+            if (shouldFetchAppSales) {
+                appRefundsQuery = supabase
+                    .from('user_product_access')
+                    .select('id')
+                    .in('payment_status', ['refunded', 'reversed'])
+                    .in('application_id', appIds)
             }
 
             const [marketplaceSalesResult, appSalesResult, marketplaceCheckoutsResult, appCheckoutsResult,

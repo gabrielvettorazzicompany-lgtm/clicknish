@@ -89,26 +89,29 @@ export function useDashboardStatsQuery(
 
             const appIds = userApps?.map(a => a.id) || []
 
-            let appSalesQuery = supabase
-                .from('user_product_access')
-                .select('*, products!inner(price, currency, app_id), applications!inner(owner_id)')
-                .eq('payment_status', 'completed')
-                .eq('applications.owner_id', userId)
-                .in('application_id', appIds.length > 0 ? appIds : [''])
+            // Helper para retornar resultado vazio sem fazer query inválida
+            const emptyResult = () => Promise.resolve({ data: [], error: null })
 
             // Apps usam USD por padrão - só buscar se moeda for USD ou não filtrada
-            const shouldFetchAppSales = !selectedCurrency || selectedCurrency === 'USD'
-            if (!shouldFetchAppSales) {
-                appSalesQuery = supabase.from('user_product_access').select('*').eq('id', '')
-            }
+            const shouldFetchAppSales = (!selectedCurrency || selectedCurrency === 'USD') && appIds.length > 0
 
-            if (fromDate) {
-                appSalesQuery = appSalesQuery.gte('created_at', fromDate.toISOString())
-            }
-            if (toDate) {
-                const endOfDay = new Date(toDate)
-                endOfDay.setHours(23, 59, 59, 999)
-                appSalesQuery = appSalesQuery.lte('created_at', endOfDay.toISOString())
+            let appSalesQuery: any = emptyResult()
+            if (shouldFetchAppSales) {
+                appSalesQuery = supabase
+                    .from('user_product_access')
+                    .select('*, products!inner(price, currency, app_id), applications!inner(owner_id)')
+                    .eq('payment_status', 'completed')
+                    .eq('applications.owner_id', userId)
+                    .in('application_id', appIds)
+
+                if (fromDate) {
+                    appSalesQuery = appSalesQuery.gte('created_at', fromDate.toISOString())
+                }
+                if (toDate) {
+                    const endOfDay = new Date(toDate)
+                    endOfDay.setHours(23, 59, 59, 999)
+                    appSalesQuery = appSalesQuery.lte('created_at', endOfDay.toISOString())
+                }
             }
 
             // Executar queries em paralelo
