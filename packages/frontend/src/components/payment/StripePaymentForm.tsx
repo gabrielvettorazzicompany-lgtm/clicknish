@@ -92,12 +92,11 @@ function CheckoutForm({ productId, productType = 'marketplace', applicationId, c
                 throw new Error(pmError.message)
             }
 
-            // Enviar para nossa Edge Function processar o pagamento
-            const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/process-payment`, {
+            // Enviar para API processar o pagamento
+            const response = await fetch('https://api.clicknich.com/api/process-payment', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
                 },
                 body: JSON.stringify({
                     productId,

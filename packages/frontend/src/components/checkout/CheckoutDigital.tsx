@@ -710,11 +710,10 @@ function CheckoutDigitalForm(props: CheckoutDigitalProps) {
 
 
 
-            const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/process-payment`, {
+            const response = await fetch('https://api.clicknich.com/api/process-payment', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
                 },
                 body: JSON.stringify(requestBody),
             })
