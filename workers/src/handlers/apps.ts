@@ -7,26 +7,44 @@ const corsHeaders = {
     'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
 }
 
+// Cache TTL: 5 minutos para dados públicos de apps
+const APP_CACHE_TTL = 300
+
 export async function handleApps(request: Request, env: any, pathSegments: string[]): Promise<Response> {
     if (request.method === 'OPTIONS') {
         return new Response('ok', { headers: corsHeaders })
     }
 
     try {
-        const supabase = createClient(env)
+        const supabase = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY)
 
         // GET /api/apps/slug/:slugOrId - Get app by slug or ID (public access)
         if (request.method === 'GET' && pathSegments.length === 2 && pathSegments[0] === 'slug') {
             const slugOrId = pathSegments[1]
+            const cacheKey = `app:slug:${slugOrId}`
+
+            // Tentar cache primeiro
+            if (env.CACHE) {
+                const cached = await env.CACHE.get(cacheKey, 'json')
+                if (cached) {
+                    return new Response(JSON.stringify(cached), {
+                        headers: { ...corsHeaders, 'Content-Type': 'application/json', 'X-Cache': 'HIT' }
+                    })
+                }
+            }
+
             const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(slugOrId)
 
             let data = null
             let error = null
 
+            // Colunas necessárias para login público (evita trazer dados sensíveis)
+            const publicColumns = 'id,name,slug,logo_url,primary_color,secondary_color,theme,description,language,free_registration,app_type,support_email,whatsapp_number,support_enabled,show_names'
+
             if (isUUID) {
                 const result = await supabase
                     .from('applications')
-                    .select('*')
+                    .select(publicColumns)
                     .eq('id', slugOrId)
                     .single()
                 data = result.data
@@ -34,7 +52,7 @@ export async function handleApps(request: Request, env: any, pathSegments: strin
             } else {
                 const result = await supabase
                     .from('applications')
-                    .select('*')
+                    .select(publicColumns)
                     .eq('slug', slugOrId)
                     .single()
                 data = result.data
@@ -48,8 +66,16 @@ export async function handleApps(request: Request, env: any, pathSegments: strin
                 })
             }
 
+            // Salvar no cache
+            if (env.CACHE) {
+                await env.CACHE.put(cacheKey, JSON.stringify(data), { expirationTtl: APP_CACHE_TTL })
+                // Também cache por ID e slug para invalidação
+                if (data.id) await env.CACHE.put(`app:slug:${data.id}`, JSON.stringify(data), { expirationTtl: APP_CACHE_TTL })
+                if (data.slug) await env.CACHE.put(`app:slug:${data.slug}`, JSON.stringify(data), { expirationTtl: APP_CACHE_TTL })
+            }
+
             return new Response(JSON.stringify(data), {
-                headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+                headers: { ...corsHeaders, 'Content-Type': 'application/json', 'X-Cache': 'MISS' }
             })
         }
 
@@ -60,7 +86,7 @@ export async function handleApps(request: Request, env: any, pathSegments: strin
 
             const { data: appUser, error: userError } = await supabase
                 .from('app_users')
-                .select('*')
+                .select('id,user_id,email,application_id,auth_user_id')
                 .eq('email', email)
                 .eq('application_id', appId)
                 .single()

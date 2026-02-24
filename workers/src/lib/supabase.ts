@@ -74,7 +74,7 @@ export class SupabaseClient {
                     const params = new URLSearchParams()
                     if (options?.perPage) params.set('per_page', String(options.perPage))
                     if (options?.page) params.set('page', String(options.page))
-                    
+
                     const response = await fetch(`${this.url}/auth/v1/admin/users?${params}`, {
                         method: 'GET',
                         headers: {
@@ -123,6 +123,61 @@ export class SupabaseClient {
                         return { data: null, error: data }
                     }
                     return { data: { user: data }, error: null }
+                },
+
+                updateUserById: async (userId: string, attributes: {
+                    email?: string
+                    password?: string
+                    email_confirm?: boolean
+                    phone_confirm?: boolean
+                    user_metadata?: Record<string, any>
+                    app_metadata?: Record<string, any>
+                    ban_duration?: string
+                }) => {
+                    const response = await fetch(`${this.url}/auth/v1/admin/users/${userId}`, {
+                        method: 'PUT',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'apikey': this.serviceKey,
+                            'Authorization': `Bearer ${this.serviceKey}`,
+                        },
+                        body: JSON.stringify(attributes),
+                    })
+
+                    const data = await response.json()
+                    if (!response.ok) {
+                        return { data: null, error: data }
+                    }
+                    return { data: { user: data }, error: null }
+                }
+            },
+
+            signInWithPassword: async (credentials: { email: string; password: string }) => {
+                const response = await fetch(`${this.url}/auth/v1/token?grant_type=password`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'apikey': this.serviceKey,
+                    },
+                    body: JSON.stringify(credentials),
+                })
+
+                const data = await response.json()
+                if (!response.ok) {
+                    return { data: null, error: data }
+                }
+                return {
+                    data: {
+                        user: data.user,
+                        session: {
+                            access_token: data.access_token,
+                            refresh_token: data.refresh_token,
+                            expires_at: data.expires_at,
+                            expires_in: data.expires_in,
+                            token_type: data.token_type
+                        }
+                    },
+                    error: null
                 }
             }
         }
