@@ -14,7 +14,7 @@ export async function handleClients(request: Request, env: any): Promise<Respons
 
     try {
         const supabase = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY)
-        
+
         let body
         try {
             body = await request.json()
@@ -24,7 +24,7 @@ export async function handleClients(request: Request, env: any): Promise<Respons
                 { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
             )
         }
-        
+
         const { email, applicationId, productIds, name, phone } = body
 
         if (!email) {
@@ -46,7 +46,7 @@ export async function handleClients(request: Request, env: any): Promise<Respons
         // 1. Check if the user already exists in app_users for this app
         const existingResult = await supabase
             .from('app_users')
-            .select('*')
+            .select('id')
             .eq('email', email)
             .eq('application_id', applicationId)
             .maybeSingle()

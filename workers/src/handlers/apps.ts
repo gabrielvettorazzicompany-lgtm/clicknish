@@ -60,7 +60,7 @@ export async function handleApps(request: Request, env: any, pathSegments: strin
 
             const { data: appUser, error: userError } = await supabase
                 .from('app_users')
-                .select('*')
+                .select('user_id, email, application_id')
                 .eq('email', email)
                 .eq('application_id', appId)
                 .single()
@@ -123,7 +123,7 @@ export async function handleApps(request: Request, env: any, pathSegments: strin
             // Check if the user already exists
             const { data: existingUser } = await supabase
                 .from('app_users')
-                .select('*')
+                .select('user_id, email, application_id')
                 .eq('email', email)
                 .eq('application_id', appId)
                 .single()

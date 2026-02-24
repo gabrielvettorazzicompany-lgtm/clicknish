@@ -20,7 +20,7 @@ export async function handleMembers(request: Request, env: any): Promise<Respons
         // 1. Verificar se o membro já existe para este produto de marketplace
         const { data: existingMember } = await supabase
             .from('member_profiles')
-            .select('*')
+            .select('id')
             .eq('email', email)
             .eq('product_id', marketplaceProductId)
             .maybeSingle()
