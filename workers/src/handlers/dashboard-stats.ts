@@ -46,6 +46,8 @@ export async function handleDashboardStats(
         const body = await request.json() as DashboardRequest
         const { userId, fromDate, toDate, selectedApp, selectedMarketplace, selectedCurrency } = body
 
+        console.log('Dashboard stats request:', { userId, selectedApp, selectedMarketplace, selectedCurrency })
+
         if (!userId) {
             return jsonResponse({ error: 'userId is required' }, 400)
         }
@@ -60,9 +62,27 @@ export async function handleDashboardStats(
 
         const appIds = selectedApp ? [selectedApp] : (userAppsResult.data?.map((a: any) => a.id) || [])
 
-        // Determinar quais queries fazer baseado na moeda
-        const shouldFetchMarketplace = !selectedCurrency || selectedCurrency !== 'USD'
-        const shouldFetchApps = (!selectedCurrency || selectedCurrency === 'USD') && appIds.length > 0
+        // Determinar quais queries fazer
+        // Se um produto específico foi selecionado, buscar APENAS esse tipo
+        // Caso contrário, buscar baseado na moeda
+        let shouldFetchMarketplace: boolean
+        let shouldFetchApps: boolean
+
+        if (selectedMarketplace) {
+            // Produto marketplace selecionado - buscar APENAS marketplace
+            shouldFetchMarketplace = true
+            shouldFetchApps = false
+        } else if (selectedApp) {
+            // App selecionado - buscar APENAS apps
+            shouldFetchMarketplace = false
+            shouldFetchApps = appIds.length > 0
+        } else {
+            // Nenhum produto selecionado - buscar baseado na moeda
+            shouldFetchMarketplace = !selectedCurrency || selectedCurrency === 'BRL'
+            shouldFetchApps = (!selectedCurrency || selectedCurrency === 'USD') && appIds.length > 0
+        }
+
+        console.log('Filter logic:', { selectedMarketplace, selectedApp, shouldFetchMarketplace, shouldFetchApps })
 
         // Preparar filtros de data
         const fromDateObj = fromDate ? new Date(fromDate) : undefined
@@ -90,11 +110,15 @@ export async function handleDashboardStats(
                 .select('purchase_price, created_at, member_area_id')
                 .eq('payment_status', 'completed')
 
-            if (selectedMarketplace) q = q.eq('member_area_id', selectedMarketplace)
+            if (selectedMarketplace) {
+                console.log('Filtering by member_area_id:', selectedMarketplace)
+                q = q.eq('member_area_id', selectedMarketplace)
+            }
             if (fromDateObj) q = q.gte('created_at', fromDateObj.toISOString())
             if (endOfDay) q = q.lte('created_at', endOfDay.toISOString())
 
             const result = await q
+            console.log('Marketplace sales raw count:', result.data?.length || 0)
             
             // Filtrar por owner_id via member_areas
             if (result.data && result.data.length > 0) {
