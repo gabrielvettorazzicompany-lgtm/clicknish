@@ -84,10 +84,9 @@ export default function Clients() {
         setApps([])
       }
 
-      // If there's appId in the URL, auto-select and fetch clients
+      // If there's appId in the URL, auto-select (useEffect will fetch clients)
       if (appId) {
         setFormData(prev => ({ ...prev, selectedApp: appId }))
-        fetchClients(appId)
       }
     } catch (error) {
       console.error('Error fetching apps:', error)
@@ -121,59 +120,45 @@ export default function Clients() {
   const fetchClients = async (selectedAppId: string) => {
     try {
       setLoading(true)
-      // Fetch clients (app_users) without JOIN - simpler and more reliable
+      
+      // 1. Buscar todos os clientes da app (1 requisição)
       const response = await supabaseRestFetch(`app_users?application_id=eq.${selectedAppId}&select=*`)
       const clientsData = await response.json()
 
-      if (!Array.isArray(clientsData)) {
-        console.error('Clients data is not an array:', clientsData)
+      if (!Array.isArray(clientsData) || clientsData.length === 0) {
         setClients([])
         return
       }
 
-      // Fetch product_access for each client
-      const clientsWithProducts = await Promise.all(
-        clientsData.map(async (client) => {
-          try {
-            const accessResponse = await supabaseRestFetch(`user_product_access?user_id=eq.${client.user_id}&select=*`)
-            const accessData = await accessResponse.json()
+      // 2. Buscar TODOS os acessos de produto de uma vez (1 requisição)
+      const userIds = clientsData.map((c: any) => c.user_id).filter(Boolean)
+      const accessResponse = await supabaseRestFetch(`user_product_access?user_id=in.(${userIds.join(',')})&select=*`)
+      const allAccessData = await accessResponse.json()
+      
+      // 3. Buscar TODOS os produtos únicos de uma vez (1 requisição)
+      const productIds = [...new Set((allAccessData || []).map((a: any) => a.product_id).filter(Boolean))]
+      let productsMap: Record<string, any> = {}
+      
+      if (productIds.length > 0) {
+        const productsResponse = await supabaseRestFetch(`products?id=in.(${productIds.join(',')})&select=id,name`)
+        const productsData = await productsResponse.json()
+        productsMap = (productsData || []).reduce((acc: any, p: any) => ({ ...acc, [p.id]: p }), {})
+      }
 
-            // Fetch product details
-            if (Array.isArray(accessData) && accessData.length > 0) {
-              const accessWithProducts = await Promise.all(
-                accessData.map(async (access) => {
-                  try {
-                    const productResponse = await supabaseRestFetch(`products?id=eq.${access.product_id}&select=id,name`)
-                    const productData = await productResponse.json()
-                    return {
-                      ...access,
-                      products: Array.isArray(productData) && productData.length > 0 ? productData[0] : null
-                    }
-                  } catch (err) {
-                    console.error('Error fetching product:', err)
-                    return access
-                  }
-                })
-              )
-              return {
-                ...client,
-                user_product_access: accessWithProducts
-              }
-            }
-
-            return {
-              ...client,
-              user_product_access: []
-            }
-          } catch (err) {
-            console.error('Error fetching product access:', err)
-            return {
-              ...client,
-              user_product_access: []
-            }
-          }
-        })
-      )
+      // 4. Montar os dados no cliente (memória, sem requisições)
+      const clientsWithProducts = clientsData.map((client: any) => {
+        const clientAccess = (allAccessData || [])
+          .filter((a: any) => a.user_id === client.user_id)
+          .map((access: any) => ({
+            ...access,
+            products: productsMap[access.product_id] || null
+          }))
+        
+        return {
+          ...client,
+          user_product_access: clientAccess
+        }
+      })
 
       setClients(clientsWithProducts)
     } catch (error) {
