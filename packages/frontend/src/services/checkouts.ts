@@ -168,6 +168,7 @@ export async function fetchUserCheckouts(userId: string): Promise<CheckoutWithDe
 /**
  * Batch fetch metrics for all checkouts to avoid N+1 queries
  * Returns a Map of checkout_id -> metrics
+ * Uses sale_locations table which has checkout_id and actual amounts
  */
 async function fetchAllCheckoutMetrics(checkouts: any[]): Promise<Map<string, CheckoutMetrics>> {
     const metricsMap = new Map<string, CheckoutMetrics>()
@@ -175,10 +176,8 @@ async function fetchAllCheckoutMetrics(checkouts: any[]): Promise<Map<string, Ch
     if (checkouts.length === 0) return metricsMap
 
     try {
-        // Collect all IDs for batch queries
+        // Collect all checkout IDs
         const checkoutIds = checkouts.map(c => c.id)
-        const memberAreaIds = checkouts.filter(c => c.member_area_id).map(c => c.member_area_id)
-        const applicationIds = checkouts.filter(c => c.application_id).map(c => c.application_id)
 
         // Batch query 1: Get all visits from checkout_analytics
         const { data: analyticsData } = await supabase
@@ -193,55 +192,35 @@ async function fetchAllCheckoutMetrics(checkouts: any[]): Promise<Map<string, Ch
             visitsByCheckout.set(row.checkout_id, (visitsByCheckout.get(row.checkout_id) || 0) + 1)
         }
 
-        // Batch query 2: Get sales for member_areas
-        const salesByMemberArea = new Map<string, number>()
-        if (memberAreaIds.length > 0) {
-            const { data: memberSales } = await supabase
-                .from('user_marketplace_access')
-                .select('member_area_id')
-                .in('member_area_id', memberAreaIds)
-                .eq('payment_status', 'completed')
+        // Batch query 2: Get sales from sale_locations (has checkout_id and real amounts!)
+        const { data: salesData } = await supabase
+            .from('sale_locations')
+            .select('checkout_id, amount')
+            .in('checkout_id', checkoutIds)
 
-            for (const row of memberSales || []) {
-                salesByMemberArea.set(row.member_area_id, (salesByMemberArea.get(row.member_area_id) || 0) + 1)
-            }
-        }
-
-        // Batch query 3: Get sales for applications
-        const salesByApplication = new Map<string, number>()
-        if (applicationIds.length > 0) {
-            const { data: appSales } = await supabase
-                .from('user_product_access')
-                .select('application_id')
-                .in('application_id', applicationIds)
-                .eq('payment_status', 'completed')
-
-            for (const row of appSales || []) {
-                if (row.application_id) {
-                    salesByApplication.set(row.application_id, (salesByApplication.get(row.application_id) || 0) + 1)
-                }
+        // Count sales and sum amounts per checkout
+        const salesByCheckout = new Map<string, { count: number; total: number }>()
+        for (const row of salesData || []) {
+            if (row.checkout_id) {
+                const current = salesByCheckout.get(row.checkout_id) || { count: 0, total: 0 }
+                salesByCheckout.set(row.checkout_id, {
+                    count: current.count + 1,
+                    total: current.total + (Number(row.amount) || 0)
+                })
             }
         }
 
         // Build metrics map for each checkout
         for (const checkout of checkouts) {
             const visits = visitsByCheckout.get(checkout.id) || 0
-            let salesCount = 0
-
-            if (checkout.member_area_id) {
-                salesCount = salesByMemberArea.get(checkout.member_area_id) || 0
-            } else if (checkout.application_id) {
-                salesCount = salesByApplication.get(checkout.application_id) || 0
-            }
-
-            const totalSales = salesCount * 100 // Placeholder
-            const conversionRate = visits > 0 ? (salesCount / visits) * 100 : 0
+            const sales = salesByCheckout.get(checkout.id) || { count: 0, total: 0 }
+            const conversionRate = visits > 0 ? (sales.count / visits) * 100 : 0
 
             metricsMap.set(checkout.id, {
                 visits,
-                conversions: salesCount,
-                total_sales: totalSales,
-                conversion_rate: conversionRate
+                conversions: sales.count,
+                total_sales: sales.total,
+                conversion_rate: Math.min(conversionRate, 100) // Cap at 100%
             })
         }
 
@@ -521,7 +500,6 @@ async function getUserIP(): Promise<string | null> {
         for (const service of services) {
             try {
                 const response = await fetch(service, {
-                    timeout: 3000,
                     signal: AbortSignal.timeout(3000)
                 })
 
@@ -552,7 +530,6 @@ async function getUserIP(): Promise<string | null> {
 async function getLocationInfo(): Promise<any> {
     try {
         const response = await fetch('https://ipapi.co/json/', {
-            timeout: 5000,
             signal: AbortSignal.timeout(5000)
         })
 
