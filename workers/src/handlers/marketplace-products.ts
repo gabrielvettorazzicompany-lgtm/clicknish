@@ -12,14 +12,13 @@ export async function handleMarketplaceProducts(request: Request, env: any, path
     }
 
     try {
-        const supabase = createClient(env)
-        const authHeader = request.headers.get('Authorization')
+        const supabase = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY)
+        
+        // Get user from x-user-id header (sent by frontend)
+        const userId = request.headers.get('x-user-id')
 
-        // Get user from token
-        const { data: { user } } = await supabase.auth.getUser(authHeader?.replace('Bearer ', ''))
-
-        if (!user) {
-            return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+        if (!userId) {
+            return new Response(JSON.stringify({ error: 'Unauthorized - missing x-user-id header' }), {
                 status: 401,
                 headers: { ...corsHeaders, 'Content-Type': 'application/json' }
             })
@@ -30,16 +29,16 @@ export async function handleMarketplaceProducts(request: Request, env: any, path
 
         switch (request.method) {
             case 'GET': {
-                // List user products
+                // List user products from member_areas table
                 const { data, error } = await supabase
-                    .from('marketplace_products')
+                    .from('member_areas')
                     .select('*')
-                    .eq('owner_id', user.id)
+                    .eq('owner_id', userId)
                     .order('created_at', { ascending: false })
 
                 if (error) throw error
 
-                return new Response(JSON.stringify(data), {
+                return new Response(JSON.stringify(data || []), {
                     headers: { ...corsHeaders, 'Content-Type': 'application/json' },
                     status: 200,
                 })
@@ -93,7 +92,7 @@ export async function handleMarketplaceProducts(request: Request, env: any, path
                 const marketplaceEnabled = body.marketplace_enabled ?? body.show_in_marketplace ?? false
 
                 const productData = {
-                    owner_id: user.id,
+                    owner_id: userId,
                     name: body.name.trim(),
                     description: body.description || null,
                     slug: slug,
@@ -148,7 +147,7 @@ export async function handleMarketplaceProducts(request: Request, env: any, path
                     .from('member_areas')
                     .update(body)
                     .eq('id', productId)
-                    .eq('owner_id', user.id)
+                    .eq('owner_id', userId)
                     .select()
                     .single()
 
@@ -166,7 +165,7 @@ export async function handleMarketplaceProducts(request: Request, env: any, path
                     .from('member_areas')
                     .delete()
                     .eq('id', productId)
-                    .eq('owner_id', user.id)
+                    .eq('owner_id', userId)
 
                 if (error) throw error
 
@@ -183,6 +182,7 @@ export async function handleMarketplaceProducts(request: Request, env: any, path
                 })
         }
     } catch (error: any) {
+        console.error('Handler error:', error)
         return new Response(JSON.stringify({ error: error.message }), {
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
             status: 400,

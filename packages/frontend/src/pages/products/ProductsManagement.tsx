@@ -184,7 +184,8 @@ export default function ProductsManagement({ embedded = false }: { embedded?: bo
             const response = await fetch(`${apiUrl}/marketplace-products`, {
                 headers: {
                     'Authorization': `Bearer ${session.access_token}`,
-                    'Content-Type': 'application/json'
+                    'Content-Type': 'application/json',
+                    'x-user-id': user?.id || ''
                 }
             })
 
@@ -324,7 +325,8 @@ export default function ProductsManagement({ embedded = false }: { embedded?: bo
                     method: 'PATCH',
                     headers: {
                         'Authorization': `Bearer ${session.access_token}`,
-                        'Content-Type': 'application/json'
+                        'Content-Type': 'application/json',
+                        'x-user-id': user?.id || ''
                     },
                     body: JSON.stringify({
                         name: dataToSave.name,
@@ -355,7 +357,8 @@ export default function ProductsManagement({ embedded = false }: { embedded?: bo
                     method: 'POST',
                     headers: {
                         'Authorization': `Bearer ${session.access_token}`,
-                        'Content-Type': 'application/json'
+                        'Content-Type': 'application/json',
+                        'x-user-id': user?.id || ''
                     },
                     body: JSON.stringify({
                         name: dataToSave.name,

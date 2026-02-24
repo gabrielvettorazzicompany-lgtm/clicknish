@@ -33,3 +33,6 @@ packages/frontend/src/**/*.js
 packages/frontend/src/**/*.jsx
 !packages/frontend/src/**/*.config.js
 # Force deploy dom 01 fev 2026 22:50:06 -03
+
+# Local Netlify folder
+.netlify
