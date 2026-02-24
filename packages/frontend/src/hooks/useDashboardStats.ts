@@ -65,20 +65,26 @@ export function useDashboardStats(
 
         setLoading(true)
         try {
-            // Chamar Edge Function que faz todas as queries em uma única requisição
-            const { data, error } = await supabase.functions.invoke('dashboard-stats', {
-                body: {
+            // Chamar Worker que faz todas as queries em uma única requisição
+            const response = await fetch('https://api.clicknich.com/api/dashboard-stats', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
                     userId,
                     fromDate: dateRange?.from?.toISOString(),
                     toDate: dateRange?.to?.toISOString(),
                     selectedApp,
                     selectedMarketplace,
                     selectedCurrency
-                }
+                })
             })
 
-            if (error) {
-                console.error('Error calling dashboard-stats:', error)
+            const data = await response.json()
+
+            if (!response.ok) {
+                console.error('Error calling dashboard-stats:', data.error)
                 return
             }
 

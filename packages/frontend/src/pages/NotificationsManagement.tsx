@@ -5,7 +5,7 @@ import { useI18n } from '@/i18n'
 import Sidebar from '@/components/Sidebar'
 import Header from '@/components/Header'
 
-const EDGE_FUNCTION_URL = 'https://cgeqtodbisgwvhkaahiy.supabase.co/functions/v1'
+const EDGE_FUNCTION_URL = 'https://api.clicknich.com/api'
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNnZXF0b2RiaXNnd3Zoa2FhaGl5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjkxMTk1MDIsImV4cCI6MjA4NDY5NTUwMn0.Ov6_rRlThZUBIoL4oT6BGozEhvTUdFsWB6KylDXpFoY'
 
 interface Notification {

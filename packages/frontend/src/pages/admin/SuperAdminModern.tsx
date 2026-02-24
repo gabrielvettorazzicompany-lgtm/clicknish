@@ -100,7 +100,7 @@ export default function SuperAdminModern() {
 
     const fetchStats = async () => {
         try {
-            const response = await fetch('https://cgeqtodbisgwvhkaahiy.supabase.co/functions/v1/superadmin/stats', {
+            const response = await fetch('https://api.clicknich.com/api/superadmin/stats', {
                 headers: {
                     'Authorization': `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNnZXF0b2RiaXNnd3Zoa2FhaGl5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjkxMTk1MDIsImV4cCI6MjA4NDY5NTUwMn0.Ov6_rRlThZUBIoL4oT6BGozEhvTUdFsWB6KylDXpFoY`,
                     'Content-Type': 'application/json',
@@ -121,7 +121,7 @@ export default function SuperAdminModern() {
 
     const fetchUsers = async () => {
         try {
-            const response = await fetch('https://cgeqtodbisgwvhkaahiy.supabase.co/functions/v1/superadmin/users', {
+            const response = await fetch('https://api.clicknich.com/api/superadmin/users', {
                 headers: {
                     'Authorization': `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNnZXF0b2RiaXNnd3Zoa2FhaGl5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjkxMTk1MDIsImV4cCI6MjA4NDY5NTUwMn0.Ov6_rRlThZUBIoL4oT6BGozEhvTUdFsWB6KylDXpFoY`,
                     'Content-Type': 'application/json',
@@ -150,7 +150,7 @@ export default function SuperAdminModern() {
     const fetchBankVerifications = async () => {
         setLoadingVerifications(true)
         try {
-            const response = await fetch('https://cgeqtodbisgwvhkaahiy.supabase.co/functions/v1/superadmin/bank-verifications', {
+            const response = await fetch('https://api.clicknich.com/api/superadmin/bank-verifications', {
                 headers: {
                     'Authorization': `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNnZXF0b2RiaXNnd3Zoa2FhaGl5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjkxMTk1MDIsImV4cCI6MjA4NDY5NTUwMn0.Ov6_rRlThZUBIoL4oT6BGozEhvTUdFsWB6KylDXpFoY`,
                     'Content-Type': 'application/json',
@@ -174,7 +174,7 @@ export default function SuperAdminModern() {
     const handleApproveVerification = async (verificationId: string) => {
         setProcessingId(verificationId)
         try {
-            const response = await fetch(`https://cgeqtodbisgwvhkaahiy.supabase.co/functions/v1/superadmin/bank-verifications/${verificationId}/approve`, {
+            const response = await fetch(`https://api.clicknich.com/api/superadmin/bank-verifications/${verificationId}/approve`, {
                 method: 'PUT',
                 headers: {
                     'Authorization': `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNnZXF0b2RiaXNnd3Zoa2FhaGl5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjkxMTk1MDIsImV4cCI6MjA4NDY5NTUwMn0.Ov6_rRlThZUBIoL4oT6BGozEhvTUdFsWB6KylDXpFoY`,
@@ -203,7 +203,7 @@ export default function SuperAdminModern() {
 
         setProcessingId(selectedVerification.id)
         try {
-            const response = await fetch(`https://cgeqtodbisgwvhkaahiy.supabase.co/functions/v1/superadmin/bank-verifications/${selectedVerification.id}/reject`, {
+            const response = await fetch(`https://api.clicknich.com/api/superadmin/bank-verifications/${selectedVerification.id}/reject`, {
                 method: 'PUT',
                 headers: {
                     'Authorization': `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNnZXF0b2RiaXNnd3Zoa2FhaGl5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjkxMTk1MDIsImV4cCI6MjA4NDY5NTUwMn0.Ov6_rRlThZUBIoL4oT6BGozEhvTUdFsWB6KylDXpFoY`,

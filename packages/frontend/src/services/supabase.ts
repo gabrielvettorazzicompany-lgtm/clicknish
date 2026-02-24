@@ -9,8 +9,8 @@ if (!supabaseUrl || !supabaseKey) {
 
 export const supabase = createClient(supabaseUrl, supabaseKey)
 
-// API fetch helper for Supabase Edge Functions
-const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || `${supabaseUrl}/functions/v1`
+// API fetch helper for Cloudflare Worker
+const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || 'https://api.clicknich.com/api'
 
 interface FetchOptions extends RequestInit {
   headers?: Record<string, string>

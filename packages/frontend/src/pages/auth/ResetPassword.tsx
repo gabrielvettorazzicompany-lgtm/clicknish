@@ -27,7 +27,7 @@ export default function ResetPassword() {
 
 
         try {
-            const apiBase = import.meta.env.VITE_API_BASE_URL || '/functions/v1'
+            const apiBase = 'https://api.clicknich.com/api'
 
             const res = await fetch(`${apiBase}/request-password-reset`, {
                 method: 'POST',
@@ -79,7 +79,7 @@ export default function ResetPassword() {
         setLoading(true)
 
         try {
-            const apiBase = import.meta.env.VITE_API_BASE_URL || '/functions/v1'
+            const apiBase = 'https://api.clicknich.com/api'
 
             const res = await fetch(`${apiBase}/confirm-reset`, {
                 method: 'POST',

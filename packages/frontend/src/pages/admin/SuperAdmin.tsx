@@ -166,7 +166,7 @@ export default function SuperAdmin() {
     const fetchStats = async () => {
         try {
             setLoading(true)
-            const response = await fetch('https://cgeqtodbisgwvhkaahiy.supabase.co/functions/v1/superadmin/stats', {
+            const response = await fetch('https://api.clicknich.com/api/superadmin/stats', {
                 headers: {
                     'Authorization': `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNnZXF0b2RiaXNnd3Zoa2FhaGl5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjkxMTk1MDIsImV4cCI6MjA4NDY5NTUwMn0.Ov6_rRlThZUBIoL4oT6BGozEhvTUdFsWB6KylDXpFoY`,
                     'Content-Type': 'application/json',
@@ -195,7 +195,7 @@ export default function SuperAdmin() {
             if (searchQuery) params.append('search', searchQuery)
             if (planFilter !== 'all') params.append('plan', planFilter)
 
-            const url = `https://cgeqtodbisgwvhkaahiy.supabase.co/functions/v1/superadmin/users${params.toString() ? '?' + params.toString() : ''}`
+            const url = `https://api.clicknich.com/api/superadmin/users${params.toString() ? '?' + params.toString() : ''}`
             const response = await fetch(url, {
                 headers: {
                     'Authorization': `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNnZXF0b2RiaXNnd3Zoa2FhaGl5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjkxMTk1MDIsImV4cCI6MjA4NDY5NTUwMn0.Ov6_rRlThZUBIoL4oT6BGozEhvTUdFsWB6KylDXpFoY`,
@@ -220,7 +220,7 @@ export default function SuperAdmin() {
     const fetchApplications = async () => {
         try {
 
-            const response = await fetch('https://cgeqtodbisgwvhkaahiy.supabase.co/functions/v1/superadmin/applications', {
+            const response = await fetch('https://api.clicknich.com/api/superadmin/applications', {
                 headers: {
                     'Authorization': `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNnZXF0b2RiaXNnd3Zoa2FhaGl5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjkxMTk1MDIsImV4cCI6MjA4NDY5NTUwMn0.Ov6_rRlThZUBIoL4oT6BGozEhvTUdFsWB6KylDXpFoY`,
                     'Content-Type': 'application/json',
@@ -240,7 +240,7 @@ export default function SuperAdmin() {
 
     const fetchDomains = async () => {
         try {
-            const response = await fetch('https://cgeqtodbisgwvhkaahiy.supabase.co/functions/v1/superadmin/domains', {
+            const response = await fetch('https://api.clicknich.com/api/superadmin/domains', {
                 headers: {
                     'Authorization': `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNnZXF0b2RiaXNnd3Zoa2FhaGl5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjkxMTk1MDIsImV4cCI6MjA4NDY5NTUwMn0.Ov6_rRlThZUBIoL4oT6BGozEhvTUdFsWB6KylDXpFoY`,
                     'Content-Type': 'application/json',
@@ -260,7 +260,7 @@ export default function SuperAdmin() {
     const fetchPlans = async () => {
         try {
 
-            const response = await fetch('https://cgeqtodbisgwvhkaahiy.supabase.co/functions/v1/superadmin/users', {
+            const response = await fetch('https://api.clicknich.com/api/superadmin/users', {
                 headers: {
                     'Authorization': `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNnZXF0b2RiaXNnd3Zoa2FhaGl5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjkxMTk1MDIsImV4cCI6MjA4NDY5NTUwMn0.Ov6_rRlThZUBIoL4oT6BGozEhvTUdFsWB6KylDXpFoY`,
                     'Content-Type': 'application/json',
@@ -280,7 +280,7 @@ export default function SuperAdmin() {
     const fetchBankVerifications = async () => {
         setLoadingVerifications(true)
         try {
-            const response = await fetch('https://cgeqtodbisgwvhkaahiy.supabase.co/functions/v1/superadmin/bank-verifications', {
+            const response = await fetch('https://api.clicknich.com/api/superadmin/bank-verifications', {
                 headers: {
                     'Authorization': `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNnZXF0b2RiaXNnd3Zoa2FhaGl5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjkxMTk1MDIsImV4cCI6MjA4NDY5NTUwMn0.Ov6_rRlThZUBIoL4oT6BGozEhvTUdFsWB6KylDXpFoY`,
                     'Content-Type': 'application/json',
@@ -304,7 +304,7 @@ export default function SuperAdmin() {
     const fetchPendingProducts = async () => {
         setLoadingProducts(true)
         try {
-            const response = await fetch('https://cgeqtodbisgwvhkaahiy.supabase.co/functions/v1/superadmin/pending-products', {
+            const response = await fetch('https://api.clicknich.com/api/superadmin/pending-products', {
                 headers: {
                     'Authorization': `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNnZXF0b2RiaXNnd3Zoa2FhaGl5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjkxMTk1MDIsImV4cCI6MjA4NDY5NTUwMn0.Ov6_rRlThZUBIoL4oT6BGozEhvTUdFsWB6KylDXpFoY`,
                     'Content-Type': 'application/json',
@@ -329,7 +329,7 @@ export default function SuperAdmin() {
         setLoadingProductDetails(true)
         setProductDetails(null)
         try {
-            const response = await fetch(`https://cgeqtodbisgwvhkaahiy.supabase.co/functions/v1/superadmin/product-details/${productId}`, {
+            const response = await fetch(`https://api.clicknich.com/api/superadmin/product-details/${productId}`, {
                 headers: {
                     'Authorization': `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNnZXF0b2RiaXNnd3Zoa2FhaGl5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjkxMTk1MDIsImV4cCI6MjA4NDY5NTUwMn0.Ov6_rRlThZUBIoL4oT6BGozEhvTUdFsWB6KylDXpFoY`,
                     'Content-Type': 'application/json',
@@ -359,7 +359,7 @@ export default function SuperAdmin() {
     const handleApproveProduct = async (productId: string) => {
         setProcessingId(productId)
         try {
-            const response = await fetch(`https://cgeqtodbisgwvhkaahiy.supabase.co/functions/v1/superadmin/products/${productId}/approve`, {
+            const response = await fetch(`https://api.clicknich.com/api/superadmin/products/${productId}/approve`, {
                 method: 'PUT',
                 headers: {
                     'Authorization': `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNnZXF0b2RiaXNnd3Zoa2FhaGl5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjkxMTk1MDIsImV4cCI6MjA4NDY5NTUwMn0.Ov6_rRlThZUBIoL4oT6BGozEhvTUdFsWB6KylDXpFoY`,
@@ -388,7 +388,7 @@ export default function SuperAdmin() {
 
         setProcessingId(selectedProduct.id)
         try {
-            const response = await fetch(`https://cgeqtodbisgwvhkaahiy.supabase.co/functions/v1/superadmin/products/${selectedProduct.id}/reject`, {
+            const response = await fetch(`https://api.clicknich.com/api/superadmin/products/${selectedProduct.id}/reject`, {
                 method: 'PUT',
                 headers: {
                     'Authorization': `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNnZXF0b2RiaXNnd3Zoa2FhaGl5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjkxMTk1MDIsImV4cCI6MjA4NDY5NTUwMn0.Ov6_rRlThZUBIoL4oT6BGozEhvTUdFsWB6KylDXpFoY`,
@@ -425,7 +425,7 @@ export default function SuperAdmin() {
     const fetchPendingApps = async () => {
         setLoadingApps(true)
         try {
-            const response = await fetch('https://cgeqtodbisgwvhkaahiy.supabase.co/functions/v1/superadmin/pending-apps', {
+            const response = await fetch('https://api.clicknich.com/api/superadmin/pending-apps', {
                 headers: {
                     'Authorization': `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNnZXF0b2RiaXNnd3Zoa2FhaGl5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjkxMTk1MDIsImV4cCI6MjA4NDY5NTUwMn0.Ov6_rRlThZUBIoL4oT6BGozEhvTUdFsWB6KylDXpFoY`,
                     'Content-Type': 'application/json',
@@ -449,7 +449,7 @@ export default function SuperAdmin() {
     const handleApproveApp = async (appId: string) => {
         setProcessingId(appId)
         try {
-            const response = await fetch(`https://cgeqtodbisgwvhkaahiy.supabase.co/functions/v1/superadmin/apps/${appId}/approve`, {
+            const response = await fetch(`https://api.clicknich.com/api/superadmin/apps/${appId}/approve`, {
                 method: 'PUT',
                 headers: {
                     'Authorization': `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNnZXF0b2RiaXNnd3Zoa2FhaGl5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjkxMTk1MDIsImV4cCI6MjA4NDY5NTUwMn0.Ov6_rRlThZUBIoL4oT6BGozEhvTUdFsWB6KylDXpFoY`,
@@ -478,7 +478,7 @@ export default function SuperAdmin() {
 
         setProcessingId(selectedApp.id)
         try {
-            const response = await fetch(`https://cgeqtodbisgwvhkaahiy.supabase.co/functions/v1/superadmin/apps/${selectedApp.id}/reject`, {
+            const response = await fetch(`https://api.clicknich.com/api/superadmin/apps/${selectedApp.id}/reject`, {
                 method: 'PUT',
                 headers: {
                     'Authorization': `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNnZXF0b2RiaXNnd3Zoa2FhaGl5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjkxMTk1MDIsImV4cCI6MjA4NDY5NTUwMn0.Ov6_rRlThZUBIoL4oT6BGozEhvTUdFsWB6KylDXpFoY`,
@@ -514,7 +514,7 @@ export default function SuperAdmin() {
     const handleApproveVerification = async (verificationId: string) => {
         setProcessingId(verificationId)
         try {
-            const response = await fetch(`https://cgeqtodbisgwvhkaahiy.supabase.co/functions/v1/superadmin/bank-verifications/${verificationId}/approve`, {
+            const response = await fetch(`https://api.clicknich.com/api/superadmin/bank-verifications/${verificationId}/approve`, {
                 method: 'PUT',
                 headers: {
                     'Authorization': `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNnZXF0b2RiaXNnd3Zoa2FhaGl5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjkxMTk1MDIsImV4cCI6MjA4NDY5NTUwMn0.Ov6_rRlThZUBIoL4oT6BGozEhvTUdFsWB6KylDXpFoY`,
@@ -543,7 +543,7 @@ export default function SuperAdmin() {
 
         setProcessingId(selectedVerification.id)
         try {
-            const response = await fetch(`https://cgeqtodbisgwvhkaahiy.supabase.co/functions/v1/superadmin/bank-verifications/${selectedVerification.id}/reject`, {
+            const response = await fetch(`https://api.clicknich.com/api/superadmin/bank-verifications/${selectedVerification.id}/reject`, {
                 method: 'PUT',
                 headers: {
                     'Authorization': `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNnZXF0b2RiaXNnd3Zoa2FhaGl5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjkxMTk1MDIsImV4cCI6MjA4NDY5NTUwMn0.Ov6_rRlThZUBIoL4oT6BGozEhvTUdFsWB6KylDXpFoY`,
@@ -584,7 +584,7 @@ export default function SuperAdmin() {
     const fetchUserDetails = async (userId: string) => {
         setLoadingDetails(true)
         try {
-            const response = await fetch(`https://cgeqtodbisgwvhkaahiy.supabase.co/functions/v1/superadmin/user-details/${userId}`, {
+            const response = await fetch(`https://api.clicknich.com/api/superadmin/user-details/${userId}`, {
                 headers: {
                     'Authorization': `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNnZXF0b2RiaXNnd3Zoa2FhaGl5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjkxMTk1MDIsImV4cCI6MjA4NDY5NTUwMn0.Ov6_rRlThZUBIoL4oT6BGozEhvTUdFsWB6KylDXpFoY`,
                     'Content-Type': 'application/json',
@@ -611,7 +611,7 @@ export default function SuperAdmin() {
         }
 
         try {
-            const response = await fetch(`https://cgeqtodbisgwvhkaahiy.supabase.co/functions/v1/superadmin/user/${userId}`, {
+            const response = await fetch(`https://api.clicknich.com/api/superadmin/user/${userId}`, {
                 method: 'DELETE',
                 headers: {
                     'Authorization': `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNnZXF0b2RiaXNnd3Zoa2FhaGl5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjkxMTk1MDIsImV4cCI6MjA4NDY5NTUwMn0.Ov6_rRlThZUBIoL4oT6BGozEhvTUdFsWB6KylDXpFoY`,
@@ -639,7 +639,7 @@ export default function SuperAdmin() {
         }
 
         try {
-            const response = await fetch(`https://cgeqtodbisgwvhkaahiy.supabase.co/functions/v1/superadmin/user/${userId}/ban`, {
+            const response = await fetch(`https://api.clicknich.com/api/superadmin/user/${userId}/ban`, {
                 method: 'PUT',
                 headers: {
                     'Authorization': `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNnZXF0b2RiaXNnd3Zoa2FhaGl5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjkxMTk1MDIsImV4cCI6MjA4NDY5NTUwMn0.Ov6_rRlThZUBIoL4oT6BGozEhvTUdFsWB6KylDXpFoY`,

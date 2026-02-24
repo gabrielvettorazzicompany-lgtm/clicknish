@@ -4,7 +4,7 @@ import { useAuthStore } from '@/stores/authStore'
 import { supabase } from '@/services/supabase'
 import type { AppData } from './types'
 
-const SUPABASE_URL = 'https://cgeqtodbisgwvhkaahiy.supabase.co/functions/v1'
+const SUPABASE_URL = 'https://api.clicknich.com/api'
 const SUPABASE_ANON_KEY =
     'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNnZXF0b2RiaXNnd3Zoa2FhaGl5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjkxMTk1MDIsImV4cCI6MjA4NDY5NTUwMn0.Ov6_rRlThZUBIoL4oT6BGozEhvTUdFsWB6KylDXpFoY'
 

@@ -459,11 +459,10 @@ export default function CheckoutPublic() {
             customerPhone: leadDataRef.current.phone,
             trackingParameters: utmParams.current,
         })
-        fetch(`${SUPABASE_URL}/functions/v1/utmify-abandoned`, {
+        fetch('https://api.clicknich.com/api/utmify-abandoned', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
             },
             body: payload,
             keepalive: true,

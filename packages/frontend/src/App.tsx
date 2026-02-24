@@ -129,17 +129,12 @@ export default function App() {
 
 
         try {
-          // Buscar o app associado a este domínio
-          // Usar caminho relativo se estiver passando pelo Worker
+          // Buscar o app associado a este domínio via Worker
           const apiUrl = isCustomDomainFromWorker
             ? `/api/domains/by-domain/${targetDomain}`
-            : `https://cgeqtodbisgwvhkaahiy.supabase.co/functions/v1/domains/by-domain/${targetDomain}`
+            : `https://api.clicknich.com/api/domains/by-domain/${targetDomain}`
 
-          const response = await fetch(apiUrl, {
-            headers: {
-              'Authorization': `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNnZXF0b2RiaXNnd3Zoa2FhaGl5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjkxMTk1MDIsImV4cCI6MjA4NDY5NTUwMn0.Ov6_rRlThZUBIoL4oT6BGozEhvTUdFsWB6KylDXpFoY`
-            }
-          })
+          const response = await fetch(apiUrl)
 
           if (response.ok) {
             const app = await response.json()

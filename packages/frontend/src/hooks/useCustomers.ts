@@ -240,7 +240,7 @@ export function useCustomers() {
                     alert('This member already exists in this membership area')
                     setShowModal(false); setFormData({ name: '', email: '', phone: '', selectedProducts: [] }); return
                 }
-                const res = await fetch(`${SUPABASE_URL}/functions/v1/members`, {
+                const res = await fetch(`https://api.clicknich.com/api/members`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SUPABASE_ANON_KEY}` },
                     body: JSON.stringify({ email: formData.email, marketplaceProductId: selectedMarketplace, name: formData.name, phone: formData.phone })
@@ -283,7 +283,7 @@ export function useCustomers() {
                 fetchCustomers(selectedApp); return
             }
 
-            const res = await fetch(`${SUPABASE_URL}/functions/v1/clients`, {
+            const res = await fetch(`https://api.clicknich.com/api/clients`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SUPABASE_ANON_KEY}` },
                 body: JSON.stringify({ email: formData.email, applicationId: selectedApp, productIds: formData.selectedProducts, name: formData.name, phone: formData.phone })
@@ -422,7 +422,7 @@ export function useCustomers() {
                 : ''
             const html = `<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto"><div style="background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);padding:40px;text-align:center;border-radius:8px 8px 0 0"><h1 style="color:white;margin:0;font-size:28px">Access Granted</h1></div><div style="background:#f9fafb;padding:40px;border-radius:0 0 8px 8px"><p style="color:#333;font-size:16px">Hi <strong>${customer.full_name || customer.email}</strong>,</p><p style="color:#666;font-size:14px;line-height:1.6">Great news! You now have access to:</p><div style="background:white;padding:20px;border-radius:8px;margin:20px 0;border-left:4px solid #667eea"><p style="color:#333;font-size:14px;margin-bottom:10px"><strong>${productName}</strong></p>${productsHtml}</div>${loginUrl ? `<div style="margin:30px 0;text-align:center"><a href="${loginUrl}" style="background:#667eea;color:white;padding:14px 32px;text-decoration:none;border-radius:6px;display:inline-block;font-weight:bold;font-size:16px">${appSlug ? 'Access App Login' : 'Access Members Area'}</a></div>${downloadLink ? `<div style="margin:15px 0;text-align:center"><a href="${downloadLink}" style="background:white;color:#667eea;border:2px solid #667eea;padding:12px 28px;text-decoration:none;border-radius:6px;display:inline-block;font-weight:bold;font-size:14px">Download App</a></div>` : ''}` : ''}<div style="background:#f3f4f6;padding:15px;border-radius:6px;margin-top:20px"><p style="color:#666;font-size:13px;margin:0"><strong>Access instructions:</strong><br>1. Click the button above<br>2. Email: <strong>${customer.email}</strong><br>3. If first access, create your password${customer.phone ? `<br>4. Your phone: ${customer.phone}` : ''}</p></div></div></div>`
 
-            const res = await fetch(`${SUPABASE_URL}/functions/v1/send-email`, {
+            const res = await fetch(`https://api.clicknich.com/api/send-email`, {
                 method: 'POST',
                 headers: { 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'Content-Type': 'application/json', 'apikey': SUPABASE_ANON_KEY },
                 body: JSON.stringify({ to: customer.email, subject: `Your access to ${productName} is ready`, html, customer_name: customer.full_name || customer.email })

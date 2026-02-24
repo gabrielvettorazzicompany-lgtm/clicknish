@@ -42,9 +42,8 @@ export default function Domains() {
 
   const fetchDomains = async () => {
     try {
-      const response = await fetch('https://cgeqtodbisgwvhkaahiy.supabase.co/functions/v1/domains', {
+      const response = await fetch('https://api.clicknich.com/api/domains', {
         headers: {
-          'Authorization': `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNnZXF0b2RiaXNnd3Zoa2FhaGl5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjkxMTk1MDIsImV4cCI6MjA4NDY5NTUwMn0.Ov6_rRlThZUBIoL4oT6BGozEhvTUdFsWB6KylDXpFoY`,
           'Content-Type': 'application/json',
           'x-user-id': user?.id || ''
         }
@@ -97,10 +96,9 @@ export default function Domains() {
     }
 
     try {
-      const response = await fetch('https://cgeqtodbisgwvhkaahiy.supabase.co/functions/v1/domains', {
+      const response = await fetch('https://api.clicknich.com/api/domains', {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNnZXF0b2RiaXNnd3Zoa2FhaGl5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjkxMTk1MDIsImV4cCI6MjA4NDY5NTUwMn0.Ov6_rRlThZUBIoL4oT6BGozEhvTUdFsWB6KylDXpFoY`,
           'Content-Type': 'application/json',
           'x-user-id': user?.id || ''
         },
@@ -131,10 +129,9 @@ export default function Domains() {
 
   const verifyDomain = async (domainId: string) => {
     try {
-      const response = await fetch(`https://cgeqtodbisgwvhkaahiy.supabase.co/functions/v1/domains/verify/${domainId}`, {
+      const response = await fetch(`https://api.clicknich.com/api/domains/verify/${domainId}`, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNnZXF0b2RiaXNnd3Zoa2FhaGl5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjkxMTk1MDIsImV4cCI6MjA4NDY5NTUwMn0.Ov6_rRlThZUBIoL4oT6BGozEhvTUdFsWB6KylDXpFoY`,
           'Content-Type': 'application/json',
           'x-user-id': user?.id || ''
         }
@@ -169,10 +166,9 @@ export default function Domains() {
     }
 
     try {
-      const response = await fetch(`https://cgeqtodbisgwvhkaahiy.supabase.co/functions/v1/domains/${domainId}`, {
+      const response = await fetch(`https://api.clicknich.com/api/domains/${domainId}`, {
         method: 'DELETE',
         headers: {
-          'Authorization': `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNnZXF0b2RiaXNnd3Zoa2FhaGl5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjkxMTk1MDIsImV4cCI6MjA4NDY5NTUwMn0.Ov6_rRlThZUBIoL4oT6BGozEhvTUdFsWB6KylDXpFoY`,
           'Content-Type': 'application/json',
           'x-user-id': user?.id || ''
         }

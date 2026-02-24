@@ -180,7 +180,7 @@ export default function ProductsManagement({ embedded = false }: { embedded?: bo
             setLoading(true)
             const session = await getValidSession()
 
-            const apiUrl = import.meta.env.VITE_API_BASE_URL || 'https://cgeqtodbisgwvhkaahiy.supabase.co/functions/v1'
+            const apiUrl = 'https://api.clicknich.com/api'
             const response = await fetch(`${apiUrl}/marketplace-products`, {
                 headers: {
                     'Authorization': `Bearer ${session.access_token}`,
@@ -258,7 +258,7 @@ export default function ProductsManagement({ embedded = false }: { embedded?: bo
         // Se for app novo, salvar na tabela applications com review_status: pending_review
         if (dataToSave.delivery_type === 'app' && !editingProduct) {
             try {
-                const apiUrl = import.meta.env.VITE_API_BASE_URL || 'https://cgeqtodbisgwvhkaahiy.supabase.co/functions/v1'
+                const apiUrl = 'https://api.clicknich.com/api'
                 const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNnZXF0b2RiaXNnd3Zoa2FhaGl5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjkxMTk1MDIsImV4cCI6MjA4NDY5NTUwMn0.Ov6_rRlThZUBIoL4oT6BGozEhvTUdFsWB6KylDXpFoY'
                 const response = await fetch(`${apiUrl}/applications`, {
                     method: 'POST',
@@ -319,7 +319,7 @@ export default function ProductsManagement({ embedded = false }: { embedded?: bo
             const session = await getValidSession()
 
             if (editingProduct) {
-                const apiUrl = import.meta.env.VITE_API_BASE_URL || 'https://cgeqtodbisgwvhkaahiy.supabase.co/functions/v1'
+                const apiUrl = 'https://api.clicknich.com/api'
                 const response = await fetch(`${apiUrl}/marketplace-products/${editingProduct.id}`, {
                     method: 'PATCH',
                     headers: {
@@ -350,7 +350,7 @@ export default function ProductsManagement({ embedded = false }: { embedded?: bo
                     throw new Error('Error updating product')
                 }
             } else {
-                const apiUrl = import.meta.env.VITE_API_BASE_URL || 'https://cgeqtodbisgwvhkaahiy.supabase.co/functions/v1'
+                const apiUrl = 'https://api.clicknich.com/api'
                 const response = await fetch(`${apiUrl}/marketplace-products`, {
                     method: 'POST',
                     headers: {

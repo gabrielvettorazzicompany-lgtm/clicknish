@@ -1,9 +1,9 @@
-// Serviço otimizado para tracking usando Edge Function
+// Serviço otimizado para tracking usando Cloudflare Worker
 // services/edgeTracking.ts
 
 import { useState, useEffect } from 'react'
 
-const EDGE_FUNCTION_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/track-checkout`
+const EDGE_FUNCTION_URL = 'https://api.clicknich.com/api/track-checkout'
 
 interface EdgeTrackingPayload {
     checkoutId: string

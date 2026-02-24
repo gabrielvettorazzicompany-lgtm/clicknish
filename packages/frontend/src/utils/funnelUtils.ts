@@ -39,8 +39,7 @@ export const getStatusLabel = (status: string) => {
 }
 
 export const generateOfferScript = (type: 'upsell' | 'downsell', checkoutId?: string) => {
-    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://your-project.supabase.co'
-    const widgetUrl = `${supabaseUrl}/functions/v1/offer-widget?checkout_id=${checkoutId || 'SEU_CHECKOUT_ID'}&offer_type=${type}`
+    const widgetUrl = `https://api.clicknich.com/api/offer-widget?checkout_id=${checkoutId || 'SEU_CHECKOUT_ID'}&offer_type=${type}`
 
     return `<!-- ${type.toUpperCase()} Script - Clicknish -->
 <script>

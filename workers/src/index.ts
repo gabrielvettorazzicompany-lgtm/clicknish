@@ -10,6 +10,26 @@
 import { handleProcessPayment } from './handlers/process-payment'
 import { handleProcessUpsell } from './handlers/process-upsell'
 import { handleApplications } from './handlers/applications'
+import { handleTrackCheckout } from './handlers/track-checkout'
+import { handleUtmifyAbandoned } from './handlers/utmify-abandoned'
+import { handleUtmifyRefunded } from './handlers/utmify-refunded'
+import { handleDashboardStats } from './handlers/dashboard-stats'
+import { handleDomains } from './handlers/domains'
+import { handleFunnelPageWidget } from './handlers/funnel-page-widget'
+import { handleOfferAnalytics } from './handlers/offer-analytics'
+import { handleOfferWidget } from './handlers/offer-widget'
+import { handleApps } from './handlers/apps'
+import { handleAuth } from './handlers/auth'
+import { handleClients } from './handlers/clients'
+import { handleConfirmReset } from './handlers/confirm-reset'
+import { handleMarketplaceProducts } from './handlers/marketplace-products'
+import { handleMarketplaceProductsPublic } from './handlers/marketplace-products-public'
+import { handleMembers } from './handlers/members'
+import { handleProducts } from './handlers/products'
+import { handleRequestPasswordReset } from './handlers/request-password-reset'
+import { handleSendEmail } from './handlers/send-email'
+import { handleSuperadmin } from './handlers/superadmin'
+import { handleWebhooks } from './handlers/webhooks'
 
 export interface Env {
     // Variáveis públicas
@@ -97,6 +117,112 @@ async function handleApiRoute(
     // /api/applications/* - CRUD de aplicações
     if (pathname.startsWith('/api/applications')) {
         return handleApplications(request, env, ctx)
+    }
+
+    // POST /api/track-checkout - Tracking de checkout
+    if (pathname === '/api/track-checkout' && request.method === 'POST') {
+        return handleTrackCheckout(request, env, ctx)
+    }
+
+    // POST /api/utmify-abandoned - Webhook UTMify abandonado
+    if (pathname === '/api/utmify-abandoned' && request.method === 'POST') {
+        return handleUtmifyAbandoned(request, env, ctx)
+    }
+
+    // POST /api/utmify-refunded - Webhook UTMify reembolso
+    if (pathname === '/api/utmify-refunded' && request.method === 'POST') {
+        return handleUtmifyRefunded(request, env, ctx)
+    }
+
+    // POST /api/dashboard-stats - Estatísticas do dashboard
+    if (pathname === '/api/dashboard-stats' && request.method === 'POST') {
+        return handleDashboardStats(request, env, ctx)
+    }
+
+    // /api/domains/* - Gestão de domínios
+    if (pathname.startsWith('/api/domains')) {
+        return handleDomains(request, env, ctx)
+    }
+
+    // GET /api/funnel-page-widget - Widget de funil
+    if (pathname === '/api/funnel-page-widget' && request.method === 'GET') {
+        return handleFunnelPageWidget(request, env, ctx)
+    }
+
+    // POST /api/offer-analytics - Analytics de ofertas
+    if (pathname === '/api/offer-analytics' && request.method === 'POST') {
+        return handleOfferAnalytics(request, env, ctx)
+    }
+
+    // GET /api/offer-widget - Widget de ofertas
+    if (pathname === '/api/offer-widget' && request.method === 'GET') {
+        return handleOfferWidget(request, env, ctx)
+    }
+
+    // /api/apps/* - Apps públicos (slug, verify-access, free-signup)
+    if (pathname.startsWith('/api/apps')) {
+        const pathSegments = pathname.replace('/api/apps/', '').split('/').filter(Boolean)
+        return handleApps(request, env, pathSegments)
+    }
+
+    // /api/auth/* - Auth de membros
+    if (pathname.startsWith('/api/auth')) {
+        const pathSegments = pathname.replace('/api/auth/', '').split('/').filter(Boolean)
+        return handleAuth(request, env, pathSegments)
+    }
+
+    // POST /api/clients - Criar clientes manualmente
+    if (pathname === '/api/clients' && request.method === 'POST') {
+        return handleClients(request, env)
+    }
+
+    // POST /api/confirm-reset - Confirmar reset de senha
+    if (pathname === '/api/confirm-reset' && request.method === 'POST') {
+        return handleConfirmReset(request, env)
+    }
+
+    // /api/marketplace-products/* - CRUD marketplace (autenticado)
+    if (pathname.startsWith('/api/marketplace-products') && !pathname.includes('public')) {
+        const pathSegments = pathname.replace('/api/marketplace-products/', '').split('/').filter(Boolean)
+        return handleMarketplaceProducts(request, env, pathSegments)
+    }
+
+    // GET /api/marketplace-products-public - Listagem pública
+    if (pathname === '/api/marketplace-products-public' && request.method === 'GET') {
+        return handleMarketplaceProductsPublic(request, env)
+    }
+
+    // POST /api/members - Criar membro manualmente
+    if (pathname === '/api/members' && request.method === 'POST') {
+        return handleMembers(request, env)
+    }
+
+    // /api/products/* - Atualizar produtos
+    if (pathname.startsWith('/api/products')) {
+        const pathSegments = pathname.replace('/api/products/', '').split('/').filter(Boolean)
+        return handleProducts(request, env, pathSegments)
+    }
+
+    // POST /api/request-password-reset - Solicitar reset de senha
+    if (pathname === '/api/request-password-reset' && request.method === 'POST') {
+        return handleRequestPasswordReset(request, env)
+    }
+
+    // POST /api/send-email - Enviar email
+    if (pathname === '/api/send-email' && request.method === 'POST') {
+        return handleSendEmail(request, env)
+    }
+
+    // /api/superadmin/* - Painel de super admin
+    if (pathname.startsWith('/api/superadmin')) {
+        const pathSegments = pathname.replace('/api/superadmin/', '').split('/').filter(Boolean)
+        return handleSuperadmin(request, env, pathSegments)
+    }
+
+    // /api/webhooks/* - Webhooks de plataformas (Hotmart, etc)
+    if (pathname.startsWith('/api/webhooks')) {
+        const pathSegments = pathname.replace('/api/webhooks/', '').split('/').filter(Boolean)
+        return handleWebhooks(request, env, pathSegments)
     }
 
     // 404 para rotas não encontradas
