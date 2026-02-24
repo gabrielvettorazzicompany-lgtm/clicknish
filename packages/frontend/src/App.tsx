@@ -23,7 +23,6 @@ const Dashboard = lazy(() => import('./pages/Dashboard'))
 const Integrations = lazy(() => import('./pages/Integrations'))
 const Clients = lazy(() => import('./pages/Clients'))
 const Plans = lazy(() => import('./pages/Plans'))
-const Domains = lazy(() => import('./pages/Domains'))
 const Orders = lazy(() => import('./pages/Orders'))
 const Finance = lazy(() => import('./pages/Finance'))
 const Taxes = lazy(() => import('./pages/Taxes'))
@@ -574,14 +573,6 @@ export default function App() {
             element={
               <ProtectedRoute>
                 <Plans />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/domains"
-            element={
-              <ProtectedRoute>
-                <Domains />
               </ProtectedRoute>
             }
           />
