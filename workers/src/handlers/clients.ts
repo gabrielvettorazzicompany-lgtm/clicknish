@@ -13,7 +13,7 @@ export async function handleClients(request: Request, env: any): Promise<Respons
     }
 
     try {
-        const supabase = createClient(env)
+        const supabase = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY)
         const body = await request.json()
         const { email, applicationId, productIds, name, phone } = body
 

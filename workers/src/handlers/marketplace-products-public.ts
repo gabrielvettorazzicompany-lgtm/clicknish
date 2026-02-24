@@ -12,7 +12,7 @@ export async function handleMarketplaceProductsPublic(request: Request, env: any
     }
 
     try {
-        const supabase = createClient(env)
+        const supabase = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY)
         const url = new URL(request.url)
         const searchParams = url.searchParams
 

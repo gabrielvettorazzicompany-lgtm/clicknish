@@ -30,7 +30,7 @@ export async function handleSuperadmin(request: Request, env: any, pathSegments:
     }
 
     try {
-        const supabase = createClient(env)
+        const supabase = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY)
         const url = new URL(request.url)
         const userId = request.headers.get('x-user-id')
 

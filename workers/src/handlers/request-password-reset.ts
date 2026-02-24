@@ -26,7 +26,7 @@ export async function handleRequestPasswordReset(request: Request, env: any): Pr
             })
         }
 
-        const supabase = createClient(env)
+        const supabase = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY)
         const frontendUrl = env.FRONTEND_URL || 'https://app.clicknich.com'
 
         // Rate limit: max 5 requests per email per hour

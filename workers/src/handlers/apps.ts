@@ -13,7 +13,7 @@ export async function handleApps(request: Request, env: any, pathSegments: strin
     }
 
     try {
-        const supabase = createClient(env)
+        const supabase = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY)
 
         // GET /api/apps/slug/:slugOrId - Get app by slug or ID (public access)
         if (request.method === 'GET' && pathSegments.length === 2 && pathSegments[0] === 'slug') {

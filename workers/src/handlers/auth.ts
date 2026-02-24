@@ -13,7 +13,7 @@ export async function handleAuth(request: Request, env: any, pathSegments: strin
     }
 
     try {
-        const supabase = createClient(env)
+        const supabase = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY)
         const supabaseUrl = env.SUPABASE_URL
 
         // POST /api/auth/login - Login de membros

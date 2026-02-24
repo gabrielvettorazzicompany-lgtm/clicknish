@@ -33,7 +33,7 @@ export async function handleConfirmReset(request: Request, env: any): Promise<Re
             })
         }
 
-        const supabase = createClient(env)
+        const supabase = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY)
 
         // Hash token
         const encoder = new TextEncoder()

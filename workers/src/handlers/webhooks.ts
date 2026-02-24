@@ -14,7 +14,7 @@ export async function handleWebhooks(request: Request, env: any, pathSegments: s
     }
 
     try {
-        const supabase = createClient(env)
+        const supabase = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY)
 
         // POST /api/webhooks/:platform
         if (request.method === 'POST' && pathSegments.length >= 1) {

@@ -34,12 +34,17 @@ export async function handleDashboardStats(
     env: Env,
     ctx: ExecutionContext
 ): Promise<Response> {
+    if (request.method === 'OPTIONS') {
+        return new Response('ok', { headers: corsHeaders })
+    }
+
     if (request.method !== 'POST') {
         return new Response('Method not allowed', { status: 405, headers: corsHeaders })
     }
 
     try {
-        const { userId, fromDate, toDate, selectedApp, selectedMarketplace, selectedCurrency } = await request.json() as DashboardRequest
+        const body = await request.json() as DashboardRequest
+        const { userId, fromDate, toDate, selectedApp, selectedMarketplace, selectedCurrency } = body
 
         if (!userId) {
             return jsonResponse({ error: 'userId is required' }, 400)
@@ -48,12 +53,12 @@ export async function handleDashboardStats(
         const supabase = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY)
 
         // Buscar apps do usuário
-        const { data: userApps } = await supabase
+        const userAppsResult = await supabase
             .from('applications')
             .select('id')
             .eq('owner_id', userId)
 
-        const appIds = selectedApp ? [selectedApp] : (userApps?.map((a: any) => a.id) || [])
+        const appIds = selectedApp ? [selectedApp] : (userAppsResult.data?.map((a: any) => a.id) || [])
 
         // Determinar quais queries fazer baseado na moeda
         const shouldFetchMarketplace = !selectedCurrency || selectedCurrency !== 'USD'
@@ -68,25 +73,50 @@ export async function handleDashboardStats(
             endOfDay.setHours(23, 59, 59, 999)
         }
 
-        // Executar todas as queries em paralelo
-        const queries: Promise<any>[] = []
+        // Inicializar resultados
+        let marketplaceSales: any[] = []
+        let appSales: any[] = []
+        let marketplaceCheckouts: any[] = []
+        let appCheckouts: any[] = []
+        let marketplacePending: any[] = []
+        let appPending: any[] = []
+        let marketplaceRefunds: any[] = []
+        let appRefunds: any[] = []
 
         // 1. Vendas marketplace
         if (shouldFetchMarketplace) {
             let q = supabase
                 .from('user_product_access')
-                .select('purchase_price, created_at, member_areas!inner(price, currency, owner_id)')
+                .select('purchase_price, created_at, member_area_id')
                 .eq('payment_status', 'completed')
-                .eq('member_areas.owner_id', userId)
 
             if (selectedMarketplace) q = q.eq('member_area_id', selectedMarketplace)
-            if (selectedCurrency) q = q.eq('member_areas.currency', selectedCurrency)
             if (fromDateObj) q = q.gte('created_at', fromDateObj.toISOString())
             if (endOfDay) q = q.lte('created_at', endOfDay.toISOString())
 
-            queries.push(q.then(r => ({ type: 'marketplaceSales', data: r.data || [], error: r.error })))
-        } else {
-            queries.push(Promise.resolve({ type: 'marketplaceSales', data: [], error: null }))
+            const result = await q
+            
+            // Filtrar por owner_id via member_areas
+            if (result.data && result.data.length > 0) {
+                const memberAreaIds = [...new Set(result.data.map((s: any) => s.member_area_id).filter(Boolean))]
+                if (memberAreaIds.length > 0) {
+                    const maResult = await supabase
+                        .from('member_areas')
+                        .select('id, price, currency, owner_id')
+                        .eq('owner_id', userId)
+                        .in('id', memberAreaIds)
+                    
+                    const validIds = new Set((maResult.data || []).map((ma: any) => ma.id))
+                    const priceMap = new Map((maResult.data || []).map((ma: any) => [ma.id, ma.price]))
+                    
+                    marketplaceSales = result.data
+                        .filter((s: any) => validIds.has(s.member_area_id))
+                        .map((s: any) => ({
+                            ...s,
+                            price: priceMap.get(s.member_area_id) || s.purchase_price || 0
+                        }))
+                }
+            }
         }
 
         // 2. Vendas apps
@@ -100,25 +130,36 @@ export async function handleDashboardStats(
             if (fromDateObj) q = q.gte('created_at', fromDateObj.toISOString())
             if (endOfDay) q = q.lte('created_at', endOfDay.toISOString())
 
-            queries.push(q.then(r => ({ type: 'appSales', data: r.data || [], error: r.error })))
-        } else {
-            queries.push(Promise.resolve({ type: 'appSales', data: [], error: null }))
+            const result = await q
+            appSales = result.data || []
         }
 
         // 3. Checkouts marketplace
         if (shouldFetchMarketplace) {
             let q = supabase
                 .from('checkout_urls')
-                .select('id, created_at, member_areas!inner(owner_id)')
-                .eq('member_areas.owner_id', userId)
+                .select('id, created_at, member_area_id')
 
             if (selectedMarketplace) q = q.eq('member_area_id', selectedMarketplace)
             if (fromDateObj) q = q.gte('created_at', fromDateObj.toISOString())
             if (endOfDay) q = q.lte('created_at', endOfDay.toISOString())
 
-            queries.push(q.then(r => ({ type: 'marketplaceCheckouts', data: r.data || [], error: r.error })))
-        } else {
-            queries.push(Promise.resolve({ type: 'marketplaceCheckouts', data: [], error: null }))
+            const result = await q
+            
+            // Filtrar por owner_id
+            if (result.data && result.data.length > 0) {
+                const memberAreaIds = [...new Set(result.data.map((c: any) => c.member_area_id).filter(Boolean))]
+                if (memberAreaIds.length > 0) {
+                    const maResult = await supabase
+                        .from('member_areas')
+                        .select('id, owner_id')
+                        .eq('owner_id', userId)
+                        .in('id', memberAreaIds)
+                    
+                    const validIds = new Set((maResult.data || []).map((ma: any) => ma.id))
+                    marketplaceCheckouts = result.data.filter((c: any) => validIds.has(c.member_area_id))
+                }
+            }
         }
 
         // 4. Checkouts apps
@@ -131,101 +172,106 @@ export async function handleDashboardStats(
             if (fromDateObj) q = q.gte('created_at', fromDateObj.toISOString())
             if (endOfDay) q = q.lte('created_at', endOfDay.toISOString())
 
-            queries.push(q.then(r => ({ type: 'appCheckouts', data: r.data || [], error: r.error })))
-        } else {
-            queries.push(Promise.resolve({ type: 'appCheckouts', data: [], error: null }))
+            const result = await q
+            appCheckouts = result.data || []
         }
 
         // 5. Pendentes marketplace
         if (shouldFetchMarketplace) {
             let q = supabase
                 .from('user_product_access')
-                .select('purchase_price, member_areas!inner(owner_id)')
+                .select('purchase_price, member_area_id')
                 .eq('payment_status', 'pending')
-                .eq('member_areas.owner_id', userId)
 
             if (selectedMarketplace) q = q.eq('member_area_id', selectedMarketplace)
 
-            queries.push(q.then(r => ({ type: 'marketplacePending', data: r.data || [], error: r.error })))
-        } else {
-            queries.push(Promise.resolve({ type: 'marketplacePending', data: [], error: null }))
+            const result = await q
+            
+            if (result.data && result.data.length > 0) {
+                const memberAreaIds = [...new Set(result.data.map((s: any) => s.member_area_id).filter(Boolean))]
+                if (memberAreaIds.length > 0) {
+                    const maResult = await supabase
+                        .from('member_areas')
+                        .select('id, owner_id')
+                        .eq('owner_id', userId)
+                        .in('id', memberAreaIds)
+                    
+                    const validIds = new Set((maResult.data || []).map((ma: any) => ma.id))
+                    marketplacePending = result.data.filter((s: any) => validIds.has(s.member_area_id))
+                }
+            }
         }
 
         // 6. Pendentes apps
         if (shouldFetchApps) {
-            const q = supabase
+            const result = await supabase
                 .from('user_product_access')
                 .select('purchase_price')
                 .eq('payment_status', 'pending')
                 .in('application_id', appIds)
-
-            queries.push(q.then(r => ({ type: 'appPending', data: r.data || [], error: r.error })))
-        } else {
-            queries.push(Promise.resolve({ type: 'appPending', data: [], error: null }))
+            
+            appPending = result.data || []
         }
 
         // 7. Reembolsos marketplace
         if (shouldFetchMarketplace) {
             let q = supabase
                 .from('user_product_access')
-                .select('id, member_areas!inner(owner_id)')
+                .select('id, member_area_id')
                 .in('payment_status', ['refunded', 'reversed'])
-                .eq('member_areas.owner_id', userId)
 
             if (selectedMarketplace) q = q.eq('member_area_id', selectedMarketplace)
 
-            queries.push(q.then(r => ({ type: 'marketplaceRefunds', data: r.data || [], error: r.error })))
-        } else {
-            queries.push(Promise.resolve({ type: 'marketplaceRefunds', data: [], error: null }))
+            const result = await q
+            
+            if (result.data && result.data.length > 0) {
+                const memberAreaIds = [...new Set(result.data.map((s: any) => s.member_area_id).filter(Boolean))]
+                if (memberAreaIds.length > 0) {
+                    const maResult = await supabase
+                        .from('member_areas')
+                        .select('id, owner_id')
+                        .eq('owner_id', userId)
+                        .in('id', memberAreaIds)
+                    
+                    const validIds = new Set((maResult.data || []).map((ma: any) => ma.id))
+                    marketplaceRefunds = result.data.filter((s: any) => validIds.has(s.member_area_id))
+                }
+            }
         }
 
         // 8. Reembolsos apps
         if (shouldFetchApps) {
-            const q = supabase
+            const result = await supabase
                 .from('user_product_access')
                 .select('id')
                 .in('payment_status', ['refunded', 'reversed'])
                 .in('application_id', appIds)
-
-            queries.push(q.then(r => ({ type: 'appRefunds', data: r.data || [], error: r.error })))
-        } else {
-            queries.push(Promise.resolve({ type: 'appRefunds', data: [], error: null }))
-        }
-
-        // Executar todas as queries em paralelo
-        const results = await Promise.all(queries)
-
-        // Organizar resultados por tipo
-        const resultMap: Record<string, any[]> = {}
-        for (const r of results) {
-            if (r.error) {
-                console.error(`Error in ${r.type}:`, r.error)
-            }
-            resultMap[r.type] = r.data || []
+            
+            appRefunds = result.data || []
         }
 
         // Calcular estatísticas
-        const allSales = [...resultMap.marketplaceSales, ...resultMap.appSales]
-        const allCheckouts = [...resultMap.marketplaceCheckouts, ...resultMap.appCheckouts]
-        const allPending = [...resultMap.marketplacePending, ...resultMap.appPending]
-        const allRefunds = [...resultMap.marketplaceRefunds, ...resultMap.appRefunds]
+        const allSales = [...marketplaceSales, ...appSales]
+        const allCheckouts = [...marketplaceCheckouts, ...appCheckouts]
+        const allPending = [...marketplacePending, ...appPending]
+        const allRefunds = [...marketplaceRefunds, ...appRefunds]
 
         const totalSales = allSales.reduce((sum, sale) => {
-            const price = sale.member_areas?.price || sale.purchase_price || 0
-            return sum + price
+            const price = sale.price || sale.purchase_price || 0
+            return sum + parseFloat(price)
         }, 0)
 
         const salesCount = allSales.length
         const checkoutsCount = allCheckouts.length
-        const pendingAmount = allPending.reduce((sum, r) => sum + (r.purchase_price || 0), 0)
+        const pendingAmount = allPending.reduce((sum, r) => sum + parseFloat(r.purchase_price || 0), 0)
         const refundCount = allRefunds.length
 
         // Calcular vendas diárias
         const salesByDate: Record<string, number> = {}
         allSales.forEach(sale => {
             const date = new Date(sale.created_at).toISOString().split('T')[0]
-            const price = sale.member_areas?.price || sale.purchase_price || 0
-            salesByDate[date] = (salesByDate[date] || 0) + price
+            const price = sale.price || sale.purchase_price || 0
+            salesByDate[date] = (salesByDate[date] || 0) + parseFloat(price)
         })
 
         const dailySales = Object.entries(salesByDate)
@@ -266,6 +312,6 @@ export async function handleDashboardStats(
 
     } catch (error: any) {
         console.error('Dashboard stats error:', error)
-        return jsonResponse({ error: error.message }, 500)
+        return jsonResponse({ error: error.message || 'Internal error' }, 500)
     }
 }

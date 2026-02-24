@@ -68,6 +68,61 @@ export class SupabaseClient {
                         return { data: null, error: data }
                     }
                     return { data: { user: data }, error: null }
+                },
+
+                listUsers: async (options?: { perPage?: number; page?: number }) => {
+                    const params = new URLSearchParams()
+                    if (options?.perPage) params.set('per_page', String(options.perPage))
+                    if (options?.page) params.set('page', String(options.page))
+                    
+                    const response = await fetch(`${this.url}/auth/v1/admin/users?${params}`, {
+                        method: 'GET',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'apikey': this.serviceKey,
+                            'Authorization': `Bearer ${this.serviceKey}`,
+                        },
+                    })
+
+                    const data = await response.json()
+                    if (!response.ok) {
+                        return { data: null, error: data }
+                    }
+                    return { data: { users: data.users || data }, error: null }
+                },
+
+                deleteUser: async (userId: string) => {
+                    const response = await fetch(`${this.url}/auth/v1/admin/users/${userId}`, {
+                        method: 'DELETE',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'apikey': this.serviceKey,
+                            'Authorization': `Bearer ${this.serviceKey}`,
+                        },
+                    })
+
+                    if (!response.ok) {
+                        const data = await response.json()
+                        return { data: null, error: data }
+                    }
+                    return { data: { user: null }, error: null }
+                },
+
+                getUserById: async (userId: string) => {
+                    const response = await fetch(`${this.url}/auth/v1/admin/users/${userId}`, {
+                        method: 'GET',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'apikey': this.serviceKey,
+                            'Authorization': `Bearer ${this.serviceKey}`,
+                        },
+                    })
+
+                    const data = await response.json()
+                    if (!response.ok) {
+                        return { data: null, error: data }
+                    }
+                    return { data: { user: data }, error: null }
                 }
             }
         }

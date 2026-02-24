@@ -13,7 +13,7 @@ export async function handleProducts(request: Request, env: any, pathSegments: s
     }
 
     try {
-        const supabase = createClient(env)
+        const supabase = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY)
 
         // PUT /api/products/:id - Update product
         if (request.method === 'PUT' && pathSegments.length === 1) {
