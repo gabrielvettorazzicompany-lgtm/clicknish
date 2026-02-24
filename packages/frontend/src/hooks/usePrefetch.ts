@@ -43,3 +43,39 @@ export function usePrefetch() {
 
     return { prefetch }
 }
+
+// Rotas prioritárias para prefetch durante idle time
+const priorityRoutes = ['/dashboard', '/orders', '/checkouts', '/products', '/finance']
+
+/**
+ * Prefetch rotas prioritárias quando o browser está ocioso
+ * Chamar após login bem-sucedido
+ */
+export function prefetchPriorityRoutes() {
+    if ('requestIdleCallback' in window) {
+        (window as any).requestIdleCallback(() => {
+            priorityRoutes.forEach((path) => {
+                if (!prefetchedRoutes.has(path)) {
+                    const importFn = routeImports[path]
+                    if (importFn) {
+                        prefetchedRoutes.add(path)
+                        importFn().catch(() => prefetchedRoutes.delete(path))
+                    }
+                }
+            })
+        }, { timeout: 3000 })
+    } else {
+        // Fallback para browsers sem requestIdleCallback
+        setTimeout(() => {
+            priorityRoutes.forEach((path) => {
+                if (!prefetchedRoutes.has(path)) {
+                    const importFn = routeImports[path]
+                    if (importFn) {
+                        prefetchedRoutes.add(path)
+                        importFn().catch(() => prefetchedRoutes.delete(path))
+                    }
+                }
+            })
+        }, 2000)
+    }
+}

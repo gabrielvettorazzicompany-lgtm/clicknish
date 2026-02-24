@@ -5,6 +5,7 @@ import { useAuthStore } from '@/stores/authStore'
 import { Mail, Lock, AlertCircle, Loader, Download, Eye, EyeOff } from 'lucide-react'
 import InstallAppModal from '@/components/InstallAppModal'
 import { useI18n } from '@/i18n'
+import { prefetchPriorityRoutes } from '@/hooks/usePrefetch'
 
 export default function Login() {
   const navigate = useNavigate()
@@ -36,6 +37,8 @@ export default function Login() {
         if (data.user.email) {
           localStorage.setItem('userEmail', data.user.email)
         }
+        // Prefetch rotas prioritárias em background
+        prefetchPriorityRoutes()
         navigate('/dashboard')
       }
     } catch (err: unknown) {
