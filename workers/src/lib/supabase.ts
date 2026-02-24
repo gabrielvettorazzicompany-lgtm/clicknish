@@ -150,7 +150,11 @@ class SupabaseQuery {
 
     select(columns: string = '*') {
         this.selectColumns = columns
-        this.method = 'GET'
+        // Don't change method if we're doing insert/update (for returning data)
+        if (this.method === 'GET' || !this.bodyData) {
+            this.method = 'GET'
+        }
+        this.returnData = true
         return this
     }
 
@@ -254,11 +258,17 @@ class SupabaseQuery {
                 url += `?${this.queryParams.join('&')}`
             }
 
-            const response = await fetch(url, {
+            const fetchOptions: RequestInit = {
                 method: this.method,
                 headers,
-                body: this.bodyData ? JSON.stringify(this.bodyData) : undefined,
-            })
+            }
+
+            // Only add body for POST/PATCH/PUT methods
+            if (this.bodyData && (this.method === 'POST' || this.method === 'PATCH' || this.method === 'PUT')) {
+                fetchOptions.body = JSON.stringify(this.bodyData)
+            }
+
+            const response = await fetch(url, fetchOptions)
 
             let data = await response.json()
 

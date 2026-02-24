@@ -14,18 +14,44 @@ export async function handleClients(request: Request, env: any): Promise<Respons
 
     try {
         const supabase = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY)
-        const body = await request.json()
+        
+        let body
+        try {
+            body = await request.json()
+        } catch (e) {
+            return new Response(
+                JSON.stringify({ error: 'Invalid JSON body' }),
+                { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
+            )
+        }
+        
         const { email, applicationId, productIds, name, phone } = body
 
+        if (!email) {
+            return new Response(
+                JSON.stringify({ error: 'Email is required' }),
+                { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
+            )
+        }
+
+        if (!applicationId) {
+            return new Response(
+                JSON.stringify({ error: 'Application ID is required' }),
+                { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
+            )
+        }
+
+        console.log('Creating client:', { email, applicationId, name })
+
         // 1. Check if the user already exists in app_users for this app
-        const { data: existingAppUser } = await supabase
+        const existingResult = await supabase
             .from('app_users')
             .select('*')
             .eq('email', email)
             .eq('application_id', applicationId)
             .maybeSingle()
 
-        if (existingAppUser) {
+        if (existingResult.data) {
             return new Response(
                 JSON.stringify({
                     error: 'A user with this email address has already been registered'
@@ -40,8 +66,8 @@ export async function handleClients(request: Request, env: any): Promise<Respons
         let userId: string
         let existingAuthUser = false
 
-        // 2. Check if the user already exists in auth
-        const { data: authData, error: authError } = await supabase.auth.admin.createUser({
+        // 2. Create user in auth
+        const authResult = await supabase.auth.admin.createUser({
             email: email,
             email_confirm: true,
             user_metadata: {
@@ -51,25 +77,37 @@ export async function handleClients(request: Request, env: any): Promise<Respons
             }
         })
 
-        if (authError) {
-            if (authError.message?.includes('already been registered') || authError.message?.includes('already exists')) {
-                const { data: allUsers } = await supabase.auth.admin.listUsers({ perPage: 1000 })
-                const found = allUsers?.users?.find(u => u.email === email)
+        console.log('Auth result:', JSON.stringify(authResult))
+
+        if (authResult.error) {
+            const errorMsg = authResult.error.message || authResult.error.msg || JSON.stringify(authResult.error)
+            if (errorMsg.includes('already been registered') || errorMsg.includes('already exists')) {
+                // User exists, try to find them
+                const listResult = await supabase.auth.admin.listUsers({ perPage: 1000 })
+                const found = listResult.data?.users?.find((u: any) => u.email === email)
                 if (found) {
                     userId = found.id
                     existingAuthUser = true
                 } else {
-                    throw new Error('User already registered in another app. Contact support.')
+                    return new Response(
+                        JSON.stringify({ error: 'User already registered in another app. Contact support.' }),
+                        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
+                    )
                 }
             } else {
-                throw authError
+                return new Response(
+                    JSON.stringify({ error: errorMsg }),
+                    { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
+                )
             }
         } else {
-            userId = authData.user.id
+            userId = authResult.data.user.id
         }
 
+        console.log('User ID:', userId)
+
         // 3. Create record in app_users
-        const { data: newUser, error: userError } = await supabase
+        const insertResult = await supabase
             .from('app_users')
             .insert({
                 user_id: userId,
@@ -83,14 +121,18 @@ export async function handleClients(request: Request, env: any): Promise<Respons
             .select()
             .single()
 
-        if (userError) {
+        if (insertResult.error) {
+            console.error('Insert error:', insertResult.error)
             if (!existingAuthUser) {
                 await supabase.auth.admin.deleteUser(userId)
             }
-            throw userError
+            return new Response(
+                JSON.stringify({ error: insertResult.error.message || 'Error creating app user' }),
+                { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
+            )
         }
 
-        // If there are products, create access
+        // 4. If there are products, create access
         if (productIds && productIds.length > 0) {
             const accessRecords = productIds.map((productId: string) => ({
                 user_id: userId,
@@ -101,19 +143,19 @@ export async function handleClients(request: Request, env: any): Promise<Respons
                 created_at: new Date().toISOString()
             }))
 
-            const { error: accessError } = await supabase
+            const accessResult = await supabase
                 .from('user_product_access')
                 .insert(accessRecords)
 
-            if (accessError) {
-                throw accessError
+            if (accessResult.error) {
+                console.error('Access error:', accessResult.error)
             }
         }
 
         return new Response(
             JSON.stringify({
                 success: true,
-                user: newUser,
+                user: insertResult.data,
                 message: 'Client created successfully'
             }),
             {
@@ -123,7 +165,7 @@ export async function handleClients(request: Request, env: any): Promise<Respons
         )
 
     } catch (error: any) {
-        console.error('Error:', error)
+        console.error('Handler error:', error)
         return new Response(
             JSON.stringify({
                 error: error.message || 'Error creating client'
@@ -135,3 +177,4 @@ export async function handleClients(request: Request, env: any): Promise<Respons
         )
     }
 }
+
