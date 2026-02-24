@@ -18,7 +18,7 @@ FRONTEND_URL = "https://app.clicknich.com"
 pattern = "api.clicknich.com/*"
 zone_name = "clicknich.com"
 
-# KV Storage para cache (opcional)
-# [[kv_namespaces]]
-# binding = "CACHE"
-# id = "seu-kv-namespace-id"
+# KV Storage para cache
+[[kv_namespaces]]
+binding = "CACHE"
+id = "2060c79bb2c742ea8fb264fe87ec14e4"
