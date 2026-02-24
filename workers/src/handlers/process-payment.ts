@@ -31,6 +31,8 @@ export async function handleProcessPayment(
             trackingParameters,
         } = await request.json()
 
+        console.log('Process payment request:', { productId, productType, applicationId, checkoutId, customerEmail, paymentMethodId: paymentMethodId ? 'present' : 'missing' })
+
         // Inicializar clientes
         const supabase = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY)
         const stripe = createStripeClient(env.STRIPE_SECRET_KEY)
