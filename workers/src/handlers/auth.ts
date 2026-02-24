@@ -44,9 +44,9 @@ export async function handleAuth(request: Request, env: any, pathSegments: strin
 
             const normalizedEmail = email.toLowerCase().trim()
 
-            // Verificar se usuário já existe no auth.users
-            const { data: existingUsers } = await supabase.auth.admin.listUsers({ perPage: 1000 })
-            let authUser = existingUsers?.users?.find(u => u.email === normalizedEmail)
+            // Verificar se usuário já existe no auth.users (busca otimizada por email)
+            const { data: existingUserData } = await supabase.auth.admin.getUserByEmail(normalizedEmail)
+            let authUser = existingUserData?.user
             let isNewUser = false
 
             if (!authUser) {
@@ -65,10 +65,9 @@ export async function handleAuth(request: Request, env: any, pathSegments: strin
 
                 if (createError) {
                     if (createError.message?.includes('already been registered') || createError.message?.includes('already exists')) {
-                        const { data: retryUsers } = await supabase.auth.admin.listUsers({ perPage: 1000 })
-                        const foundUser = retryUsers?.users?.find(u => u.email === normalizedEmail)
-                        if (foundUser) {
-                            authUser = foundUser
+                        const { data: retryData } = await supabase.auth.admin.getUserByEmail(normalizedEmail)
+                        if (retryData?.user) {
+                            authUser = retryData.user
                         } else {
                             return new Response(JSON.stringify({ error: 'Erro ao localizar conta existente. Tente novamente.' }), {
                                 status: 500,

@@ -39,9 +39,9 @@ export async function handleMembers(request: Request, env: any): Promise<Respons
 
         let userId: string
 
-        // 2. Verificar se o usuário já existe no auth
-        const { data: existingAuthUsers } = await supabase.auth.admin.listUsers()
-        const existingAuthUser = existingAuthUsers?.users?.find(u => u.email === email)
+        // 2. Verificar se o usuário já existe no auth (busca otimizada por email)
+        const { data: existingAuthData } = await supabase.auth.admin.getUserByEmail(email)
+        const existingAuthUser = existingAuthData?.user
 
         if (existingAuthUser) {
             userId = existingAuthUser.id

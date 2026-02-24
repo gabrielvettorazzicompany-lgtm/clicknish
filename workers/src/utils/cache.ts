@@ -80,10 +80,17 @@ export async function invalidateCacheByPrefix(env: Env, prefix: string): Promise
 }
 
 /**
- * Gera chave de cache para usuário + recurso
+ * Gera chave de cache para usuário + recurso + parâmetros
  */
-export function userCacheKey(userId: string, resource: string): string {
-    return `user:${userId}:${resource}`
+export function userCacheKey(userId: string, resource: string, params?: Record<string, string>): string {
+    if (!params) {
+        return `user:${userId}:${resource}`
+    }
+    const paramStr = Object.entries(params)
+        .sort(([a], [b]) => a.localeCompare(b))
+        .map(([k, v]) => `${k}=${v}`)
+        .join(':')
+    return `user:${userId}:${resource}:${paramStr}`
 }
 
 /**

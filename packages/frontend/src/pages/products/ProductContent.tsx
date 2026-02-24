@@ -112,18 +112,30 @@ export default function ProductContent() {
 
             if (modulesError) throw modulesError
 
-            // Fetch lessons for each module
-            const modulesWithLessons = await Promise.all(
-                (modulesData || []).map(async (module) => {
-                    const { data: lessonsData } = await supabase
-                        .from('community_lessons')
-                        .select('*')
-                        .eq('module_id', module.id)
-                        .order('order_position', { ascending: true })
+            if (!modulesData || modulesData.length === 0) {
+                setModules([])
+                return
+            }
 
-                    return { ...module, lessons: lessonsData || [] }
-                })
-            )
+            // Fetch ALL lessons in a single query (avoids N+1 problem)
+            const moduleIds = modulesData.map(m => m.id)
+            const { data: allLessons } = await supabase
+                .from('community_lessons')
+                .select('*')
+                .in('module_id', moduleIds)
+                .order('order_position', { ascending: true })
+
+            // Group lessons by module_id in memory
+            const lessonsByModule = (allLessons || []).reduce((acc, lesson) => {
+                if (!acc[lesson.module_id]) acc[lesson.module_id] = []
+                acc[lesson.module_id].push(lesson)
+                return acc
+            }, {} as Record<string, Lesson[]>)
+
+            const modulesWithLessons = modulesData.map(module => ({
+                ...module,
+                lessons: lessonsByModule[module.id] || []
+            }))
 
             setModules(modulesWithLessons)
         } catch (error) {

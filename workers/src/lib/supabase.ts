@@ -91,6 +91,30 @@ export class SupabaseClient {
                     return { data: { users: data.users || data }, error: null }
                 },
 
+                /**
+                 * Busca usuário por email - MUITO mais eficiente que listUsers
+                 */
+                getUserByEmail: async (email: string) => {
+                    const response = await fetch(`${this.url}/auth/v1/admin/users?email=${encodeURIComponent(email)}`, {
+                        method: 'GET',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'apikey': this.serviceKey,
+                            'Authorization': `Bearer ${this.serviceKey}`,
+                        },
+                    })
+
+                    const data = await response.json()
+                    if (!response.ok) {
+                        return { data: null, error: data }
+                    }
+
+                    // Retorna o primeiro usuário encontrado ou null
+                    const users = data.users || data || []
+                    const user = Array.isArray(users) ? users.find((u: any) => u.email?.toLowerCase() === email.toLowerCase()) : null
+                    return { data: { user }, error: null }
+                },
+
                 deleteUser: async (userId: string) => {
                     const response = await fetch(`${this.url}/auth/v1/admin/users/${userId}`, {
                         method: 'DELETE',

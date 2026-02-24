@@ -44,31 +44,15 @@ export async function handleRequestPasswordReset(request: Request, env: any): Pr
             })
         }
 
-        // Find user by email
+        // Find user by email (busca otimizada)
         let userId: string | null = null
         try {
-            const perPage = 100
-            let page = 1
-            let found = false
-
-            while (!found) {
-                const res = await supabase.auth.admin.listUsers({ page, perPage })
-                const usersPage = (res as any).data?.users || (res as any).data || []
-
-                if (!usersPage || usersPage.length === 0) break
-
-                const match = usersPage.find((u: any) => u.email && u.email.toLowerCase() === email.toLowerCase())
-                if (match) {
-                    userId = match.id
-                    found = true
-                    break
-                }
-
-                if (usersPage.length < perPage) break
-                page += 1
+            const { data: userData } = await supabase.auth.admin.getUserByEmail(email.toLowerCase())
+            if (userData?.user) {
+                userId = userData.user.id
             }
         } catch (err) {
-            console.warn('Failed to list users to find by email', err)
+            console.warn('Failed to find user by email', err)
         }
 
         // Always succeed (don't reveal whether the user exists)

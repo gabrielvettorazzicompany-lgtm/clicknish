@@ -82,11 +82,10 @@ export async function handleClients(request: Request, env: any): Promise<Respons
         if (authResult.error) {
             const errorMsg = authResult.error.message || authResult.error.msg || JSON.stringify(authResult.error)
             if (errorMsg.includes('already been registered') || errorMsg.includes('already exists')) {
-                // User exists, try to find them
-                const listResult = await supabase.auth.admin.listUsers({ perPage: 1000 })
-                const found = listResult.data?.users?.find((u: any) => u.email === email)
-                if (found) {
-                    userId = found.id
+                // User exists, try to find them by email
+                const { data: foundData } = await supabase.auth.admin.getUserByEmail(email)
+                if (foundData?.user) {
+                    userId = foundData.user.id
                     existingAuthUser = true
                 } else {
                     return new Response(
