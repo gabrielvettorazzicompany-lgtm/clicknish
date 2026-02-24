@@ -182,18 +182,33 @@ function Products({ embedded = false }: { embedded?: boolean }) {
       })
       if (response.ok) {
         const data = await response.json()
-
         setProducts(data)
 
-        // Fetch contents for each product
-        for (const product of data) {
-          fetchProductContents(product.id)
-        }
+        // Fetch all product contents in a single batch request
+        fetchAllProductContents()
       }
     } catch (error) {
       console.error('Error fetching products:', error)
     } finally {
       setLoading(false)
+    }
+  }
+
+  const fetchAllProductContents = async () => {
+    try {
+      const url = `https://api.clicknich.com/api/applications/${validAppId}/products-contents`
+      const response = await fetch(url, {
+        headers: {
+          'Authorization': `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNnZXF0b2RiaXNnd3Zoa2FhaGl5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjkxMTk1MDIsImV4cCI6MjA4NDY5NTUwMn0.Ov6_rRlThZUBIoL4oT6BGozEhvTUdFsWB6KylDXpFoY`,
+          'x-user-id': user?.id || 'user-default'
+        }
+      })
+      if (response.ok) {
+        const data = await response.json()
+        setContents(data)
+      }
+    } catch (error) {
+      console.error('Error fetching all product contents:', error)
     }
   }
 

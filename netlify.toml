@@ -15,11 +15,28 @@
   VITE_API_BASE_URL = "https://api.clicknich.com/api"
   VITE_STRIPE_PUBLIC_KEY = "pk_test_51OG75IBfHvR9ZPZBbSGZD2TcJeiGhvggCWG98PBt29qw9MYtgoVYV7MDynkPE9nVKAJO8Jl7AAVn8vxHLtupfp4T00YqQAnOrd"
 
-# SPA fallback for all routes
+# SPA fallback for all other routes (only if file doesn't exist)
 [[redirects]]
   from = "/*"
   to = "/index.html"
   status = 200
+
+# Não fazer cache do HTML para evitar referências a assets antigos
+[[headers]]
+  for = "/"
+  [headers.values]
+    cache-control = "no-cache, no-store, must-revalidate"
+
+[[headers]]
+  for = "/*.html"
+  [headers.values]
+    cache-control = "no-cache, no-store, must-revalidate"
+
+# Cache longo para assets com hash (imutáveis)
+[[headers]]
+  for = "/assets/*"
+  [headers.values]
+    cache-control = "public, max-age=31536000, immutable"
 
 [[headers]]
   for = "/static/*"

@@ -120,46 +120,144 @@ export async function fetchUserCheckouts(userId: string): Promise<CheckoutWithDe
             new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
         )
 
+        // Batch fetch all metrics to avoid N+1 queries
+        const allMetrics = await fetchAllCheckoutMetrics(checkoutsData)
+
         // Processar cada checkout para incluir métricas
-        const checkoutsWithDetails = await Promise.all(
-            checkoutsData.map(async (checkout) => {
-                // Determinar tipo de produto
-                const isMemberArea = !!checkout.member_area_id
-                const productData = isMemberArea
-                    ? checkout.member_areas
-                    : checkout.applications
+        const checkoutsWithDetails = checkoutsData.map((checkout) => {
+            // Determinar tipo de produto
+            const isMemberArea = !!checkout.member_area_id
+            const productData = isMemberArea
+                ? checkout.member_areas
+                : checkout.applications
 
-                // Criar objeto de produto
-                const product: CheckoutProduct = {
-                    id: productData.id,
-                    name: productData.name,
-                    price: isMemberArea ? productData.price : undefined,
-                    currency: isMemberArea ? productData.currency || 'BRL' : undefined,
-                    type: isMemberArea ? 'member_area' : 'application'
-                }
+            // Criar objeto de produto
+            const product: CheckoutProduct = {
+                id: productData.id,
+                name: productData.name,
+                price: isMemberArea ? productData.price : undefined,
+                currency: isMemberArea ? productData.currency || 'BRL' : undefined,
+                type: isMemberArea ? 'member_area' : 'application'
+            }
 
-                // Buscar métricas do checkout
-                const metrics = await fetchCheckoutMetrics(
-                    checkout.id,
-                    checkout.member_area_id,
-                    checkout.application_id
-                )
+            // Get pre-fetched metrics
+            const metrics = allMetrics.get(checkout.id) || {
+                visits: 0,
+                conversions: 0,
+                total_sales: 0,
+                conversion_rate: 0
+            }
 
-                // Remover os objetos de join do resultado
-                const { member_areas, applications, ...checkoutClean } = checkout
+            // Remover os objetos de join do resultado
+            const { member_areas, applications, ...checkoutClean } = checkout
 
-                return {
-                    ...checkoutClean,
-                    product,
-                    metrics
-                }
-            })
-        )
+            return {
+                ...checkoutClean,
+                product,
+                metrics
+            }
+        })
 
         return checkoutsWithDetails
     } catch (error) {
         console.error('Error fetching user checkouts:', error)
         throw error
+    }
+}
+
+/**
+ * Batch fetch metrics for all checkouts to avoid N+1 queries
+ * Returns a Map of checkout_id -> metrics
+ */
+async function fetchAllCheckoutMetrics(checkouts: any[]): Promise<Map<string, CheckoutMetrics>> {
+    const metricsMap = new Map<string, CheckoutMetrics>()
+
+    if (checkouts.length === 0) return metricsMap
+
+    try {
+        // Collect all IDs for batch queries
+        const checkoutIds = checkouts.map(c => c.id)
+        const memberAreaIds = checkouts.filter(c => c.member_area_id).map(c => c.member_area_id)
+        const applicationIds = checkouts.filter(c => c.application_id).map(c => c.application_id)
+
+        // Batch query 1: Get all visits from checkout_analytics
+        const { data: analyticsData } = await supabase
+            .from('checkout_analytics')
+            .select('checkout_id')
+            .in('checkout_id', checkoutIds)
+            .eq('event_type', 'page_view')
+
+        // Count visits per checkout
+        const visitsByCheckout = new Map<string, number>()
+        for (const row of analyticsData || []) {
+            visitsByCheckout.set(row.checkout_id, (visitsByCheckout.get(row.checkout_id) || 0) + 1)
+        }
+
+        // Batch query 2: Get sales for member_areas
+        const salesByMemberArea = new Map<string, number>()
+        if (memberAreaIds.length > 0) {
+            const { data: memberSales } = await supabase
+                .from('user_marketplace_access')
+                .select('member_area_id')
+                .in('member_area_id', memberAreaIds)
+                .eq('payment_status', 'completed')
+
+            for (const row of memberSales || []) {
+                salesByMemberArea.set(row.member_area_id, (salesByMemberArea.get(row.member_area_id) || 0) + 1)
+            }
+        }
+
+        // Batch query 3: Get sales for applications
+        const salesByApplication = new Map<string, number>()
+        if (applicationIds.length > 0) {
+            const { data: appSales } = await supabase
+                .from('user_product_access')
+                .select('application_id')
+                .in('application_id', applicationIds)
+                .eq('payment_status', 'completed')
+
+            for (const row of appSales || []) {
+                if (row.application_id) {
+                    salesByApplication.set(row.application_id, (salesByApplication.get(row.application_id) || 0) + 1)
+                }
+            }
+        }
+
+        // Build metrics map for each checkout
+        for (const checkout of checkouts) {
+            const visits = visitsByCheckout.get(checkout.id) || 0
+            let salesCount = 0
+
+            if (checkout.member_area_id) {
+                salesCount = salesByMemberArea.get(checkout.member_area_id) || 0
+            } else if (checkout.application_id) {
+                salesCount = salesByApplication.get(checkout.application_id) || 0
+            }
+
+            const totalSales = salesCount * 100 // Placeholder
+            const conversionRate = visits > 0 ? (salesCount / visits) * 100 : 0
+
+            metricsMap.set(checkout.id, {
+                visits,
+                conversions: salesCount,
+                total_sales: totalSales,
+                conversion_rate: conversionRate
+            })
+        }
+
+        return metricsMap
+    } catch (error) {
+        console.error('Error fetching all checkout metrics:', error)
+        // Return empty metrics for all checkouts on error
+        for (const checkout of checkouts) {
+            metricsMap.set(checkout.id, {
+                visits: 0,
+                conversions: 0,
+                total_sales: 0,
+                conversion_rate: 0
+            })
+        }
+        return metricsMap
     }
 }
 
@@ -278,37 +376,39 @@ export async function fetchProductCheckouts(
         if (checkoutsError) throw checkoutsError
         if (!checkoutsData) return []
 
+        // Batch fetch all metrics to avoid N+1 queries
+        const allMetrics = await fetchAllCheckoutMetrics(checkoutsData)
+
         // Processar checkouts
-        const checkoutsWithDetails = await Promise.all(
-            checkoutsData.map(async (checkout) => {
-                const isMemberArea = productType === 'member_area'
-                const productData = isMemberArea
-                    ? checkout.member_areas
-                    : checkout.applications
+        const checkoutsWithDetails = checkoutsData.map((checkout) => {
+            const isMemberArea = productType === 'member_area'
+            const productData = isMemberArea
+                ? checkout.member_areas
+                : checkout.applications
 
-                const product: CheckoutProduct = {
-                    id: productData.id,
-                    name: productData.name,
-                    price: isMemberArea ? productData.price : undefined,
-                    currency: isMemberArea ? productData.currency || 'BRL' : undefined,
-                    type: productType
-                }
+            const product: CheckoutProduct = {
+                id: productData.id,
+                name: productData.name,
+                price: isMemberArea ? productData.price : undefined,
+                currency: isMemberArea ? productData.currency || 'BRL' : undefined,
+                type: productType
+            }
 
-                const metrics = await fetchCheckoutMetrics(
-                    checkout.id,
-                    checkout.member_area_id,
-                    checkout.application_id
-                )
+            const metrics = allMetrics.get(checkout.id) || {
+                visits: 0,
+                conversions: 0,
+                total_sales: 0,
+                conversion_rate: 0
+            }
 
-                const { member_areas, applications, ...checkoutClean } = checkout
+            const { member_areas, applications, ...checkoutClean } = checkout
 
-                return {
-                    ...checkoutClean,
-                    product,
-                    metrics
-                }
-            })
-        )
+            return {
+                ...checkoutClean,
+                product,
+                metrics
+            }
+        })
 
         return checkoutsWithDetails
     } catch (error) {
@@ -510,8 +610,8 @@ export async function trackCheckoutEvent(
             // Não bloquear a aplicação por erro de analytics
         }
     } catch (error) {
-    console.warn('Error tracking checkout event:', error)
-}
+        console.warn('Error tracking checkout event:', error)
+    }
 }
 
 /**

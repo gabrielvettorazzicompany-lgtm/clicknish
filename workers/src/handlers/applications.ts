@@ -94,6 +94,59 @@ export async function handleApplications(
             return jsonResponse(data || [])
         }
 
+        // GET /applications/:appId/products-contents - Get ALL product contents for an app (batch - avoids N+1)
+        if (request.method === 'GET' && pathSegments.length === 2 && pathSegments[1] === 'products-contents') {
+            const appId = pathSegments[0]
+
+            // First get all product IDs for this application
+            const { data: products, error: productsError } = await supabase
+                .from('products')
+                .select('id')
+                .eq('application_id', appId)
+
+            if (productsError) throw productsError
+
+            const productIds = products?.map(p => p.id) || []
+
+            if (productIds.length === 0) {
+                return jsonResponse({})
+            }
+
+            // Fetch all contents for all products in one query
+            const { data: allContents, error: contentsError } = await supabase
+                .from('product_content')
+                .select('*')
+                .in('product_id', productIds)
+                .order('order', { ascending: true })
+
+            if (contentsError) throw contentsError
+
+            // Group contents by product_id
+            const contentsByProduct: { [productId: string]: any[] } = {}
+            for (const item of allContents || []) {
+                const mappedItem = {
+                    id: item.id,
+                    product_id: item.product_id,
+                    name: item.title,
+                    type: item.content_type,
+                    url: item.content_url,
+                    description: item.text_content,
+                    cover_url: item.cover_url,
+                    attachments: item.attachments || [],
+                    order: item.order,
+                    order_index: item.order,
+                    created_at: item.created_at,
+                    updated_at: item.updated_at
+                }
+                if (!contentsByProduct[item.product_id]) {
+                    contentsByProduct[item.product_id] = []
+                }
+                contentsByProduct[item.product_id].push(mappedItem)
+            }
+
+            return jsonResponse(contentsByProduct)
+        }
+
         // GET /applications/:appId/products/:productId/contents - Get product contents (public)
         if (request.method === 'GET' && pathSegments.length === 4 && pathSegments[1] === 'products' && pathSegments[3] === 'contents') {
             const productId = pathSegments[2]
