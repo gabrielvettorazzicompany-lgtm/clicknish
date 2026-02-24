@@ -5,7 +5,6 @@
  */
 
 import { createClient } from '../lib/supabase'
-import { withCache, invalidateCache, userCacheKey } from '../utils/cache'
 import type { Env } from '../index'
 
 const corsHeaders = {
@@ -376,22 +375,15 @@ export async function handleApplications(
             return jsonResponse({ error: 'Missing x-user-id header' }, 401)
         }
 
-        // GET /applications - List user's applications (cached 5 min)
+        // GET /applications - List user's applications
         if (request.method === 'GET' && pathSegments.length === 0) {
-            const cacheKey = userCacheKey(userId, 'applications')
+            const { data, error } = await supabase
+                .from('applications')
+                .select('*')
+                .eq('owner_id', userId)
 
-            const data = await withCache(env, cacheKey, async () => {
-                const { data, error } = await supabase
-                    .from('applications')
-                    .select('id, name, slug, logo_url, primary_color, created_at')
-                    .eq('owner_id', userId)
-                    .order('created_at', { ascending: false })
-
-                if (error) throw error
-                return data || []
-            }, { ttl: 300 })
-
-            return jsonResponse(data)
+            if (error) throw error
+            return jsonResponse(data || [])
         }
 
         // POST /applications - Create application
@@ -420,9 +412,6 @@ export async function handleApplications(
 
             const { data, error } = await supabase.from('applications').insert(newApp).select().single()
             if (error) throw error
-
-            // Invalidar cache de aplicações do usuário
-            ctx.waitUntil(invalidateCache(env, userCacheKey(userId, 'applications')))
 
             // Save banners if provided
             if (body.banners && Array.isArray(body.banners) && body.banners.length > 0) {
@@ -471,9 +460,6 @@ export async function handleApplications(
 
             if (error) throw error
 
-            // Invalidar cache de aplicações do usuário
-            ctx.waitUntil(invalidateCache(env, userCacheKey(userId, 'applications')))
-
             // Update banners if provided
             if (body.banners && Array.isArray(body.banners)) {
                 await supabase.from('app_banners').delete().eq('application_id', appId)
@@ -506,10 +492,6 @@ export async function handleApplications(
                 .eq('owner_id', userId)
 
             if (error) throw error
-
-            // Invalidar cache de aplicações do usuário
-            ctx.waitUntil(invalidateCache(env, userCacheKey(userId, 'applications')))
-
             return jsonResponse({ success: true })
         }
 

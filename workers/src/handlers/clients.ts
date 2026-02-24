@@ -46,7 +46,7 @@ export async function handleClients(request: Request, env: any): Promise<Respons
         // 1. Check if the user already exists in app_users for this app
         const existingResult = await supabase
             .from('app_users')
-            .select('id')
+            .select('*')
             .eq('email', email)
             .eq('application_id', applicationId)
             .maybeSingle()

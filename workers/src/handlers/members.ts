@@ -13,14 +13,14 @@ export async function handleMembers(request: Request, env: any): Promise<Respons
     }
 
     try {
-        const supabase = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY)
+        const supabase = createClient(env)
         const body = await request.json()
         const { email, marketplaceProductId, name, phone } = body
 
         // 1. Verificar se o membro já existe para este produto de marketplace
         const { data: existingMember } = await supabase
             .from('member_profiles')
-            .select('id')
+            .select('*')
             .eq('email', email)
             .eq('product_id', marketplaceProductId)
             .maybeSingle()

@@ -44,8 +44,8 @@ export async function handleProcessPayment(
         const [productResult, checkoutResult, stripeCustomersResult] = await Promise.all([
             // 1. Buscar produto
             productType === 'app'
-                ? supabase.from('applications').select('id, name, user_id').eq('id', applicationId || productId).single()
-                : supabase.from('marketplace_products').select('id, name, price, currency, owner_id').eq('id', productId).single(),
+                ? supabase.from('applications').select('*').eq('id', applicationId || productId).single()
+                : supabase.from('marketplace_products').select('*').eq('id', productId).single(),
 
             // 2. Buscar checkout
             checkoutId

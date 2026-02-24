@@ -13,7 +13,7 @@ export async function handleApps(request: Request, env: any, pathSegments: strin
     }
 
     try {
-        const supabase = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY)
+        const supabase = createClient(env)
 
         // GET /api/apps/slug/:slugOrId - Get app by slug or ID (public access)
         if (request.method === 'GET' && pathSegments.length === 2 && pathSegments[0] === 'slug') {
@@ -60,7 +60,7 @@ export async function handleApps(request: Request, env: any, pathSegments: strin
 
             const { data: appUser, error: userError } = await supabase
                 .from('app_users')
-                .select('user_id, email, application_id')
+                .select('*')
                 .eq('email', email)
                 .eq('application_id', appId)
                 .single()
@@ -123,7 +123,7 @@ export async function handleApps(request: Request, env: any, pathSegments: strin
             // Check if the user already exists
             const { data: existingUser } = await supabase
                 .from('app_users')
-                .select('user_id, email, application_id')
+                .select('*')
                 .eq('email', email)
                 .eq('application_id', appId)
                 .single()

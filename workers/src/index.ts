@@ -14,7 +14,6 @@ import { handleTrackCheckout } from './handlers/track-checkout'
 import { handleUtmifyAbandoned } from './handlers/utmify-abandoned'
 import { handleUtmifyRefunded } from './handlers/utmify-refunded'
 import { handleDashboardStats } from './handlers/dashboard-stats'
-import { handleOrders } from './handlers/orders'
 import { handleDomains } from './handlers/domains'
 import { handleFunnelPageWidget } from './handlers/funnel-page-widget'
 import { handleOfferAnalytics } from './handlers/offer-analytics'
@@ -138,11 +137,6 @@ async function handleApiRoute(
     // POST /api/dashboard-stats - Estatísticas do dashboard
     if (pathname === '/api/dashboard-stats' && request.method === 'POST') {
         return handleDashboardStats(request, env, ctx)
-    }
-
-    // POST /api/orders - Lista de pedidos
-    if (pathname === '/api/orders' && request.method === 'POST') {
-        return handleOrders(request, env, ctx)
     }
 
     // /api/domains/* - Gestão de domínios
