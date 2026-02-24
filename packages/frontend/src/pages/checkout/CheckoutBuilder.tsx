@@ -771,33 +771,6 @@ export default function CheckoutBuilder() {
                                     />
                                 </div>
                             </div>
-
-                            {/* UTMify Token */}
-                            <div className="mt-4 pt-4 border-t border-[#252941]">
-                                <div className="flex items-center gap-1.5 mb-2">
-                                    <Key size={10} className="text-violet-400" />
-                                    <div className="text-[10px] font-semibold text-violet-400 tracking-widest">
-                                        UTMIFY
-                                    </div>
-                                </div>
-                                <p className="text-[10px] text-gray-500 mb-2">Token para rastrear de onde vêm as vendas deste checkout.</p>
-                                <div className="relative">
-                                    <input
-                                        type={utmifyTokenVisible ? 'text' : 'password'}
-                                        value={utmifyToken}
-                                        onChange={(e) => setUtmifyToken(e.target.value)}
-                                        placeholder="Cole seu x-api-token..."
-                                        className="w-full px-2 py-1.5 bg-[#0f1117] border border-[#252941] rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-500 text-gray-100 text-xs pr-14"
-                                    />
-                                    <button
-                                        type="button"
-                                        onClick={() => setUtmifyTokenVisible(v => !v)}
-                                        className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-gray-500 hover:text-gray-300 transition-colors"
-                                    >
-                                        {utmifyTokenVisible ? 'Ocultar' : 'Exibir'}
-                                    </button>
-                                </div>
-                            </div>
                         </div>
                     </div>
 

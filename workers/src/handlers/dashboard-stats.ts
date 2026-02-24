@@ -103,10 +103,10 @@ export async function handleDashboardStats(
         let marketplaceRefunds: any[] = []
         let appRefunds: any[] = []
 
-        // 1. Vendas marketplace
+        // 1. Vendas marketplace (tabela separada: user_member_area_access)
         if (shouldFetchMarketplace) {
             let q = supabase
-                .from('user_product_access')
+                .from('user_member_area_access')
                 .select('purchase_price, created_at, member_area_id')
                 .eq('payment_status', 'completed')
 
@@ -200,10 +200,10 @@ export async function handleDashboardStats(
             appCheckouts = result.data || []
         }
 
-        // 5. Pendentes marketplace
+        // 5. Pendentes marketplace (tabela: user_member_area_access)
         if (shouldFetchMarketplace) {
             let q = supabase
-                .from('user_product_access')
+                .from('user_member_area_access')
                 .select('purchase_price, member_area_id')
                 .eq('payment_status', 'pending')
 
@@ -237,10 +237,10 @@ export async function handleDashboardStats(
             appPending = result.data || []
         }
 
-        // 7. Reembolsos marketplace
+        // 7. Reembolsos marketplace (tabela: user_member_area_access)
         if (shouldFetchMarketplace) {
             let q = supabase
-                .from('user_product_access')
+                .from('user_member_area_access')
                 .select('id, member_area_id')
                 .in('payment_status', ['refunded', 'reversed'])
 
