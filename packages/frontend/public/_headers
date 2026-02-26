@@ -1,0 +1,46 @@
+# Cache agressivo no Cloudflare Edge para performance máxima
+# Assets com hash (JS/CSS/fontes) → cache eterno
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable
+  X-Content-Type-Options: nosniff
+
+# index.html → sempre busca versão nova, mas usa ETag/If-None-Match
+/index.html
+  Cache-Control: public, max-age=0, must-revalidate
+  X-Content-Type-Options: nosniff
+  X-Frame-Options: DENY
+  X-XSS-Protection: 1; mode=block
+  Referrer-Policy: strict-origin-when-cross-origin
+
+# Imagens → cache 1 ano
+/*.png
+  Cache-Control: public, max-age=31536000, immutable
+/*.jpg
+  Cache-Control: public, max-age=31536000, immutable
+/*.jpeg
+  Cache-Control: public, max-age=31536000, immutable
+/*.svg
+  Cache-Control: public, max-age=31536000, immutable
+/*.webp
+  Cache-Control: public, max-age=31536000, immutable
+/*.ico
+  Cache-Control: public, max-age=31536000, immutable
+
+# Fontes → cache 1 ano
+/*.woff2
+  Cache-Control: public, max-age=31536000, immutable
+  Access-Control-Allow-Origin: *
+/*.woff
+  Cache-Control: public, max-age=31536000, immutable
+  Access-Control-Allow-Origin: *
+/*.ttf
+  Cache-Control: public, max-age=31536000, immutable
+  Access-Control-Allow-Origin: *
+
+# Service Worker → sem cache (sempre fresh)
+/sw.js
+  Cache-Control: public, max-age=0, must-revalidate
+
+# Manifest PWA → cache moderado (1 dia)
+/manifest.json
+  Cache-Control: public, max-age=86400

@@ -1,0 +1,26 @@
+name = "clicknich-api"
+main = "src/index.ts"
+compatibility_date = "2024-01-01"
+compatibility_flags = ["nodejs_compat"]
+workers_dev = false
+
+# Variáveis de ambiente (valores públicos)
+[vars]
+SUPABASE_URL = "https://cgeqtodbisgwvhkaahiy.supabase.co"
+FRONTEND_URL = "https://app.clicknich.com"
+RESEND_FROM = "noreply@clicknich.com"
+
+# Secrets (configurar via: wrangler secret put NOME_DA_SECRET)
+# - SUPABASE_SERVICE_ROLE_KEY
+# - STRIPE_SECRET_KEY
+# - RESEND_API_KEY
+
+# Rota customizada no domínio clicknich.com
+[[routes]]
+pattern = "api.clicknich.com/*"
+zone_name = "clicknich.com"
+
+# KV Storage para cache
+[[kv_namespaces]]
+binding = "CACHE"
+id = "2060c79bb2c742ea8fb264fe87ec14e4"

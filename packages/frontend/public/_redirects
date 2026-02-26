@@ -1,0 +1,7 @@
+# Proxy routes for Cloudflare Worker (sem cache para API)
+/api/domains/*    https://api.clicknich.com/api/domains/:splat    200
+/api/applications/*    https://api.clicknich.com/api/applications/:splat    200
+/api/superadmin/*    https://api.clicknich.com/api/superadmin/:splat    200
+
+# SPA - All other routes serve index.html (Cloudflare Pages router)
+/*    /index.html   200

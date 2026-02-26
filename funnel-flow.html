@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Fluxo dos Funnels — Huskyapp</title>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+    <style>
+        body {
+            margin: 0;
+            padding: 32px;
+            background: #0f1117;
+            color: #e5e7eb;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        }
+
+        h1 {
+            font-size: 22px;
+            font-weight: 700;
+            margin-bottom: 8px;
+            color: #f9fafb;
+        }
+
+        p.subtitle {
+            font-size: 14px;
+            color: #6b7280;
+            margin-bottom: 32px;
+        }
+
+        .diagram-wrapper {
+            background: #1a1d2e;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 16px;
+            padding: 32px;
+            overflow-x: auto;
+        }
+
+        .mermaid {
+            display: flex;
+            justify-content: center;
+        }
+
+        /* tabela de resumo */
+        .summary {
+            margin-top: 40px;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        .card {
+            background: #1a1d2e;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 12px;
+            padding: 20px 24px;
+        }
+
+        .card h2 {
+            font-size: 14px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: #3b82f6;
+            margin: 0 0 12px 0;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+        }
+
+        th {
+            text-align: left;
+            color: #9ca3af;
+            font-weight: 600;
+            padding-bottom: 8px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        td {
+            padding: 8px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            color: #d1d5db;
+            vertical-align: top;
+        }
+
+        td:first-child {
+            font-family: 'Courier New', monospace;
+            color: #a78bfa;
+            padding-right: 16px;
+            white-space: nowrap;
+        }
+
+        code {
+            font-family: 'Courier New', monospace;
+            background: rgba(59, 130, 246, 0.15);
+            color: #93c5fd;
+            padding: 1px 6px;
+            border-radius: 4px;
+            font-size: 12px;
+        }
+
+        ul {
+            margin: 0;
+            padding-left: 18px;
+        }
+
+        li {
+            margin-bottom: 4px;
+        }
+    </style>
+</head>
+
+<body>
+
+    <h1>Fluxo dos Funnels</h1>
+    <p class="subtitle">Gerado em 26/02/2026 · Huskyapp / Clicknish</p>
+
+    <div class="diagram-wrapper">
+        <div class="mermaid">
+            flowchart TD
+            subgraph CONFIG["⚙️ Configuração (Painel Admin)"]
+            F["funnels\n(id, owner_id, name, slug,\nproduct_id, product_type, status)"]
+            FP["funnel_pages\n(funnel_id, page_type, position,\nslug, checkout_id, external_url)"]
+            CO["checkout_offers\n(funnel_id, page_id, offer_type,\nproduct_id, product_type,\noffer_price,
+            one_click_purchase)"]
+            F -->|"1:N"| FP
+            FP -->|"1:N"| CO
+            end
+
+            subgraph CHECKOUT["💳 Compra Principal"]
+            CH["checkouts\n(id, member_area_id | application_id,\nis_default)"]
+            UPA1["user_product_access\n✅ INSERT: produto principal\n(user_id, member_area_id | application_id\n|
+            product_id, stripe_customer_id,\nstripe_payment_method_id)"]
+            CH --> UPA1
+            end
+
+            subgraph WIDGET["🎯 Widget de Funil"]
+            SCRIPT["GET /api/funnel-page-widget\n?funnel_id=&page_id=&type=upsell\n&purchase_id=user_product_access.id"]
+            MODAL["Modal renderizado no site\ndo produtor"]
+            SCRIPT --> MODAL
+            end
+
+            subgraph ACCEPT["✅ Cliente ACEITA a oferta"]
+            direction LR
+            OC{"one_click\n_purchase?"}
+            API_UP["POST /api/process-upsell\n{ purchase_id, offer_id }"]
+            API_CH["Redireciona para\n/checkout/:url?offer_id=&purchase_id="]
+            OC -->|"sim (cartão salvo)"| API_UP
+            OC -->|"não"| API_CH
+            end
+
+            subgraph UPSELL_FLOW["💰 process-upsell (1-click)"]
+            S1["1. Busca offer em checkout_offers"]
+            S2["2. Busca produto\n(products | member_areas | applications)"]
+            S3["3. Busca stripe_customer_id\n+ stripe_payment_method_id\nem user_product_access"]
+            S4["4. Cria PaymentIntent Stripe\noff_session = true"]
+            S5["5. INSERT/UPSERT user_product_access\n✅ ACESSO LIBERADO"]
+            S6["6. INSERT offer_analytics\n{ event_type: 'accepted' }"]
+            S1 --> S2 --> S3 --> S4 --> S5 --> S6
+            end
+
+            subgraph ANALYTICS["📊 Analytics"]
+            OA["offer_analytics\n(event_type: view | accepted | decline)"]
+            FA["funnel_analytics\n(event_type: view | conversion | purchase)"]
+            end
+
+            CONFIG --> CHECKOUT
+            UPA1 -->|"purchase_id → página pós-compra"| WIDGET
+            MODAL --> ACCEPT
+            API_UP --> UPSELL_FLOW
+            S5 --> ANALYTICS
+            MODAL -->|"view / decline"| ANALYTICS
+        </div>
+    </div>
+
+    <div class="summary">
+
+        <div class="card">
+            <h2>Tabelas do Banco</h2>
+            <table>
+                <tr>
+                    <th>Tabela</th>
+                    <th>Finalidade</th>
+                </tr>
+                <tr>
+                    <td>funnels</td>
+                    <td>Funil raiz — produto, status, proprietário</td>
+                </tr>
+                <tr>
+                    <td>funnel_pages</td>
+                    <td>Páginas do funil (upsell, downsell, checkout, thankyou…)</td>
+                </tr>
+                <tr>
+                    <td>checkout_offers</td>
+                    <td>Ofertas vinculadas a uma página (<code>funnel_id + page_id</code>)</td>
+                </tr>
+                <tr>
+                    <td>user_product_access</td>
+                    <td>✅ Onde o acesso ao produto é gravado</td>
+                </tr>
+                <tr>
+                    <td>offer_analytics</td>
+                    <td>Eventos por oferta: view / accepted / decline</td>
+                </tr>
+                <tr>
+                    <td>funnel_analytics</td>
+                    <td>Eventos por página: view / conversion / purchase</td>
+                </tr>
+            </table>
+        </div>
+
+        <div class="card">
+            <h2>Liberação de Acesso — user_product_access</h2>
+            <table>
+                <tr>
+                    <th>Tipo de produto</th>
+                    <th>Coluna preenchida</th>
+                    <th>Conflito UPSERT</th>
+                </tr>
+                <tr>
+                    <td>app_product</td>
+                    <td><code>product_id</code></td>
+                    <td>user_id, product_id</td>
+                </tr>
+                <tr>
+                    <td>application</td>
+                    <td><code>application_id</code></td>
+                    <td>user_id, application_id</td>
+                </tr>
+                <tr>
+                    <td>member_area</td>
+                    <td><code>member_area_id</code></td>
+                    <td>user_id, member_area_id</td>
+                </tr>
+            </table>
+            <br />
+            <h2>Caminhos de Pagamento</h2>
+            <ul>
+                <li><strong>1-click</strong> (<code>one_click_purchase = true</code>): usa
+                    <code>stripe_payment_method_id</code> salvo → <code>/api/process-upsell</code></li>
+                <li><strong>Novo checkout</strong>: redireciona para <code>/checkout/:url</code> com
+                    <code>offer_id</code> e <code>purchase_id</code></li>
+            </ul>
+        </div>
+
+        <div class="card" style="grid-column: span 2">
+            <h2>Sequência resumida</h2>
+            <table>
+                <tr>
+                    <th>#</th>
+                    <th>Etapa</th>
+                    <th>Handler / Tabela</th>
+                </tr>
+                <tr>
+                    <td>1</td>
+                    <td>Produtor configura funil e páginas no painel</td>
+                    <td>funnels · funnel_pages · checkout_offers</td>
+                </tr>
+                <tr>
+                    <td>2</td>
+                    <td>Cliente compra o produto principal</td>
+                    <td>process-payment → user_product_access (salva cartão Stripe)</td>
+                </tr>
+                <tr>
+                    <td>3</td>
+                    <td>Página pós-compra carrega o script com <code>purchase_id</code></td>
+                    <td>funnel-page-widget</td>
+                </tr>
+                <tr>
+                    <td>4</td>
+                    <td>Modal de upsell é exibido (evento <em>view</em> registrado)</td>
+                    <td>offer_analytics</td>
+                </tr>
+                <tr>
+                    <td>5a</td>
+                    <td>Cliente aceita — 1-click → Stripe cobra off-session</td>
+                    <td>process-upsell → Stripe PaymentIntent</td>
+                </tr>
+                <tr>
+                    <td>5b</td>
+                    <td>Cliente aceita — novo checkout → redireciona</td>
+                    <td>process-payment (fluxo normal)</td>
+                </tr>
+                <tr>
+                    <td>6</td>
+                    <td>Acesso ao produto do upsell liberado</td>
+                    <td>user_product_access (UPSERT)</td>
+                </tr>
+                <tr>
+                    <td>7</td>
+                    <td>Evento <em>accepted</em> registrado</td>
+                    <td>offer_analytics</td>
+                </tr>
+            </table>
+        </div>
+
+    </div>
+
+    <script>
+        mermaid.initialize({ startOnLoad: true, theme: 'dark', flowchart: { curve: 'basis' } });
+    </script>
+</body>
+
+</html>

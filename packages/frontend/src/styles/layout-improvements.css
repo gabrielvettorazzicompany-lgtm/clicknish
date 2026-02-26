@@ -1,0 +1,34 @@
+/* Melhorias de responsividade e compactação do layout */
+
+/* Ajustes para sidebar mais compacta em telas pequenas */
+@media (max-width: 1024px) {
+    .sidebar-compact {
+        width: 240px;
+    }
+}
+
+/* Transições suaves para melhor UX */
+.sidebar-transition {
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Otimizações para conteúdo principal */
+.main-content {
+    transition: margin-left 0.3s ease-in-out;
+}
+
+/* Melhor utilização do espaço em telas médias */
+@media (min-width: 768px) and (max-width: 1024px) {
+    .content-container {
+        padding-left: 1rem;
+        padding-right: 1rem;
+    }
+}
+
+/* Ajustes finos para mobile */
+@media (max-width: 640px) {
+    .mobile-optimized {
+        padding-left: 0.75rem;
+        padding-right: 0.75rem;
+    }
+}

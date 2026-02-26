@@ -1,0 +1,605 @@
+import { useState, useEffect, useMemo, useCallback } from 'react'
+import { supabase, supabaseFetch } from '@/services/supabase'
+import { useAuthStore } from '@/stores/authStore'
+import type { App, MarketplaceProduct, Product, Customer, CombinedItem, CustomerFormData } from '@/types/customers'
+import { useDebounce } from './useDebounce'
+
+export type { App, MarketplaceProduct, Product, Customer, CombinedItem, CustomerFormData }
+
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL
+const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY
+
+/** Retorna o Bearer token da sessão atual (ou volta para anon key) */
+async function getAuthToken(): Promise<string> {
+    const { data } = await supabase.auth.getSession()
+    return data.session?.access_token || SUPABASE_ANON_KEY
+}
+
+export function useCustomers() {
+    const { user } = useAuthStore()
+    const currentUserId = user?.id || ''
+
+    const [customers, setCustomers] = useState<Customer[]>([])
+    const [apps, setApps] = useState<App[]>([])
+    const [marketplaceProducts, setMarketplaceProducts] = useState<MarketplaceProduct[]>([])
+    const [products, setProducts] = useState<Product[]>([])
+    const [searchTerm, setSearchTerm] = useState('')
+    const [selectedDate, setSelectedDate] = useState<Date | null>(null)
+    const [selectedCustomers, setSelectedCustomers] = useState<string[]>([])
+    const [loading, setLoading] = useState(true)
+    const [reloading, setReloading] = useState(false)
+    const [saving, setSaving] = useState(false)
+    const [error, setError] = useState<string | null>(null)
+    const [selectedApp, setSelectedApp] = useState<string>('')
+    const [selectedMarketplace, setSelectedMarketplace] = useState<string>('')
+    const [combinedItems, setCombinedItems] = useState<CombinedItem[]>([])
+    const [showModal, setShowModal] = useState(false)
+    const [showAccessModal, setShowAccessModal] = useState(false)
+    const [showEditModal, setShowEditModal] = useState(false)
+    const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+    const [showExportMenu, setShowExportMenu] = useState(false)
+    const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null)
+    const [customerToDelete, setCustomerToDelete] = useState<Customer | null>(null)
+    const [customerProducts, setCustomerProducts] = useState<Record<string, boolean>>({})
+    const [formData, setFormData] = useState<CustomerFormData>({
+        name: '', email: '', phone: '', selectedProducts: []
+    })
+
+    // Reagir ao user.id: quando o usuário autentica, buscar apps e produtos
+    useEffect(() => {
+        if (!currentUserId) {
+            setLoading(false)
+            return
+        }
+        fetchApps()
+        fetchMarketplaceProducts()
+    }, [currentUserId])
+
+    useEffect(() => {
+        const combined: CombinedItem[] = [
+            ...apps.map(app => ({ id: app.id, name: app.name, type: 'app' as const })),
+            ...marketplaceProducts.map(p => ({ id: p.id, name: p.name, type: 'marketplace' as const }))
+        ]
+        setCombinedItems(combined)
+    }, [apps, marketplaceProducts])
+
+    useEffect(() => {
+        if (selectedApp) {
+            fetchCustomers(selectedApp, 'app')
+            fetchProducts(selectedApp)
+        } else if (selectedMarketplace) {
+            fetchCustomers(selectedMarketplace, 'marketplace')
+            setProducts([])
+        } else {
+            setCustomers([])
+            setProducts([])
+        }
+    }, [selectedApp, selectedMarketplace])
+
+    // Debounce da busca para evitar filtros excessivos
+    const debouncedSearchTerm = useDebounce(searchTerm, 300)
+
+    // Memoização dos filtros para otimizar performance
+    const filteredCustomers = useMemo(() => {
+        let filtered = customers
+
+        if (debouncedSearchTerm) {
+            const s = debouncedSearchTerm.toLowerCase()
+            filtered = filtered.filter(c =>
+                c.email.toLowerCase().includes(s) ||
+                c.full_name?.toLowerCase().includes(s) ||
+                c.phone?.toLowerCase().includes(s)
+            )
+        }
+
+        if (selectedDate) {
+            filtered = filtered.filter(c => {
+                if (!c.created_at) return false
+                const d = new Date(c.created_at)
+                return d.getFullYear() === selectedDate.getFullYear() &&
+                    d.getMonth() === selectedDate.getMonth() &&
+                    d.getDate() === selectedDate.getDate()
+            })
+        }
+
+        return filtered
+    }, [customers, debouncedSearchTerm, selectedDate])
+
+    const getCurrentUserId = async (): Promise<string | null> => {
+        return currentUserId || null
+    }
+
+    const fetchApps = async () => {
+        if (!currentUserId) { setLoading(false); return }
+        try {
+            setLoading(true)
+            setError(null)
+            const token = await getAuthToken()
+            const res = await fetch(`https://api.clicknich.com/api/applications`, {
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'apikey': SUPABASE_ANON_KEY,
+                    'x-user-id': currentUserId
+                }
+            })
+            const data = await res.json()
+            if (Array.isArray(data)) {
+                setApps(data)
+                if (data.length > 0) setSelectedApp(data[0].id)
+            } else {
+                setApps([])
+                if (data?.error) setError(`Erro ao carregar apps: ${data.error}`)
+            }
+        } catch (e: any) {
+            setApps([])
+            setError('Erro de conexão ao carregar apps')
+        } finally { setLoading(false) }
+    }
+
+    const fetchMarketplaceProducts = async () => {
+        if (!currentUserId) { setMarketplaceProducts([]); return }
+        try {
+            const token = await getAuthToken()
+            const res = await fetch(
+                `${SUPABASE_URL}/rest/v1/marketplace_products?owner_id=eq.${currentUserId}&select=id,name,price,owner_id,slug`,
+                { headers: { 'Authorization': `Bearer ${token}`, 'apikey': SUPABASE_ANON_KEY } }
+            )
+            if (!res.ok) { setMarketplaceProducts([]); return }
+            const data = await res.json()
+            setMarketplaceProducts(Array.isArray(data) ? data : [])
+        } catch { setMarketplaceProducts([]) }
+    }
+
+    const fetchProducts = async (appId: string): Promise<Product[]> => {
+        try {
+            const token = await getAuthToken()
+            const appRes = await fetch(
+                `${SUPABASE_URL}/rest/v1/products?application_id=eq.${appId}&select=id,name,price`,
+                { headers: { 'Authorization': `Bearer ${token}`, 'apikey': SUPABASE_ANON_KEY } }
+            )
+            const appData = await appRes.json()
+            const combined: Product[] = Array.isArray(appData) ? appData : []
+            setProducts(combined)
+            return combined
+        } catch { setProducts([]); return [] }
+    }
+
+    const fetchCustomers = async (id: string, type?: 'app' | 'marketplace') => {
+        try {
+            setLoading(true)
+            setError(null)
+            const token = await getAuthToken()
+            const fetchType = type || (selectedMarketplace && !selectedApp ? 'marketplace' : 'app')
+            if (fetchType === 'app') {
+                const res = await fetch(
+                    `${SUPABASE_URL}/rest/v1/app_users?application_id=eq.${id}&select=id,user_id,email,application_id,full_name,phone,status,last_login,created_at&order=created_at.desc`,
+                    { headers: { 'Authorization': `Bearer ${token}`, 'apikey': SUPABASE_ANON_KEY } }
+                )
+                const data = await res.json()
+                if (Array.isArray(data)) {
+                    const mapped = data.map((c: Customer) => ({
+                        id: c.id, user_id: c.user_id, email: c.email || 'Email not available',
+                        application_id: c.application_id, full_name: c.full_name, phone: c.phone,
+                        status: c.status, last_login: c.last_login, created_at: c.created_at
+                    }))
+                    setCustomers(mapped)
+                } else {
+                    setCustomers([])
+                    if (data?.message) setError(`Erro ao carregar customers: ${data.message}`)
+                }
+            } else {
+                const res = await fetch(
+                    `${SUPABASE_URL}/rest/v1/member_profiles?product_id=eq.${id}&select=id,email,name,phone,created_at,last_login_at&order=created_at.desc`,
+                    { headers: { 'Authorization': `Bearer ${token}`, 'apikey': SUPABASE_ANON_KEY } }
+                )
+                const data = await res.json()
+                if (Array.isArray(data)) {
+                    const mapped = data.map((m: any) => ({
+                        id: m.id, user_id: m.id, email: m.email || 'Email not available',
+                        application_id: id, full_name: m.name, phone: m.phone,
+                        status: 'active', last_login: m.last_login_at, created_at: m.created_at
+                    }))
+                    setCustomers(mapped)
+                } else {
+                    setCustomers([])
+                    if (data?.message) setError(`Erro ao carregar membros: ${data.message}`)
+                }
+            }
+        } catch (e: any) {
+            setCustomers([])
+            setError('Erro de conexão ao carregar customers')
+        }
+        finally { setLoading(false) }
+    }
+
+    const fetchCustomerAccess = async (customer: Customer, productsList: Product[]) => {
+        try {
+            const { data: session } = await supabase.auth.getSession()
+            const token = session?.session?.access_token || SUPABASE_ANON_KEY
+
+            const res = await fetch(
+                `${SUPABASE_URL}/rest/v1/user_product_access?user_id=eq.${customer.user_id}&application_id=eq.${selectedApp}&select=product_id`,
+                { headers: { 'Authorization': `Bearer ${token}`, 'apikey': SUPABASE_ANON_KEY } }
+            )
+            const data = await res.json()
+            const accessIds = new Set<string>()
+            if (Array.isArray(data)) data.forEach((a: any) => accessIds.add(a.product_id))
+
+            const access: Record<string, boolean> = {}
+            productsList.forEach(p => { access[p.id] = accessIds.has(p.id) })
+            setCustomerProducts(access)
+        } catch (err) {
+            console.error('Error fetching customer access:', err)
+        }
+    }
+
+    const handleSelectAll = (checked: boolean) =>
+        setSelectedCustomers(checked ? filteredCustomers.map(c => c.id) : [])
+
+    const handleSelectCustomer = (id: string, checked: boolean) =>
+        setSelectedCustomers(prev => checked ? [...prev, id] : prev.filter(cId => cId !== id))
+
+    const toggleProductSelection = (productId: string) =>
+        setFormData(prev => ({
+            ...prev,
+            selectedProducts: prev.selectedProducts.includes(productId)
+                ? prev.selectedProducts.filter(id => id !== productId)
+                : [...prev.selectedProducts, productId]
+        }))
+
+    const toggleProductAccess = (productId: string) =>
+        setCustomerProducts(prev => ({ ...prev, [productId]: !prev[productId] }))
+
+    const handleAddCustomer = async (e: React.FormEvent) => {
+        e.preventDefault()
+        if (!selectedApp && !selectedMarketplace) { alert('Please select an app or membership area first'); return }
+        if (!formData.email) { alert('Please fill in the email'); return }
+        setSaving(true)
+        try {
+            if (selectedMarketplace && !selectedApp) {
+                const checkRes = await fetch(
+                    `${SUPABASE_URL}/rest/v1/member_profiles?email=eq.${formData.email}&product_id=eq.${selectedMarketplace}&select=id,email`,
+                    { headers: { 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'apikey': SUPABASE_ANON_KEY } }
+                )
+                const existing = await checkRes.json()
+                if (existing?.length > 0) {
+                    alert('This member already exists in this membership area')
+                    setShowModal(false); setFormData({ name: '', email: '', phone: '', selectedProducts: [] }); return
+                }
+                const res = await fetch(`https://api.clicknich.com/api/members`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SUPABASE_ANON_KEY}` },
+                    body: JSON.stringify({ email: formData.email, marketplaceProductId: selectedMarketplace, name: formData.name, phone: formData.phone })
+                })
+                if (!res.ok) { const err = await res.json(); throw new Error(err.error || 'Error creating member') }
+                alert('Member added successfully!')
+                setShowModal(false); setFormData({ name: '', email: '', phone: '', selectedProducts: [] })
+                fetchCustomers(selectedMarketplace); return
+            }
+
+            const { data: sessionData } = await supabase.auth.getSession()
+            const adminToken = sessionData?.session?.access_token || SUPABASE_ANON_KEY
+
+            const checkRes = await fetch(
+                `${SUPABASE_URL}/rest/v1/app_users?email=eq.${formData.email}&application_id=eq.${selectedApp}&select=id,user_id`,
+                { headers: { 'Authorization': `Bearer ${adminToken}`, 'apikey': SUPABASE_ANON_KEY } }
+            )
+            const existingUsers = await checkRes.json()
+            if (existingUsers?.length > 0) {
+                const existingUser = existingUsers[0]
+                if (formData.selectedProducts.length > 0) {
+                    const currentRes = await fetch(
+                        `${SUPABASE_URL}/rest/v1/user_product_access?user_id=eq.${existingUser.user_id}&application_id=eq.${selectedApp}&select=product_id`,
+                        { headers: { 'Authorization': `Bearer ${adminToken}`, 'apikey': SUPABASE_ANON_KEY } }
+                    )
+                    const currRaw = await currentRes.json()
+                    const curr = Array.isArray(currRaw) ? currRaw : []
+                    const currIds = curr.map((a: any) => a.product_id)
+                    const newProds = formData.selectedProducts.filter(id => !currIds.includes(id))
+                    if (newProds.length > 0) {
+                        await fetch(`${SUPABASE_URL}/rest/v1/user_product_access`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${adminToken}`, 'apikey': SUPABASE_ANON_KEY },
+                            body: JSON.stringify(newProds.map(productId => ({ user_id: existingUser.user_id, product_id: productId, application_id: selectedApp, access_type: 'manual', is_active: true })))
+                        })
+                        alert(`Access granted! ${newProds.length} new product(s) added to ${formData.email}`)
+                    } else { alert('This customer already has access to all selected products') }
+                } else { alert('Customer already exists. Select products to grant access.') }
+                setShowModal(false); setFormData({ name: '', email: '', phone: '', selectedProducts: [] })
+                fetchCustomers(selectedApp); return
+            }
+
+            const res = await fetch(`https://api.clicknich.com/api/clients`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SUPABASE_ANON_KEY}` },
+                body: JSON.stringify({ email: formData.email, applicationId: selectedApp, productIds: formData.selectedProducts, name: formData.name, phone: formData.phone })
+            })
+            if (!res.ok) { const err = await res.json(); throw new Error(err.error || 'Error creating customer') }
+            alert('Customer added successfully!')
+            setShowModal(false); setFormData({ name: '', email: '', phone: '', selectedProducts: [] })
+            fetchCustomers(selectedApp, 'app')
+        } catch (error) { alert(`Error adding customer: ${error instanceof Error ? error.message : 'Unknown error'}`) }
+        finally { setSaving(false) }
+    }
+
+    const handleManageAccess = async (customer: Customer) => {
+        setEditingCustomer(customer)
+        const loadedProducts = await fetchProducts(selectedApp)
+        await fetchCustomerAccess(customer, loadedProducts)
+        setShowAccessModal(true)
+    }
+
+    const handleSaveAccess = async () => {
+        if (!editingCustomer) return
+        setSaving(true)
+        try {
+            const { data: session } = await supabase.auth.getSession()
+            const token = session?.session?.access_token || SUPABASE_ANON_KEY
+            const newIds = Object.keys(customerProducts).filter(id => customerProducts[id])
+
+            // Buscar acessos atuais
+            const res = await fetch(`${SUPABASE_URL}/rest/v1/user_product_access?user_id=eq.${editingCustomer.user_id}&application_id=eq.${selectedApp}&select=id,product_id`, {
+                headers: { 'Authorization': `Bearer ${token}`, 'apikey': SUPABASE_ANON_KEY }
+            })
+            const currRaw = await res.json()
+            const curr = Array.isArray(currRaw) ? currRaw : []
+
+            // Remover acessos desmarcados
+            const toRemove = curr.filter((a: any) => !newIds.includes(a.product_id))
+            for (const a of toRemove) {
+                await fetch(`${SUPABASE_URL}/rest/v1/user_product_access?id=eq.${a.id}`, {
+                    method: 'DELETE', headers: { 'Authorization': `Bearer ${token}`, 'apikey': SUPABASE_ANON_KEY }
+                })
+            }
+
+            // Adicionar novos acessos
+            const currIds = curr.map((a: any) => a.product_id)
+            const toAdd = newIds.filter(id => !currIds.includes(id))
+            if (toAdd.length > 0) {
+                await fetch(`${SUPABASE_URL}/rest/v1/user_product_access`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}`, 'apikey': SUPABASE_ANON_KEY },
+                    body: JSON.stringify(toAdd.map(id => ({
+                        user_id: editingCustomer.user_id,
+                        product_id: id,
+                        application_id: selectedApp,
+                        access_type: 'manual',
+                        is_active: true
+                    })))
+                })
+            }
+
+            alert('Access updated successfully!')
+            setShowAccessModal(false); setEditingCustomer(null); fetchCustomers(selectedApp)
+        } catch (error) { alert(`Error saving access: ${error instanceof Error ? error.message : 'Unknown error'}`) }
+        finally { setSaving(false) }
+    }
+
+    const handleEditCustomer = (customer: Customer) => {
+        setEditingCustomer(customer)
+        setFormData({ name: customer.full_name || '', email: customer.email || '', phone: customer.phone || '', selectedProducts: [] })
+        setShowEditModal(true)
+    }
+
+    const handleSaveCustomerEdit = async () => {
+        if (!editingCustomer || !formData.email) { alert('Email is required'); return }
+        setSaving(true)
+        try {
+            const res = await fetch(`${SUPABASE_URL}/rest/v1/app_users?id=eq.${editingCustomer.id}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'apikey': SUPABASE_ANON_KEY },
+                body: JSON.stringify({ full_name: formData.name, email: formData.email, phone: formData.phone })
+            })
+            if (!res.ok) { const err = await res.json(); throw new Error(err.message || 'Error updating customer') }
+            alert('Customer updated successfully!')
+            setShowEditModal(false); setEditingCustomer(null); fetchCustomers(selectedApp)
+        } catch (error) { alert(`Error updating customer: ${error instanceof Error ? error.message : 'Unknown error'}`) }
+        finally { setSaving(false) }
+    }
+
+    const handleSendEmail = async (customer: Customer) => {
+        if (!customer.email) { alert('Customer email not found'); return }
+        setSaving(true)
+        try {
+            let appName = '', appSlug = '', marketplaceName = '', downloadLink = '', loginUrl = ''
+            const customerProductsList: string[] = []
+
+            if (selectedApp && !selectedMarketplace) {
+                const app = apps.find(a => a.id === selectedApp)
+                if (app) {
+                    appName = app.name; appSlug = app.slug || ''
+                    loginUrl = `${window.location.origin}/access/${app.slug}`
+                    const { data: sess } = await supabase.auth.getSession()
+                    const tkn = sess?.session?.access_token || SUPABASE_ANON_KEY
+                    try {
+                        const accessRes = await fetch(
+                            `${SUPABASE_URL}/rest/v1/user_product_access?user_id=eq.${customer.user_id}&application_id=eq.${selectedApp}&select=product_id`,
+                            { headers: { 'Authorization': `Bearer ${tkn}`, 'apikey': SUPABASE_ANON_KEY } }
+                        )
+                        if (accessRes.ok) {
+                            const accessDataRaw = await accessRes.json()
+                            const accessData = Array.isArray(accessDataRaw) ? accessDataRaw : []
+                            const ids = accessData.map((a: any) => a.product_id)
+                            if (ids.length > 0) {
+                                const pr = await fetch(
+                                    `${SUPABASE_URL}/rest/v1/products?id=in.(${ids.join(',')})&select=name`,
+                                    { headers: { 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'apikey': SUPABASE_ANON_KEY } }
+                                )
+                                if (pr.ok) { const pd = await pr.json(); pd.forEach((p: any) => customerProductsList.push(`• ${p.name}`)) }
+                            }
+                        }
+                    } catch { /* ignore */ }
+                    try {
+                        const ar = await fetch(
+                            `${SUPABASE_URL}/rest/v1/applications?id=eq.${selectedApp}&select=android_url,ios_url`,
+                            { headers: { 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'apikey': SUPABASE_ANON_KEY } }
+                        )
+                        if (ar.ok) { const d = await ar.json(); if (d?.[0]) downloadLink = d[0].android_url || d[0].ios_url || '' }
+                    } catch { /* ignore */ }
+                }
+            } else {
+                const product = marketplaceProducts.find(p => p.id === selectedMarketplace)
+                if (product) { marketplaceName = product.name; loginUrl = `${window.location.origin}/members-login/${product.slug}` }
+            }
+
+            const productName = appName || marketplaceName || 'Platform'
+            const productsHtml = customerProductsList.length > 0
+                ? `<ul style="list-style:none;padding:0;margin:0">${customerProductsList.map(p => `<li style="padding:4px 0;color:#666">${p}</li>`).join('')}</ul>`
+                : ''
+            const html = `<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto"><div style="background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);padding:40px;text-align:center;border-radius:8px 8px 0 0"><h1 style="color:white;margin:0;font-size:28px">Access Granted</h1></div><div style="background:#f9fafb;padding:40px;border-radius:0 0 8px 8px"><p style="color:#333;font-size:16px">Hi <strong>${customer.full_name || customer.email}</strong>,</p><p style="color:#666;font-size:14px;line-height:1.6">Great news! You now have access to:</p><div style="background:white;padding:20px;border-radius:8px;margin:20px 0;border-left:4px solid #667eea"><p style="color:#333;font-size:14px;margin-bottom:10px"><strong>${productName}</strong></p>${productsHtml}</div>${loginUrl ? `<div style="margin:30px 0;text-align:center"><a href="${loginUrl}" style="background:#667eea;color:white;padding:14px 32px;text-decoration:none;border-radius:6px;display:inline-block;font-weight:bold;font-size:16px">${appSlug ? 'Access App Login' : 'Access Members Area'}</a></div>${downloadLink ? `<div style="margin:15px 0;text-align:center"><a href="${downloadLink}" style="background:white;color:#667eea;border:2px solid #667eea;padding:12px 28px;text-decoration:none;border-radius:6px;display:inline-block;font-weight:bold;font-size:14px">Download App</a></div>` : ''}` : ''}<div style="background:#f3f4f6;padding:15px;border-radius:6px;margin-top:20px"><p style="color:#666;font-size:13px;margin:0"><strong>Access instructions:</strong><br>1. Click the button above<br>2. Email: <strong>${customer.email}</strong><br>3. If first access, create your password${customer.phone ? `<br>4. Your phone: ${customer.phone}` : ''}</p></div></div></div>`
+
+            const res = await fetch(`https://api.clicknich.com/api/send-email`, {
+                method: 'POST',
+                headers: { 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'Content-Type': 'application/json', 'apikey': SUPABASE_ANON_KEY },
+                body: JSON.stringify({ to: customer.email, subject: `Your access to ${productName} is ready`, html, customer_name: customer.full_name || customer.email })
+            })
+            const result = await res.json()
+            if (!res.ok) throw new Error(result.error || 'Failed to send email')
+            alert(`✅ Access email sent successfully to ${customer.email}!`)
+        } catch (error) { alert(`Error sending email: ${error instanceof Error ? error.message : 'Unknown error'}`) }
+        finally { setSaving(false) }
+    }
+
+    const handleDeleteCustomer = async () => {
+        if (!customerToDelete) return
+        setSaving(true)
+        // Captura o ID antes de qualquer operação async
+        const deletedId = customerToDelete.id
+        try {
+            const isMarketplace = selectedMarketplace && !selectedApp
+            const table = isMarketplace ? 'member_profiles' : 'app_users'
+
+            const res = await supabaseFetch('clients', {
+                method: 'DELETE',
+                body: JSON.stringify({
+                    clientId: deletedId,
+                    table: table,
+                    deleteFromAuth: true
+                })
+            })
+
+            if (!res.ok) {
+                const errorData = await res.json()
+                throw new Error(errorData.error || 'Error deleting customer')
+            }
+
+            // Atualiza o estado ANTES de qualquer alert bloqueante
+            setShowDeleteConfirm(false)
+            setCustomerToDelete(null)
+            setCustomers(prev => prev.filter(c => c.id !== deletedId))
+            setSelectedCustomers(prev => prev.filter(id => id !== deletedId))
+        } catch (error) { alert(`Error deleting customer: ${error instanceof Error ? error.message : 'Unknown error'}`) }
+        finally { setSaving(false) }
+    }
+
+    const handleDeleteAllSelected = async () => {
+        if (selectedCustomers.length === 0) return
+        if (!confirm(`Are you sure you want to delete ${selectedCustomers.length} selected customer(s)? This action cannot be undone.`)) return
+        setSaving(true)
+        try {
+            const isMarketplace = selectedMarketplace && !selectedApp
+            const table = isMarketplace ? 'member_profiles' : 'app_users'
+
+            const results = await Promise.all(
+                selectedCustomers.map(id =>
+                    supabaseFetch('clients', {
+                        method: 'DELETE',
+                        body: JSON.stringify({
+                            clientId: id,
+                            table: table,
+                            deleteFromAuth: true
+                        })
+                    })
+                )
+            )
+            const failed = results.filter(r => !r.ok).length
+            // IDs que foram deletados com sucesso
+            const succeededIds = selectedCustomers.filter((_, i) => results[i].ok)
+            alert(failed > 0 ? `${selectedCustomers.length - failed} deleted, ${failed} failed.` : `${selectedCustomers.length} customer(s) deleted successfully!`)
+            setSelectedCustomers([])
+            // Remove imediatamente do estado local
+            setCustomers(prev => prev.filter(c => !succeededIds.includes(c.id)))
+        } catch (error) { alert(`Error deleting customers: ${error instanceof Error ? error.message : 'Unknown error'}`) }
+        finally { setSaving(false) }
+    }
+
+    const handleReload = async () => {
+        if (selectedApp && !reloading) {
+            setReloading(true); await fetchCustomers(selectedApp); setReloading(false)
+        }
+    }
+
+    const handleExportCSV = () => {
+        if (filteredCustomers.length === 0) { alert('No customers to export'); return }
+        const headers = ['Name', 'Email', 'Phone', 'Registration Date', 'Last Access', 'Status']
+        const rows = filteredCustomers.map(c => [
+            c.full_name || '', c.email, c.phone || '',
+            c.created_at ? new Date(c.created_at).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) : '-',
+            c.last_login ? new Date(c.last_login).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) : 'Never',
+            c.status || 'active'
+        ].join(','))
+        const csv = [headers.join(','), ...rows].join('\n')
+        const link = document.createElement('a')
+        link.setAttribute('href', URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8;' })))
+        link.setAttribute('download', `customers_${new Date().toISOString().split('T')[0]}.csv`)
+        link.style.visibility = 'hidden'
+        document.body.appendChild(link); link.click(); document.body.removeChild(link)
+    }
+
+    const handleExportPDF = () => {
+        if (filteredCustomers.length === 0) { alert('No customers to export'); return }
+        const win = window.open('', '', 'height=600,width=800')
+        if (!win) return
+        const rows = filteredCustomers.map(c => `<tr><td>${c.full_name || '-'}</td><td>${c.email}</td><td>${c.phone || '-'}</td><td>${c.created_at ? new Date(c.created_at).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) : '-'}</td><td>${c.last_login ? new Date(c.last_login).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) : 'Never'}</td><td>${c.status || 'active'}</td></tr>`).join('')
+        win.document.write(`<!DOCTYPE html><html><head><title>Customers Report</title><style>body{font-family:Arial,sans-serif;padding:20px}h1{color:#333}table{width:100%;border-collapse:collapse;margin-top:20px}th,td{border:1px solid #ddd;padding:12px;text-align:left}th{background-color:#6366f1;color:white}tr:nth-child(even){background-color:#f2f2f2}</style></head><body><h1>Customers Report</h1><p>Generated on: ${new Date().toLocaleString('en-US')}</p><table><thead><tr><th>Name</th><th>Email</th><th>Phone</th><th>Registration Date</th><th>Last Access</th><th>Status</th></tr></thead><tbody>${rows}</tbody></table></body></html>`)
+        win.document.close()
+        win.focus()
+        setTimeout(() => { win.print(); win.close() }, 250)
+    }
+
+    const formatDate = (dateString: string) =>
+        new Date(dateString).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })
+
+    const formatTime = (dateString: string) =>
+        new Date(dateString).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
+
+    const selectedAppName = apps.find(a => a.id === selectedApp)?.name || ''
+
+    const handleCombinedItemChange = (value: string) => {
+        const item = combinedItems.find(i => i.id === value)
+        if (item) {
+            if (item.type === 'app') { setSelectedApp(value); setSelectedMarketplace('') }
+            else { setSelectedMarketplace(value); setSelectedApp('') }
+        } else { setSelectedApp(''); setSelectedMarketplace('') }
+    }
+
+    return {
+        customers, filteredCustomers, apps, products,
+        searchTerm, setSearchTerm,
+        selectedDate, setSelectedDate,
+        selectedCustomers, setSelectedCustomers,
+        loading, saving, reloading, error,
+        selectedApp, setSelectedApp,
+        selectedMarketplace, setSelectedMarketplace,
+        combinedItems,
+        showModal, setShowModal,
+        showAccessModal, setShowAccessModal,
+        showEditModal, setShowEditModal,
+        showDeleteConfirm, setShowDeleteConfirm,
+        showExportMenu, setShowExportMenu,
+        editingCustomer,
+        customerToDelete, setCustomerToDelete,
+        customerProducts,
+        formData, setFormData,
+        selectedAppName,
+        handleSelectAll, handleSelectCustomer,
+        handleCombinedItemChange,
+        toggleProductSelection, toggleProductAccess,
+        handleAddCustomer, handleManageAccess,
+        handleSaveAccess,
+        handleEditCustomer, handleSaveCustomerEdit,
+        handleSendEmail, handleDeleteCustomer, handleDeleteAllSelected,
+        handleReload, handleExportCSV, handleExportPDF,
+        formatDate, formatTime
+    }
+}

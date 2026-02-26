@@ -1,0 +1,18 @@
+name = "clicknish"
+main = "worker.js"
+compatibility_date = "2024-01-01"
+compatibility_flags = ["nodejs_compat"]
+
+# Configuração para domínios personalizados
+# Você pode adicionar rotas específicas aqui se tiver um domínio no Cloudflare
+
+# Exemplo de rota (descomente e configure seu domínio):
+# [[routes]]
+# pattern = "*/*"
+# zone_name = "seudominio.com"
+
+# Variáveis de ambiente (opcional)
+[vars]
+SUPABASE_URL = "https://cgeqtodbisgwvhkaahiy.supabase.co"
+SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNnZXF0b2RiaXNnd3Zoa2FhaGl5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjkxMTk1MDIsImV4cCI6MjA4NDY5NTUwMn0.Ov6_rRlThZUBIoL4oT6BGozEhvTUdFsWB6KylDXpFoY"
+NETLIFY_URL = "https://clicknich.com"

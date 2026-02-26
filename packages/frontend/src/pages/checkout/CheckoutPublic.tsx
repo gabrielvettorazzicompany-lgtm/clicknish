@@ -1,0 +1,767 @@
+import { useParams, useNavigate } from 'react-router-dom'
+import { useEffect, useState, useCallback, useRef } from 'react'
+import { supabase } from '@/services/supabase'
+import { useCheckoutPageView, trackCheckoutEvent } from '@/services/checkouts'
+import CheckoutDigital from '@/components/checkout/CheckoutDigital'
+import type { CheckoutLanguage } from '@/components/checkout/translations'
+import { getTranslations } from '@/components/checkout/translations'
+
+interface Product {
+    id: string
+    name: string
+    price: number
+    image_url?: string
+    description?: string
+    productType?: 'app' | 'marketplace'
+    applicationId?: string
+}
+
+interface Checkout {
+    id: string
+    name: string
+    product_id: string
+    is_default: boolean
+    custom_price?: number
+    banner_image?: string
+    banner_title?: string
+    custom_height?: number
+    language?: CheckoutLanguage
+    created_at: string
+}
+
+export default function CheckoutPublic() {
+    const { productId, checkoutId, shortId } = useParams<{ productId?: string; checkoutId?: string; shortId?: string }>()
+    const navigate = useNavigate()
+    const [loading, setLoading] = useState(true)
+    const [product, setProduct] = useState<Product | null>(null)
+    const [checkout, setCheckout] = useState<Checkout | null>(null)
+    const [finalCheckoutId, setFinalCheckoutId] = useState<string | null>(null)
+    const [timerConfig, setTimerConfig] = useState({
+        enabled: false,
+        minutes: 15,
+        backgroundColor: '#ef4444',
+        textColor: '#ffffff',
+        activeText: '',
+        finishedText: ''
+    })
+    const paymentResultRef = useRef<{ purchaseId: string; thankyouToken: string; redirectUrl?: string } | null>(null)
+    const leadDataRef = useRef<{ email: string; name: string; phone: string } | null>(null)
+    const abandonedFiredRef = useRef(false)
+    const [buttonColor, setButtonColor] = useState('#111827')
+    const [customPixels, setCustomPixels] = useState('')
+    const [customUtms, setCustomUtms] = useState('')
+    const [preloadedRedirect, setPreloadedRedirect] = useState<{ url: string | null } | null>(null)
+    const [initialOrderBumps, setInitialOrderBumps] = useState<any[] | undefined>(undefined)
+    const [initialAppProducts, setInitialAppProducts] = useState<any[] | undefined>(undefined)
+    const [checkoutSessionId, setCheckoutSessionId] = useState<string | null>(null)
+
+    // Capture UTM params once from the URL when the checkout opens
+    // Persiste por 30 dias no localStorage (igual Hotmart/PerfectPay)
+    const UTM_STORAGE_KEY = 'clicknich_utm'
+    const UTM_TTL_MS = 30 * 24 * 60 * 60 * 1000 // 30 dias
+
+    const utmParams = useRef<Record<string, string | null>>({
+        src: null,
+        sck: null,
+        utm_source: null,
+        utm_campaign: null,
+        utm_medium: null,
+        utm_content: null,
+        utm_term: null,
+    })
+    useEffect(() => {
+        const p = new URLSearchParams(window.location.search)
+        const fromUrl = {
+            src: p.get('src'),
+            sck: p.get('sck'),
+            utm_source: p.get('utm_source'),
+            utm_campaign: p.get('utm_campaign'),
+            utm_medium: p.get('utm_medium'),
+            utm_content: p.get('utm_content'),
+            utm_term: p.get('utm_term'),
+        }
+
+        const hasUrlParams = Object.values(fromUrl).some(v => v !== null)
+
+        if (hasUrlParams) {
+            // Chegou com UTMs na URL → salva no localStorage com expiração
+            try {
+                localStorage.setItem(UTM_STORAGE_KEY, JSON.stringify({
+                    params: fromUrl,
+                    expires_at: Date.now() + UTM_TTL_MS
+                }))
+            } catch { }
+            utmParams.current = fromUrl
+        } else {
+            // Sem UTMs na URL → tenta recuperar do localStorage
+            try {
+                const stored = localStorage.getItem(UTM_STORAGE_KEY)
+                if (stored) {
+                    const parsed = JSON.parse(stored)
+                    if (parsed.expires_at > Date.now()) {
+                        utmParams.current = parsed.params
+                    } else {
+                        localStorage.removeItem(UTM_STORAGE_KEY) // expirou
+                    }
+                }
+            } catch { }
+        }
+    }, [])
+
+    // Track page view when checkout ID is determined
+    useCheckoutPageView(finalCheckoutId || '')
+
+    const fetchData = useCallback(async () => {
+        try {
+            setLoading(true)
+            const urlParams = new URLSearchParams(window.location.search)
+            const isUpsellCheckout = urlParams.get('nobumps') === '1'
+
+            // ═══════════════════════════════════════════
+            // OPTIMIZED PATH: Edge-cached RPC → All data  
+            // ═══════════════════════════════════════════
+            if (shortId && !isUpsellCheckout) {
+                // Usar Worker com cache edge (KV) ao invés de RPC direto
+                // Benefícios: ~10ms em cache hit vs ~200ms RPC, reduz carga no DB
+                const response = await fetch(`https://api.clicknich.com/api/checkout-data/${shortId}`)
+                const rpcResult = await response.json()
+
+                if (response.ok && rpcResult && !rpcResult.error) {
+                    const ck = rpcResult.checkout
+                    const prod = rpcResult.product
+
+                    setFinalCheckoutId(ck.id)
+
+                    const fetchedProduct: Product = {
+                        id: prod.id,
+                        name: prod.name,
+                        price: prod.price || 0,
+                        image_url: prod.image_url,
+                        description: prod.description || '',
+                        productType: rpcResult.productType,
+                        applicationId: prod.applicationId || undefined
+                    }
+
+                    const fetchedCheckout: Checkout = {
+                        id: ck.id,
+                        name: ck.name,
+                        product_id: ck.member_area_id || ck.application_id,
+                        is_default: ck.is_default,
+                        custom_price: ck.custom_price,
+                        banner_image: ck.banner_image,
+                        banner_title: ck.banner_title,
+                        custom_height: ck.custom_height,
+                        language: ck.language || 'en',
+                        created_at: ck.created_at
+                    }
+
+                    setProduct(fetchedProduct)
+                    setCheckout(fetchedCheckout)
+
+                    // ✅ Order bumps already resolved by RPC
+                    if (rpcResult.offers?.length > 0) {
+                        setInitialOrderBumps(rpcResult.offers)
+                    }
+
+                    // ✅ Application products already resolved by RPC  
+                    if (rpcResult.applicationProducts?.length > 0) {
+                        setInitialAppProducts(rpcResult.applicationProducts)
+                    }
+
+                    // ✅ Redirect config already resolved by RPC
+                    if (rpcResult.redirectConfig?.success_url) {
+                        setPreloadedRedirect({ url: rpcResult.redirectConfig.success_url })
+                    } else {
+                        setPreloadedRedirect({ url: null })
+                    }
+
+                    // Timer & button color from custom_fields
+                    const customFields = ck.custom_fields || {}
+                    const translations = getTranslations((ck.language || 'en') as CheckoutLanguage)
+                    if (customFields.timer) {
+                        setTimerConfig({
+                            ...customFields.timer,
+                            activeText: customFields.timer.activeText || translations.limitedTimeOffer,
+                            finishedText: customFields.timer.finishedText || translations.offerEnded
+                        })
+                    }
+                    if (customFields.buttonColor) {
+                        setButtonColor(customFields.buttonColor)
+                    }
+                    if (customFields.customPixels) {
+                        setCustomPixels(customFields.customPixels)
+                    }
+                    if (customFields.customUtms) {
+                        setCustomUtms(customFields.customUtms)
+                    }
+
+                    // Criar sessão KV em background: pré-carrega todos os dados para o processo
+                    // de pagamento, eliminando as 8 queries do worker na hora do clique em "Pagar".
+                    fetch('https://api.clicknich.com/api/checkout-session', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            checkoutId: ck.id,
+                            productId: prod.id,
+                            productType: rpcResult.productType,
+                            applicationId: prod.applicationId || undefined,
+                        }),
+                    })
+                        .then(r => r.json())
+                        .then((data: any) => { if (data.sessionId) setCheckoutSessionId(data.sessionId) })
+                        .catch(() => { /* silent — payment faz fallback */ })
+
+                    return
+                }
+                // RPC failed — fall through to legacy path
+            }
+
+            // ═══════════════════════════════════════════
+            // LEGACY PATH: Long URL or upsell checkout
+            // ═══════════════════════════════════════════
+            let finalProductId = productId
+            let finalCheckoutId = checkoutId
+            let knownIsApp: boolean | null = null
+
+            if (shortId) {
+                // RPC failed, fallback for short URL
+                const { data: urlData, error: urlError } = await supabase
+                    .from('checkout_urls')
+                    .select('member_area_id, application_id, checkout_id')
+                    .eq('id', shortId)
+                    .single()
+
+                if (urlError || !urlData) throw new Error('URL not found')
+
+                finalProductId = urlData.member_area_id || urlData.application_id
+                finalCheckoutId = urlData.checkout_id
+                knownIsApp = !!urlData.application_id
+                setFinalCheckoutId(finalCheckoutId ?? null)
+            } else if (productId && checkoutId) {
+                finalCheckoutId = checkoutId
+                setFinalCheckoutId(finalCheckoutId ?? null)
+            }
+
+            const productTable = knownIsApp ? 'applications' : 'marketplace_products'
+            const [checkoutQueryResult, productQueryResult] = await Promise.all([
+                supabase.from('checkouts').select('*').eq('id', finalCheckoutId).single(),
+                finalProductId
+                    ? supabase.from(productTable).select('*').eq('id', finalProductId).single()
+                    : Promise.resolve({ data: null, error: null }),
+            ])
+
+            const { data: checkoutData, error: checkoutError } = checkoutQueryResult
+
+            if (checkoutError) throw checkoutError
+            if (!checkoutData) throw new Error('Checkout not found')
+
+            let fetchedProduct: Product
+            let productType: 'app' | 'marketplace' = 'marketplace'
+            let applicationId: string | undefined
+
+            // Check if it's app or marketplace
+            if (checkoutData.application_id) {
+                // It's an app checkout - but might be for a specific product inside the app
+                productType = 'app'
+                applicationId = checkoutData.application_id
+
+                // Only look up offer product name if this is an upsell/downsell redirect (nobumps=1)
+                const isUpsellCheckout = urlParams.get('nobumps') === '1'
+
+                let resolvedProductName: string | null = null
+                let resolvedProductImage: string | undefined = undefined
+                let resolvedProductDesc = ''
+                let resolvedProductId = checkoutData.application_id
+
+                if (isUpsellCheckout) {
+                    // Single query: search by checkout_id OR checkout_offer_id
+                    const { data: offerRow } = await supabase
+                        .from('checkout_offers')
+                        .select('product_id, product_type, application_id, product_name, offer_product_image')
+                        .or(`checkout_id.eq.${finalCheckoutId},checkout_offer_id.eq.${finalCheckoutId}`)
+                        .in('offer_type', ['upsell', 'downsell'])
+                        .limit(1)
+                        .maybeSingle()
+
+                    if (offerRow) {
+                        // 1. Direct product_name from checkout_offers (fastest)
+                        if (offerRow.product_name) {
+                            resolvedProductName = offerRow.product_name
+                            resolvedProductImage = offerRow.offer_product_image || undefined
+                        }
+
+                        // 2. Use product_type to query the right table directly (no waterfall)
+                        if (!resolvedProductName && offerRow.product_id) {
+                            const table = offerRow.product_type === 'app_product' ? 'products' : 'marketplace_products'
+                            const { data: prod } = await supabase
+                                .from(table)
+                                .select('id, name, description, image_url')
+                                .eq('id', offerRow.product_id)
+                                .maybeSingle()
+
+                            if (prod) {
+                                resolvedProductName = prod.name
+                                resolvedProductImage = prod.image_url
+                                resolvedProductDesc = prod.description || ''
+                                resolvedProductId = prod.id
+                            }
+                        }
+                    }
+                }
+
+                if (resolvedProductName) {
+                    fetchedProduct = {
+                        id: resolvedProductId,
+                        name: resolvedProductName,
+                        price: 0,
+                        image_url: resolvedProductImage,
+                        description: resolvedProductDesc
+                    }
+                } else {
+                    // App data: already fetched in parallel when knownIsApp, otherwise fetch now
+                    let appData = (knownIsApp && productQueryResult.data) ? productQueryResult.data : null
+                    if (!appData) {
+                        const { data, error: appError } = await supabase
+                            .from('applications')
+                            .select('*')
+                            .eq('id', checkoutData.application_id)
+                            .single()
+                        if (appError) throw appError
+                        if (!data) throw new Error('App not found')
+                        appData = data
+                    }
+
+                    fetchedProduct = {
+                        id: appData.id,
+                        name: appData.name,
+                        price: 0,
+                        image_url: appData.logo,
+                        description: appData.description || ''
+                    }
+                }
+            } else {
+                // It's a marketplace product — resultado já disponível da query paralelizada
+                const { data: productData, error: productError } = productQueryResult
+
+                if (productError) throw productError
+                if (!productData) throw new Error('Product not found')
+
+                fetchedProduct = {
+                    id: productData.id,
+                    name: productData.name,
+                    price: productData.price,
+                    image_url: productData.image_url,
+                    description: productData.description
+                }
+            }
+
+            const fetchedCheckout: Checkout = {
+                id: checkoutData.id,
+                name: checkoutData.name,
+                product_id: checkoutData.member_area_id || checkoutData.application_id,
+                is_default: checkoutData.is_default,
+                custom_price: checkoutData.custom_price,
+                banner_image: checkoutData.banner_image,
+                banner_title: checkoutData.banner_title,
+                custom_height: checkoutData.custom_height,
+                language: checkoutData.language || 'en',
+                created_at: checkoutData.created_at
+            }
+
+            setProduct(fetchedProduct)
+            setCheckout(fetchedCheckout)
+
+            // Save type and applicationId in state to pass to CheckoutDigital
+            if (productType === 'app') {
+                fetchedProduct.productType = 'app'
+                fetchedProduct.applicationId = applicationId
+            }
+
+            // Load timer settings if they exist
+            const customFields = checkoutData.custom_fields || {}
+            const checkoutLang = checkoutData.language || 'en'
+            const translations = getTranslations(checkoutLang as CheckoutLanguage)
+            if (customFields.timer) {
+                setTimerConfig({
+                    ...customFields.timer,
+                    activeText: customFields.timer.activeText || translations.limitedTimeOffer,
+                    finishedText: customFields.timer.finishedText || translations.offerEnded
+                })
+            }
+
+            // Load button color
+            if (customFields.buttonColor) {
+                setButtonColor(customFields.buttonColor)
+            }
+
+            // Load pixels e UTMs personalizados
+            if (customFields.customPixels) {
+                setCustomPixels(customFields.customPixels)
+            }
+            if (customFields.customUtms) {
+                setCustomUtms(customFields.customUtms)
+            }
+
+            // Pré-carregar config de redirect enquanto o usuário preenche o formulário
+            fetchRedirectConfig(
+                checkoutData.id,
+                checkoutData.application_id || checkoutData.member_area_id,
+                isUpsellCheckout
+            )
+
+            // Long URL: create short URL in background and update address bar (no redirect/remount)
+            if (!shortId && productId && checkoutId) {
+                const col = checkoutData.application_id ? 'application_id' : 'member_area_id'
+                    ; (async () => {
+                        try {
+                            const { data: existing } = await supabase.from('checkout_urls')
+                                .select('id').eq(col, productId).eq('checkout_id', checkoutId).single()
+                            if (existing?.id) {
+                                window.history.replaceState(null, '', `/checkout/${existing.id}${window.location.search}`)
+                                return
+                            }
+                            const { data: created } = await supabase.from('checkout_urls')
+                                .insert({ [col]: productId, checkout_id: checkoutId }).select('id').single()
+                            if (created?.id) {
+                                window.history.replaceState(null, '', `/checkout/${created.id}${window.location.search}`)
+                            }
+                        } catch { /* silent */ }
+                    })()
+            }
+        } catch (error) {
+            console.error('Error loading data:', error)
+            // Redirect to error page or 404
+            navigate('/404')
+        } finally {
+            setLoading(false)
+        }
+    }, [productId, checkoutId, shortId, navigate])
+
+    const fetchRedirectConfig = useCallback(async (
+        checkoutId: string,
+        productOwnerId: string | undefined,
+        isUpsell: boolean
+    ) => {
+        try {
+            if (!isUpsell) {
+                // Strategy 1: funnel_page linked directly to checkout
+                let { data: pages } = await supabase
+                    .from('funnel_pages')
+                    .select('id, settings, page_type')
+                    .eq('checkout_id', checkoutId)
+
+                // Strategy 2: product -> funnels -> funnel_pages
+                if (!pages?.length || !(pages[0] as any)?.settings?.post_purchase_page_id) {
+                    if (productOwnerId) {
+                        const { data: funnels } = await supabase
+                            .from('funnels')
+                            .select('id')
+                            .eq('product_id', productOwnerId)
+                            .limit(1)
+
+                        if (funnels?.[0]?.id) {
+                            const { data: allPages } = await supabase
+                                .from('funnel_pages')
+                                .select('id, name, page_type, checkout_id, settings')
+                                .eq('funnel_id', funnels[0].id)
+
+                            const checkoutPage = allPages?.find((p: any) =>
+                                p.page_type === 'checkout' ||
+                                p.checkout_id === checkoutId ||
+                                p.settings?.post_purchase_page_id
+                            )
+
+                            if (checkoutPage) pages = [checkoutPage]
+                        }
+                    }
+                }
+
+                const settings = (pages?.[0] as any)?.settings
+
+                if (settings?.post_purchase_redirect_url) {
+                    setPreloadedRedirect({ url: settings.post_purchase_redirect_url })
+                    return
+                }
+
+                if (settings?.post_purchase_page_id) {
+                    const { data: target } = await supabase
+                        .from('funnel_pages')
+                        .select('external_url, page_type')
+                        .eq('id', settings.post_purchase_page_id)
+                        .maybeSingle()
+
+                    if (target?.external_url) {
+                        setPreloadedRedirect({ url: target.external_url })
+                        return
+                    }
+                }
+            } else {
+                // Upsell flow
+                const { data: offers } = await supabase
+                    .from('checkout_offers')
+                    .select('page_id')
+                    .eq('checkout_id', checkoutId)
+                    .eq('is_active', true)
+                    .neq('offer_type', 'order_bump')
+                    .limit(1)
+
+                if (offers?.[0]?.page_id) {
+                    const { data: pageData } = await supabase
+                        .from('funnel_pages')
+                        .select('settings')
+                        .eq('id', offers[0].page_id)
+                        .maybeSingle()
+
+                    const settings = (pageData as any)?.settings
+
+                    if (settings?.accept_redirect_url) {
+                        setPreloadedRedirect({ url: settings.accept_redirect_url })
+                        return
+                    }
+
+                    if (settings?.accept_page_id) {
+                        const { data: target } = await supabase
+                            .from('funnel_pages')
+                            .select('external_url, page_type')
+                            .eq('id', settings.accept_page_id)
+                            .maybeSingle()
+
+                        if (target?.external_url) {
+                            setPreloadedRedirect({ url: target.external_url })
+                            return
+                        }
+                    }
+                }
+            }
+
+            setPreloadedRedirect({ url: null })
+        } catch (e) {
+            console.error('Error pre-loading redirect config:', e)
+            setPreloadedRedirect({ url: null })
+        }
+    }, [])
+
+    useEffect(() => {
+        if ((productId && checkoutId) || shortId) {
+            fetchData()
+        } else {
+            setLoading(false)
+        }
+    }, [productId, checkoutId, shortId, fetchData])
+
+    const lang = checkout?.language || 'en'
+    const t = getTranslations(lang as CheckoutLanguage)
+
+    // Abandonment tracking — fired when user leaves with a captured lead but no payment
+    const fireAbandonedEvent = useCallback(() => {
+        if (abandonedFiredRef.current || !leadDataRef.current || !finalCheckoutId) return
+        abandonedFiredRef.current = true
+        const payload = JSON.stringify({
+            checkoutId: finalCheckoutId,
+            productId: product?.id,
+            customerEmail: leadDataRef.current.email,
+            customerName: leadDataRef.current.name,
+            customerPhone: leadDataRef.current.phone,
+            trackingParameters: utmParams.current,
+        })
+        fetch('https://api.clicknich.com/api/utmify-abandoned', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: payload,
+            keepalive: true,
+        }).catch(() => { /* fire-and-forget */ })
+    }, [finalCheckoutId, product?.id])
+
+    useEffect(() => {
+        const handleUnload = () => fireAbandonedEvent()
+        const handleVisibility = () => {
+            if (document.visibilityState === 'hidden') fireAbandonedEvent()
+        }
+        window.addEventListener('beforeunload', handleUnload)
+        document.addEventListener('visibilitychange', handleVisibility)
+        return () => {
+            window.removeEventListener('beforeunload', handleUnload)
+            document.removeEventListener('visibilitychange', handleVisibility)
+        }
+    }, [fireAbandonedEvent])
+
+    // Injetar scripts personalizados (pixels + UTMs) no <head> da página
+    useEffect(() => {
+        const allCustomHtml = [customPixels, customUtms]
+            .filter(html => html && html.trim())
+            .join('\n\n')
+
+        if (!allCustomHtml) return
+
+        const injected: HTMLElement[] = []
+
+        // Cria um container temporário para parsear o HTML
+        const container = document.createElement('div')
+        container.innerHTML = allCustomHtml
+
+        // Move cada nó filho para o <head>
+        Array.from(container.childNodes).forEach((node) => {
+            // Re-criar scripts para garantir execução
+            if ((node as HTMLElement).tagName === 'SCRIPT') {
+                const original = node as HTMLScriptElement
+                const script = document.createElement('script')
+                Array.from(original.attributes).forEach(attr => script.setAttribute(attr.name, attr.value))
+                script.textContent = original.textContent
+                document.head.appendChild(script)
+                injected.push(script)
+            } else {
+                const el = node.cloneNode(true) as HTMLElement
+                document.head.appendChild(el)
+                injected.push(el)
+            }
+        })
+
+        return () => {
+            injected.forEach(el => el.parentNode?.removeChild(el))
+        }
+    }, [customPixels, customUtms])
+
+    if (loading) {
+        return (
+            <div className="min-h-screen bg-[#0f1117]" />
+        )
+    }
+
+    if (!product || !checkout) {
+        return (
+            <div className="min-h-screen bg-[#0f1117] flex items-center justify-center">
+                <div className="text-center">
+                    <h1 className="text-2xl font-bold text-gray-100 mb-4">{t.checkoutNotFound}</h1>
+                    <p className="text-gray-600">{t.checkoutNotFoundDescription}</p>
+                </div>
+            </div>
+        )
+    }
+
+    const handleProcessPayment = async (paymentData: { formData: { name: string; email: string; phone: string }, selectedOrderBumps: any[], totalAmount: number, installments?: number }) => {
+        try {
+            const response = await fetch('https://api.clicknich.com/api/process-payment', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    productId: product!.id,
+                    productType: product!.productType,
+                    applicationId: product!.applicationId,
+                    checkoutId: checkout!.id,
+                    customerEmail: paymentData.formData.email,
+                    customerName: paymentData.formData.name,
+                    customerPhone: paymentData.formData.phone,
+                    selectedOrderBumps: paymentData.selectedOrderBumps,
+                    totalAmount: paymentData.totalAmount,
+                    installments: paymentData.installments ?? 1,
+                    sessionId: checkoutSessionId || undefined,
+                    trackingParameters: utmParams.current,
+                }),
+            })
+
+            const result = await response.json()
+            if (!result.success) {
+                throw new Error(result.error || 'Payment failed')
+            }
+
+            // Store result for redirect — used directly in onPaymentSuccess
+            if (result.purchaseId && result.thankyouToken) {
+                paymentResultRef.current = {
+                    purchaseId: result.purchaseId,
+                    thankyouToken: result.thankyouToken,
+                    redirectUrl: result.redirectUrl || undefined
+                }
+            }
+
+            return {
+                success: true,
+                purchaseId: result.purchaseId,
+                thankyouToken: result.thankyouToken,
+                redirectUrl: result.redirectUrl
+            }
+        } catch (error: any) {
+            throw new Error(error.message || 'Payment processing failed')
+        }
+    }
+
+    return (
+        <CheckoutDigital
+            productId={product.id}
+            productName={product.name}
+            productPrice={checkout.custom_price || product.price}
+            productImage={product.image_url}
+            productDescription={product.description}
+            productType={product.productType}
+            applicationId={product.applicationId}
+            checkoutId={checkout.id}
+            sessionId={checkoutSessionId || undefined}
+            trackingParameters={utmParams.current}
+            language={checkout.language}
+            initialOrderBumps={initialOrderBumps}
+            initialAppProducts={initialAppProducts}
+            customBanner={{
+                image: checkout.banner_image,
+                title: checkout.banner_title,
+                customHeight: checkout.custom_height
+            }}
+            timerConfig={timerConfig}
+            isPreview={false}
+            buttonColor={buttonColor}
+            onProcessPayment={handleProcessPayment}
+            onLeadCapture={(data) => {
+                leadDataRef.current = data
+                abandonedFiredRef.current = false
+            }}
+            onPaymentSuccess={async (paymentResult) => {
+                // Pagamento confirmado — cancelar envio de abandono
+                abandonedFiredRef.current = true
+                // Track conversion event
+                if (finalCheckoutId) {
+                    try {
+                        await trackCheckoutEvent(finalCheckoutId, 'conversion', {
+                            purchase_id: paymentResult?.purchaseId || paymentResultRef.current?.purchaseId,
+                            thankyou_token: paymentResult?.thankyouToken || paymentResultRef.current?.thankyouToken,
+                            timestamp: new Date().toISOString()
+                        })
+                    } catch (error) {
+                        console.warn('Failed to track conversion:', error)
+                    }
+                }
+
+                const result = paymentResult || paymentResultRef.current
+                if (!result) return
+
+                const urlParams = new URLSearchParams(window.location.search)
+                const postPurchaseRedirect = urlParams.get('redirect')
+
+                // Redirect explícito via query param
+                if (postPurchaseRedirect) {
+                    setTimeout(() => { window.location.href = postPurchaseRedirect }, 150)
+                    return
+                }
+
+                // Usar config pré-carregada enquanto o usuário preenchia o formulário
+                if (preloadedRedirect?.url) {
+                    const baseUrl = preloadedRedirect.url
+                    const finalUrl = baseUrl.includes('?')
+                        ? `${baseUrl}&purchase_id=${result.purchaseId}&token=${result.thankyouToken}`
+                        : `${baseUrl}?purchase_id=${result.purchaseId}&token=${result.thankyouToken}`
+                    setTimeout(() => { window.location.href = finalUrl }, 150)
+                    return
+                }
+
+                // Usar redirectUrl do backend (upsell ou login)
+                if (result.redirectUrl) {
+                    const url = result.redirectUrl
+                    setTimeout(() => { window.location.href = url }, 150)
+                    return
+                }
+
+            }}
+        />
+    )
+}

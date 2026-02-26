@@ -1,0 +1,63 @@
+import { createClient } from '@supabase/supabase-js'
+
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
+const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY
+
+if (!supabaseUrl || !supabaseKey) {
+  throw new Error('Missing Supabase environment variables')
+}
+
+export const supabase = createClient(supabaseUrl, supabaseKey)
+
+// API fetch helper for Cloudflare Worker
+const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || 'https://api.clicknich.com/api'
+
+interface FetchOptions extends RequestInit {
+  headers?: Record<string, string>
+}
+
+// Fetch para Edge Functions (ex: applications, apps, products, etc.)
+export async function supabaseFetch(endpoint: string, options: FetchOptions = {}): Promise<Response> {
+  const url = endpoint.startsWith('http') ? endpoint : `${apiBaseUrl}/${endpoint}`
+
+  const headers: Record<string, string> = {
+    'Authorization': `Bearer ${supabaseKey}`,
+    'Content-Type': 'application/json',
+    ...options.headers,
+  }
+
+  return fetch(url, {
+    ...options,
+    headers,
+  })
+}
+
+// Fetch para REST API direta do Supabase (tabelas via PostgREST)
+export async function supabaseRestFetch(endpoint: string, options: FetchOptions = {}): Promise<Response> {
+  const url = endpoint.startsWith('http') ? endpoint : `${supabaseUrl}/rest/v1/${endpoint}`
+
+  // Obter token do usuário logado (se disponível)
+  const { data: { session } } = await supabase.auth.getSession()
+  const authToken = session?.access_token || supabaseKey
+
+  const headers: Record<string, string> = {
+    'Authorization': `Bearer ${authToken}`,
+    'apikey': supabaseKey,
+    'Content-Type': 'application/json',
+    ...options.headers,
+  }
+
+  return fetch(url, {
+    ...options,
+    headers,
+  })
+}
+
+// Expor globalmente para compatibilidade com código existente
+declare global {
+  function supabaseFetch(endpoint: string, options?: FetchOptions): Promise<Response>
+  function supabaseRestFetch(endpoint: string, options?: FetchOptions): Promise<Response>
+}
+
+(window as any).supabaseFetch = supabaseFetch;
+(window as any).supabaseRestFetch = supabaseRestFetch

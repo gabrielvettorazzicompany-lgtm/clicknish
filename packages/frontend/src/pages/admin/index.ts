@@ -1,0 +1,6 @@
+export { default as SuperAdmin } from './SuperAdmin'
+export { default as SuperAdminLogin } from './SuperAdminLogin'
+export { default as SuperAdminForgotPassword } from './SuperAdminForgotPassword'
+export { default as SuperAdminResetPassword } from './SuperAdminResetPassword'
+export { default as SuperAdminModern } from './SuperAdminModern'
+export { default as Admin } from '../Admin'

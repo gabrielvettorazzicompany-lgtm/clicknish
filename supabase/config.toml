@@ -1,0 +1,42 @@
+# Supabase Configuration
+
+[api]
+enabled = true
+port = 54321
+schemas = ["public", "storage"]
+extra_search_path = ["public"]
+max_rows = 1000
+
+[db]
+port = 54322
+
+[studio]
+enabled = true
+port = 54323
+
+[inbucket]
+enabled = true
+port = 54324
+
+[storage]
+enabled = true
+file_size_limit = "50MiB"
+
+[auth]
+enabled = true
+site_url = "http://localhost:5173"
+additional_redirect_urls = ["https://localhost:5173", "https://app.clicknich.com", "https://app.clicknich.com/**"]
+jwt_expiry = 3600
+enable_signup = true
+
+[auth.email]
+enable_signup = true
+double_confirm_changes = true
+enable_confirmations = false
+
+# Edge Functions Configuration
+[functions.request-password-reset]
+verify_jwt = false  # Permitir acesso público (não requer autenticação)
+
+[functions.confirm-reset]
+verify_jwt = false  # Permitir acesso público (não requer autenticação)

@@ -1,0 +1,47 @@
+/* Guia de Uso do Sistema de Temas Claro/Escuro */
+
+/* 
+Este projeto agora inclui um sistema completo de temas claro/escuro.
+
+COMO USAR:
+1. O botão de alternância está na navbar (ícone de sol/lua)
+2. O tema é salvo automaticamente no localStorage
+3. O tema padrão é escuro
+
+CLASSES TAILWIND RECOMENDADAS:
+- Backgrounds: bg-white dark:bg-[#0f1117]
+- Textos: text-gray-900 dark:text-white
+- Borders: border-gray-200 dark:border-[#1e2139] 
+- Inputs: bg-gray-50 dark:bg-[#1a1d2e]
+- Hover: hover:bg-gray-100 dark:hover:bg-[#252941]
+
+SEMPRE INCLUIR:
+- transition-colors duration-200 (para suavizar transições)
+
+EXEMPLO DE COMPONENTE:
+```tsx
+function MeuComponente() {
+  return (
+    <div className="bg-white dark:bg-[#0f1117] transition-colors duration-200">
+      <h1 className="text-gray-900 dark:text-white">Título</h1>
+      <p className="text-gray-600 dark:text-gray-400">Texto</p>
+    </div>
+  )
+}
+```
+
+CONTEXTO DISPONÍVEL:
+```tsx
+import { useTheme } from '@/contexts/ThemeContext'
+
+function MeuComponente() {
+  const { theme, toggleTheme, setTheme } = useTheme()
+  
+  return (
+    <button onClick={toggleTheme}>
+      Tema atual: {theme}
+    </button>
+  )
+}
+```
+*/

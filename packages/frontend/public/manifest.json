@@ -1,0 +1,29 @@
+{
+    "name": "ClickNich",
+    "short_name": "ClickNich",
+    "description": "Plataforma para criar aplicativos personalizados para infoprodutos",
+    "start_url": "/",
+    "display": "standalone",
+    "background_color": "#080b14",
+    "theme_color": "#080b14",
+    "orientation": "portrait-primary",
+    "icons": [
+        {
+            "src": "/pw.jpg",
+            "sizes": "192x192",
+            "type": "image/jpeg",
+            "purpose": "any maskable"
+        },
+        {
+            "src": "/pw.jpg",
+            "sizes": "512x512",
+            "type": "image/jpeg",
+            "purpose": "any maskable"
+        }
+    ],
+    "categories": [
+        "education",
+        "productivity"
+    ],
+    "lang": "pt-BR"
+}
