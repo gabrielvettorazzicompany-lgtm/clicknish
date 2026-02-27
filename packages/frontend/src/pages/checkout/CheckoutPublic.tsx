@@ -2,9 +2,13 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { useEffect, useState, useCallback, useRef } from 'react'
 import { supabase } from '@/services/supabase'
 import { useCheckoutPageView, trackCheckoutEvent } from '@/services/checkouts'
-import CheckoutDigital from '@/components/checkout/CheckoutDigital'
+import CheckoutDigital, { getStripePromise } from '@/components/checkout/CheckoutDigital'
 import type { CheckoutLanguage } from '@/components/checkout/translations'
 import { getTranslations } from '@/components/checkout/translations'
+
+// ⚡ PRELOAD: Stripe começa a carregar imediatamente ao importar este módulo,
+// em paralelo com o fetch de dados — elimina a espera sequencial (~200-300ms)
+getStripePromise()
 
 interface Product {
     id: string
@@ -625,7 +629,33 @@ export default function CheckoutPublic() {
 
     if (loading) {
         return (
-            <div className="min-h-screen bg-[#0f1117]" />
+            <div className="min-h-screen bg-[#0f1117] flex items-center justify-center px-4">
+                <div className="w-full max-w-md space-y-4 animate-pulse">
+                    {/* Banner skeleton */}
+                    <div className="h-40 bg-[#1a1f2e] rounded-xl" />
+                    {/* Product info */}
+                    <div className="space-y-2">
+                        <div className="h-6 bg-[#1a1f2e] rounded w-3/4" />
+                        <div className="h-4 bg-[#1a1f2e] rounded w-1/2" />
+                    </div>
+                    {/* Form fields */}
+                    <div className="space-y-3">
+                        <div className="h-12 bg-[#1a1f2e] rounded-lg" />
+                        <div className="h-12 bg-[#1a1f2e] rounded-lg" />
+                        <div className="h-12 bg-[#1a1f2e] rounded-lg" />
+                    </div>
+                    {/* Card fields */}
+                    <div className="space-y-3">
+                        <div className="h-12 bg-[#1a1f2e] rounded-lg" />
+                        <div className="flex gap-3">
+                            <div className="h-12 bg-[#1a1f2e] rounded-lg flex-1" />
+                            <div className="h-12 bg-[#1a1f2e] rounded-lg flex-1" />
+                        </div>
+                    </div>
+                    {/* Button */}
+                    <div className="h-14 bg-[#1a1f2e] rounded-xl" />
+                </div>
+            </div>
         )
     }
 

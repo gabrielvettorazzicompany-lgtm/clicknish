@@ -68,7 +68,9 @@ export async function handleCheckoutData(
                 console.log(`[checkout-data] Cache HIT: ${shortId}`)
                 return json(cached, 200, {
                     'X-Cache': 'HIT',
-                    'Cache-Control': 'public, max-age=180', // Browser pode cachear por 3min também
+                    // stale-while-revalidate: browser serve cache instantaneamente em revisitas
+                    // e atualiza em background — checkout abre em 0ms para quem já visitou
+                    'Cache-Control': 'public, max-age=180, stale-while-revalidate=600',
                 })
             }
         }
@@ -107,7 +109,7 @@ export async function handleCheckoutData(
 
         return json(rpcResult, 200, {
             'X-Cache': 'MISS',
-            'Cache-Control': 'public, max-age=180',
+            'Cache-Control': 'public, max-age=180, stale-while-revalidate=600',
         })
 
     } catch (error: any) {

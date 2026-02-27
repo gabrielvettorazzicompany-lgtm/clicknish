@@ -40,20 +40,22 @@ export const useOrderBumps = (checkoutId?: string, productId?: string, initialBu
 
     useEffect(() => {
         const fetchOrderBumps = async () => {
-            // Skip order bumps when checkout is opened from upsell/downsell
-            const urlParams = new URLSearchParams(window.location.search)
-            if (urlParams.get('nobumps') === '1') {
-
+            // ✅ OTIMIZAÇÃO: Skip request se não há dados para buscar
+            if (!checkoutId && !productId) {
+                console.log('❌ useOrderBumps: Skipping fetch - no checkoutId or productId')
                 return
             }
 
-            if (!checkoutId && !productId) {
-
+            // Skip order bumps when checkout is opened from upsell/downsell
+            const urlParams = new URLSearchParams(window.location.search)
+            if (urlParams.get('nobumps') === '1') {
+                console.log('❌ useOrderBumps: Skipping fetch - nobumps=1 param')
                 return
             }
 
             // Skip fetch if we already have pre-loaded bumps from RPC
             if (initialBumps && initialBumps.length > 0) {
+                console.log('✅ useOrderBumps: Using pre-loaded bumps, skipping fetch')
                 return
             }
 

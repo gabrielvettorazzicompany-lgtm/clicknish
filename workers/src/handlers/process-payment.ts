@@ -879,11 +879,15 @@ async function trackUtmify(
         if (matchingIntegrations.length === 0) return
 
         const priceInCents = Math.round(finalPrice * 100)
-        // Taxa real do Stripe: 2.9% + $0.30 (30 cents fixo convertido para a moeda)
+        console.log(`UTMify DEBUG: finalPrice=${finalPrice}, priceInCents=${priceInCents}`)
+
+        // Taxa real do Stripe: 2.9% + taxa fixa por moeda
         const stripePercentFee = Math.round(priceInCents * 0.029)
-        const stripeFixedFee = 30 // 30 cents em centavos
+        // Taxa fixa ajustada por moeda (USD: 30¢, BRL: aproximadamente 120¢)
+        const stripeFixedFee = currency.toUpperCase() === 'USD' ? 30 : 120
         const gatewayFeeInCents = stripePercentFee + stripeFixedFee
         const userCommissionInCents = Math.max(0, priceInCents - gatewayFeeInCents)
+
 
         const stableOrderId = checkoutId ? `${checkoutId}_${customerEmail}` : paymentIntentId
         const utmifyBody = {
@@ -929,6 +933,8 @@ async function trackUtmify(
 
         await Promise.all(matchingIntegrations.map(async (integration: any) => {
             try {
+                console.log(`UTMify PAYLOAD [${integration.name}]:`, JSON.stringify(utmifyBody, null, 2))
+
                 const res = await fetch('https://api.utmify.com.br/api-credentials/orders', {
                     method: 'POST',
                     headers: {
