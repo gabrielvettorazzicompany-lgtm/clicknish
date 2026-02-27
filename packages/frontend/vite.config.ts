@@ -50,6 +50,8 @@ export default defineConfig({
           if (id.includes('framer-motion')) return 'vendor-motion'
           // Stripe — chunk separado, só carrega no checkout
           if (id.includes('@stripe') || id.includes('stripe-js')) return 'vendor-stripe'
+          // Forçar lucide-react no bundle principal (evita export issues)
+          if (id.includes('lucide-react')) return 'index'
           // NOTA: vendor-supabase e vendor-misc removidos — causavam conflitos
           // de export com authStore e outros stores do app (Rollup circular deps)
         },
