@@ -48,14 +48,10 @@ export default defineConfig({
           if (id.includes('jspdf') || id.includes('jspdf-autotable')) return 'vendor-pdf'
           // Framer Motion em chunk separado (~150KB)
           if (id.includes('framer-motion')) return 'vendor-motion'
-          // Supabase em chunk separado
-          if (id.includes('@supabase')) return 'vendor-supabase'
-          // HeroUI + React Aria em chunk separado (~400KB)
-          if (id.includes('@heroui') || id.includes('@react-aria') || id.includes('@react-stately')) return 'vendor-ui'
           // Stripe — chunk separado, só carrega no checkout
           if (id.includes('@stripe') || id.includes('stripe-js')) return 'vendor-stripe'
-          // Resto dos node_modules
-          if (id.includes('node_modules')) return 'vendor-misc'
+          // NOTA: vendor-supabase e vendor-misc removidos — causavam conflitos
+          // de export com authStore e outros stores do app (Rollup circular deps)
         },
       },
     },
