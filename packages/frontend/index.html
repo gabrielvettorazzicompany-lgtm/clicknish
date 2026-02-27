@@ -6,13 +6,8 @@
   <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
   <link rel="icon" type="image/jpeg" sizes="32x32" href="/pw.jpg" />
   <link rel="icon" type="image/jpeg" sizes="16x16" href="/pw.jpg" />
-  <link rel="apple-touch-icon" sizes="180x180" href="/pw.jpg" />
-  <link rel="manifest" href="/manifest.json" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <meta name="theme-color" content="#080b14" />
-  <meta name="application-name" content="ClickNich" />
-  <meta name="apple-mobile-web-app-title" content="ClickNich" />
-  <meta name="apple-mobile-web-app-capable" content="yes" />
   <title>ClickNich</title>
 
   <!-- ⚡ ULTRA-FAST LOADING: Critical resource preloading -->
@@ -384,20 +379,14 @@
       });
       observer.observe(document.getElementById('root'), { childList: true });
 
-      // ⛔ NÃO registra Service Worker no checkout → impede elegibilidade de PWA
     })();
 
-    // Para rotas não-checkout, remover spinner após React montar
+    // Remover spinner após React montar
     if (!window.__IS_CHECKOUT_ROUTE__) {
       setTimeout(function () {
         var el = document.getElementById('page-loading');
         if (el) el.style.display = 'none';
       }, 150);
-
-      if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.register('/sw.js', { updateViaCache: 'all' })
-          .catch(function () { });
-      }
     }
   </script>
 

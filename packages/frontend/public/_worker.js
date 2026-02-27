@@ -53,9 +53,7 @@ export default {
             try {
                 const cachedHtml = await env.CACHE.get(`html:${shortId}`)
                 if (cachedHtml) {
-                    // Garante que HTML em cache também não tenha o manifest (segurança)
-                    const safeHtml = cachedHtml.replace(/<link[^>]+rel=["']manifest["'][^>]*>/gi, '')
-                    return new Response(safeHtml, {
+                    return new Response(cachedHtml, {
                         status: 200,
                         headers: makeHeaders(shortId),
                     })
@@ -87,12 +85,7 @@ export default {
             return new Response(full, { status: 200, headers: makeHeaders(shortId) })
         }
 
-        // Remove tudo que torna a página elegível para instalação de PWA
-        const rawHead = html.slice(0, splitIdx)
-        const headChunk = rawHead
-            .replace(/<link[^>]+rel=["']manifest["'][^>]*>/gi, '')          // manifest.json
-            .replace(/<meta[^>]+apple-mobile-web-app[^>]*>/gi, '')           // apple PWA metas
-            .replace(/<link[^>]+rel=["']apple-touch-icon["'][^>]*>/gi, '')   // apple touch icon
+        const headChunk = html.slice(0, splitIdx)
         const tailChunk = html.slice(splitIdx)       // </head><body>...</body></html>
 
         // Cria um stream: flushar head IMEDIATAMENTE → browser inicia downloads
@@ -115,7 +108,6 @@ export default {
 
                 // 4. Background: grava HTML completo no KV para próximas requisições
                 if (env.CACHE && checkoutData) {
-                    // Grava sem manifest/apple metas (já foram removidos do headChunk)
                     const fullHtml = headChunk + scriptTag + tailChunk
                     env.CACHE.put(`html:${shortId}`, fullHtml, { expirationTtl: 30 }).catch(() => { })
                 }
@@ -159,14 +151,11 @@ async function fetchCheckoutData(shortId, env) {
  * Constrói o <script> de injeção de dados.
  * Se não tem dados: dispara o fetch no client (fallback).
  */
-// Script que bloqueia o prompt de instalação do PWA em páginas de checkout
-const BLOCK_PWA_INSTALL = `<script>window.addEventListener('beforeinstallprompt',function(e){e.preventDefault();},true);</script>`
-
 function buildScriptTag(shortId, data) {
     if (data) {
-        return BLOCK_PWA_INSTALL + `<script>window.__IS_CHECKOUT_ROUTE__=true;window.__CHECKOUT_SHORT_ID__=${JSON.stringify(shortId)};window.__CHECKOUT_DATA__=${JSON.stringify(data)};window.__checkoutDataPromise=Promise.resolve(window.__CHECKOUT_DATA__);</script>\n`
+        return `<script>window.__IS_CHECKOUT_ROUTE__=true;window.__CHECKOUT_SHORT_ID__=${JSON.stringify(shortId)};window.__CHECKOUT_DATA__=${JSON.stringify(data)};window.__checkoutDataPromise=Promise.resolve(window.__CHECKOUT_DATA__);</script>\n`
     }
-    return BLOCK_PWA_INSTALL + `<script>window.__IS_CHECKOUT_ROUTE__=true;window.__CHECKOUT_SHORT_ID__=${JSON.stringify(shortId)};window.__checkoutDataPromise=fetch('https://api.clicknich.com/api/checkout-data/'+${JSON.stringify(shortId)},{priority:'high'}).then(function(r){return r.ok?r.json():null;}).catch(function(){return null;});</script>\n`
+    return `<script>window.__IS_CHECKOUT_ROUTE__=true;window.__CHECKOUT_SHORT_ID__=${JSON.stringify(shortId)};window.__checkoutDataPromise=fetch('https://api.clicknich.com/api/checkout-data/'+${JSON.stringify(shortId)},{priority:'high'}).then(function(r){return r.ok?r.json():null;}).catch(function(){return null;});</script>\n`
 }
 
 /** Usado apenas como fallback quando não há </head> no HTML */
