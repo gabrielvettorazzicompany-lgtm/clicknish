@@ -33,15 +33,98 @@ interface Checkout {
     created_at: string
 }
 
+// ⚡ INSTANT BOOT: lê __CHECKOUT_DATA__ de forma síncrona antes do primeiro render
+// Se os dados já estão no HTML (KV hit), o checkout abre sem nenhum skeleton
+function consumePreRenderedData() {
+    const raw = (window as any).__CHECKOUT_DATA__
+    if (!raw || raw.error) return null
+    try {
+        const ck = raw.checkout
+        const prod = raw.product
+        if (!ck || !prod) return null
+        delete (window as any).__CHECKOUT_DATA__
+        delete (window as any).__checkoutDataPromise
+        return raw
+    } catch {
+        return null
+    }
+}
+
+function buildInitialState(raw: any) {
+    if (!raw) return null
+    const ck = raw.checkout
+    const prod = raw.product
+    const customFields = ck.custom_fields || {}
+    const lang = (ck.language || 'en') as CheckoutLanguage
+    const translations = getTranslations(lang)
+
+    const product: Product = {
+        id: prod.id,
+        name: prod.name,
+        price: prod.price || 0,
+        image_url: prod.image_url,
+        description: prod.description || '',
+        productType: raw.productType,
+        applicationId: prod.applicationId || undefined,
+    }
+    const checkout: Checkout = {
+        id: ck.id,
+        name: ck.name,
+        product_id: ck.member_area_id || ck.application_id,
+        is_default: ck.is_default,
+        custom_price: ck.custom_price,
+        banner_image: ck.banner_image,
+        banner_title: ck.banner_title,
+        custom_height: ck.custom_height,
+        language: lang,
+        created_at: ck.created_at,
+    }
+    const timerConfig = customFields.timer
+        ? { ...customFields.timer, activeText: customFields.timer.activeText || translations.limitedTimeOffer, finishedText: customFields.timer.finishedText || translations.offerEnded }
+        : { enabled: false, minutes: 15, backgroundColor: '#ef4444', textColor: '#ffffff', activeText: '', finishedText: '' }
+
+    return {
+        product,
+        checkout,
+        timerConfig,
+        buttonColor: customFields.buttonColor || '#111827',
+        securitySealsEnabled: customFields.securitySealsEnabled || false,
+        testimonials: customFields.testimonials || [],
+        imageBlocks: customFields.imageBlocks || [],
+        customPixels: customFields.customPixels || '',
+        customUtms: customFields.customUtms || '',
+        initialOrderBumps: raw.offers?.length > 0 ? raw.offers : undefined,
+        initialAppProducts: raw.applicationProducts?.length > 0 ? raw.applicationProducts : undefined,
+        preloadedRedirect: raw.redirectConfig?.success_url ? { url: raw.redirectConfig.success_url } : { url: null },
+        checkoutId: ck.id,
+    }
+}
+
+const _preRendered = consumePreRenderedData()
+const _initial = buildInitialState(_preRendered)
+// Flag para garantir que _initial só é usado uma vez (evita dados stale em navegações SPA)
+let _initialUsed = false
+
 export default function CheckoutPublic() {
     const { productId, checkoutId, shortId } = useParams<{ productId?: string; checkoutId?: string; shortId?: string }>()
     const navigate = useNavigate()
-    const [loading, setLoading] = useState(true)
-    const [product, setProduct] = useState<Product | null>(null)
-    const [checkout, setCheckout] = useState<Checkout | null>(null)
-    const [finalCheckoutId, setFinalCheckoutId] = useState<string | null>(null)
 
-    const [timerConfig, setTimerConfig] = useState({
+    // ⚡ Consome _initial apenas uma vez — evita dados stale em navegações SPA
+    const snap = useState(() => {
+        if (_initial && !_initialUsed) {
+            _initialUsed = true
+            return _initial
+        }
+        return null
+    })[0]
+
+    // ⚡ Se dados já disponíveis no HTML, começa sem loading (zero skeleton)
+    const [loading, setLoading] = useState(!snap)
+    const [product, setProduct] = useState<Product | null>(snap?.product ?? null)
+    const [checkout, setCheckout] = useState<Checkout | null>(snap?.checkout ?? null)
+    const [finalCheckoutId, setFinalCheckoutId] = useState<string | null>(snap?.checkoutId ?? null)
+
+    const [timerConfig, setTimerConfig] = useState(snap?.timerConfig ?? {
         enabled: false,
         minutes: 15,
         backgroundColor: '#ef4444',
@@ -52,15 +135,15 @@ export default function CheckoutPublic() {
     const paymentResultRef = useRef<{ purchaseId: string; thankyouToken: string; redirectUrl?: string } | null>(null)
     const leadDataRef = useRef<{ email: string; name: string; phone: string } | null>(null)
     const abandonedFiredRef = useRef(false)
-    const [buttonColor, setButtonColor] = useState('#111827')
-    const [customPixels, setCustomPixels] = useState('')
-    const [customUtms, setCustomUtms] = useState('')
-    const [securitySealsEnabled, setSecuritySealsEnabled] = useState(false)
-    const [testimonials, setTestimonials] = useState<any[]>([])
-    const [imageBlocks, setImageBlocks] = useState<any[]>([])
-    const [preloadedRedirect, setPreloadedRedirect] = useState<{ url: string | null } | null>(null)
-    const [initialOrderBumps, setInitialOrderBumps] = useState<any[] | undefined>(undefined)
-    const [initialAppProducts, setInitialAppProducts] = useState<any[] | undefined>(undefined)
+    const [buttonColor, setButtonColor] = useState(snap?.buttonColor ?? '#111827')
+    const [customPixels, setCustomPixels] = useState(snap?.customPixels ?? '')
+    const [customUtms, setCustomUtms] = useState(snap?.customUtms ?? '')
+    const [securitySealsEnabled, setSecuritySealsEnabled] = useState(snap?.securitySealsEnabled ?? false)
+    const [testimonials, setTestimonials] = useState<any[]>(snap?.testimonials ?? [])
+    const [imageBlocks, setImageBlocks] = useState<any[]>(snap?.imageBlocks ?? [])
+    const [preloadedRedirect, setPreloadedRedirect] = useState<{ url: string | null } | null>(snap?.preloadedRedirect ?? null)
+    const [initialOrderBumps, setInitialOrderBumps] = useState<any[] | undefined>(snap?.initialOrderBumps)
+    const [initialAppProducts, setInitialAppProducts] = useState<any[] | undefined>(snap?.initialAppProducts)
     const [checkoutSessionId, setCheckoutSessionId] = useState<string | null>(null)
 
     // Capture UTM params once from the URL when the checkout opens
@@ -586,6 +669,24 @@ export default function CheckoutPublic() {
     }, [])
 
     useEffect(() => {
+        // ⚡ Se dados já foram carregados sincronicamente (KV hit), pula o fetchData
+        if (snap) {
+            // Ainda precisamos criar a sessão para otimizar o pagamento
+            fetch('https://api.clicknich.com/api/checkout-session', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    checkoutId: snap.checkoutId,
+                    productId: snap.product.id,
+                    productType: snap.product.productType,
+                    applicationId: snap.product.applicationId || undefined,
+                }),
+            })
+                .then(r => r.json())
+                .then((data: any) => { if (data.sessionId) setCheckoutSessionId(data.sessionId) })
+                .catch(() => { })
+            return
+        }
         if ((productId && checkoutId) || shortId) {
             fetchData()
         } else {
