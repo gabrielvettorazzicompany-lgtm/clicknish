@@ -1,128 +1,164 @@
 /**
- * ⚡ Cloudflare Pages Edge Worker — Checkout SSR
+ * ⚡ Cloudflare Pages Edge Worker — Checkout SSR com Streaming
  *
- * Para rotas /c/:shortId:
- *   1. Busca o index.html (static asset) e os dados do checkout em PARALELO
- *   2. Injeta window.__CHECKOUT_DATA__ diretamente no HTML
- *   3. Responde com HTML pré-populado em 1 único roundtrip
+ * 3 camadas de velocidade para /c/:shortId:
+ *
+ *  1. KV HTML cache (TTL 30s) ─── ~5ms  — HTML completo já renderizado em cache
+ *  2. CDN Cloudflare (max-age 10s) ── ~1ms — CDN serve sem nem chegar ao worker
+ *  3. Streaming miss ─────────────── ~0ms percebido:
+ *       a. Flushar <head> imediatamente → browser baixa JS enquanto buscamos dados
+ *       b. Quando dados chegam, injetar + enviar resto do HTML
+ *       c. Gravar HTML completo no KV em background (próximo req: 5ms)
  *
  * Para todas as outras rotas: passa direto para assets estáticos.
- *
- * Resultado: browser recebe HTML com dados embutidos — zero fetch adicional
- * necessário no client. O checkout renderiza com dados reais instantaneamente.
  */
 
 const CHECKOUT_API = 'https://api.clicknich.com'
 
+// Headers comuns a todas as respostas de checkout
+function makeHeaders(shortId) {
+    return {
+        'Content-Type': 'text/html; charset=utf-8',
+        // 10s de cache na CDN Cloudflare global → requisições populares chegam
+        // no edge mais próximo do usuário sem passar pelo worker
+        'Cache-Control': 'public, max-age=10, stale-while-revalidate=60',
+        'X-Edge-Rendered': 'true',
+        'X-Checkout-Id': shortId,
+        // Early Hints (103): Cloudflare converte automaticamente para push/preload
+        // O browser inicia preconnect ANTES de receber o HTML completo
+        'Link': [
+            '<https://js.stripe.com>; rel=preconnect; crossorigin',
+            '<https://api.stripe.com>; rel=preconnect; crossorigin',
+            '<https://api.clicknich.com>; rel=preconnect; crossorigin',
+        ].join(', '),
+    }
+}
+
 export default {
-    async fetch(request, env) {
+    async fetch(request, env, ctx) {
         const url = new URL(request.url)
         const { pathname } = url
 
-        // ── Rotas que NÃO são checkout → assets estáticos normais ──────────────
-        const isCheckout = /^\/c\/([^/?#]+)/.test(pathname)
-        if (!isCheckout) {
+        // ── Rotas não-checkout → assets estáticos ──────────────────────────────
+        const checkoutMatch = pathname.match(/^\/c\/([^/?#]+)/)
+        if (!checkoutMatch) {
             return env.ASSETS.fetch(request)
         }
 
-        // ── Rota de checkout: /c/:shortId ────────────────────────────────────────
-        const shortId = pathname.match(/^\/c\/([^/?#]+)/)[1]
+        const shortId = checkoutMatch[1]
 
-        // Buscar index.html e dados do checkout EM PARALELO
-        // As duas chamadas acontecem ao mesmo tempo — o tempo total é o do mais lento
-        const [htmlResponse, checkoutData] = await Promise.all([
-            env.ASSETS.fetch(new Request(`${url.origin}/index.html`)),
-            fetchCheckoutData(shortId, env),
-        ])
-
-        // Se assets falhou, retornar erro
-        if (!htmlResponse.ok) {
-            return htmlResponse
+        // ── CAMADA 1: KV cache do HTML renderizado ──────────────────────────────
+        // Checkouts populares: HTML completo já pronto em cache → ~5ms TTFB
+        if (env.CACHE) {
+            try {
+                const cachedHtml = await env.CACHE.get(`html:${shortId}`)
+                if (cachedHtml) {
+                    return new Response(cachedHtml, {
+                        status: 200,
+                        headers: makeHeaders(shortId),
+                    })
+                }
+            } catch (_) {
+                // KV falhou — continua para o path normal
+            }
         }
 
-        const html = await htmlResponse.text()
+        // ── CAMADA 2: Streaming response (miss de cache) ────────────────────────
+        // Busca o HTML estático e os dados do checkout em PARALELO
+        const htmlPromise = env.ASSETS.fetch(new Request(`${url.origin}/index.html`))
+        const dataPromise = fetchCheckoutData(shortId, env)
 
-        // Injetar dados inline no HTML — cliente não precisa fazer nenhum fetch
-        const injectedHtml = injectCheckoutData(html, shortId, checkoutData)
+        const assetResponse = await htmlPromise
+        if (!assetResponse.ok) return assetResponse
 
-        return new Response(injectedHtml, {
-            status: 200,
-            headers: {
-                'Content-Type': 'text/html; charset=utf-8',
-                // HTML de checkout: curto porque muda (produto, preço pode mudar)
-                // mas ainda aproveitamos stale-while-revalidate para velocidade
-                'Cache-Control': 'public, max-age=0, stale-while-revalidate=30',
-                'X-Edge-Rendered': 'true',
-                'X-Checkout-Id': shortId,
-                // Preconnect hints HTTP
-                'Link': [
-                    '<https://js.stripe.com>; rel=preconnect; crossorigin',
-                    '<https://api.stripe.com>; rel=preconnect; crossorigin',
-                    '<https://api.clicknich.com>; rel=preconnect; crossorigin',
-                ].join(', '),
-            },
-        })
+        const html = await assetResponse.text()
+
+        // Divide o HTML no ponto de injeção
+        const splitIdx = html.indexOf('</head>')
+        if (splitIdx === -1) {
+            // Fallback sem streaming se não tiver </head>
+            const data = await dataPromise
+            const full = buildInjectedHtml(html, shortId, data)
+            if (env.CACHE && data) {
+                ctx.waitUntil(env.CACHE.put(`html:${shortId}`, full, { expirationTtl: 30 }).catch(() => { }))
+            }
+            return new Response(full, { status: 200, headers: makeHeaders(shortId) })
+        }
+
+        const headChunk = html.slice(0, splitIdx)   // tudo ATÉ </head> (excluso)
+        const tailChunk = html.slice(splitIdx)       // </head><body>...</body></html>
+
+        // Cria um stream: flushar head IMEDIATAMENTE → browser inicia downloads
+        const { readable, writable } = new TransformStream()
+        const writer = writable.getWriter()
+        const enc = new TextEncoder()
+
+        ctx.waitUntil((async () => {
+            try {
+                // 1. IMEDIATO: envia o <head> — preconnects, CSS crítico, modulepreload
+                //    O browser já começa a baixar os bundles JS enquanto esperamos dados
+                await writer.write(enc.encode(headChunk))
+
+                // 2. Aguarda dados do KV/API (paralelo — já estava em flight)
+                const checkoutData = await dataPromise
+                const scriptTag = buildScriptTag(shortId, checkoutData)
+
+                // 3. Envia injeção de dados + resto do body
+                await writer.write(enc.encode(scriptTag + tailChunk))
+
+                // 4. Background: grava HTML completo no KV para próximas requisições
+                if (env.CACHE && checkoutData) {
+                    const fullHtml = headChunk + scriptTag + tailChunk
+                    env.CACHE.put(`html:${shortId}`, fullHtml, { expirationTtl: 30 }).catch(() => { })
+                }
+            } catch (_) {
+                // Ignora erros de write (conexão fechada pelo cliente, etc.)
+            } finally {
+                writer.close().catch(() => { })
+            }
+        })())
+
+        return new Response(readable, { status: 200, headers: makeHeaders(shortId) })
     },
 }
 
+// ── Helpers ─────────────────────────────────────────────────────────────────
+
 /**
- * Busca dados do checkout — primeiro tenta KV local, depois API worker
+ * Busca dados do checkout:
+ * 1. KV local (Pages binding) → ~1ms
+ * 2. API Worker (que também tem KV cache) → ~5-15ms no hit, ~150ms no miss
  */
 async function fetchCheckoutData(shortId, env) {
-    // FAST PATH: KV disponível no edge worker do Pages
     if (env.CACHE) {
         try {
             const cached = await env.CACHE.get(`checkout-data:${shortId}`, 'json')
-            if (cached) {
-                console.log(`[_worker] KV hit: ${shortId}`)
-                return cached
-            }
-        } catch (e) {
-            // Silent fail
-        }
+            if (cached) return cached
+        } catch (_) { }
     }
 
-    // FALLBACK: API worker (que também tem KV cache)
     try {
-        const res = await fetch(
-            `${CHECKOUT_API}/api/checkout-data/${shortId}`,
-            {
-                cf: { cacheTtl: 300, cacheEverything: true }, // Cache na CDN Cloudflare também
-            }
-        )
-        if (res.ok) {
-            return await res.json()
-        }
-    } catch (e) {
-        console.warn('[_worker] API fetch failed:', e)
-    }
+        const res = await fetch(`${CHECKOUT_API}/api/checkout-data/${shortId}`, {
+            cf: { cacheTtl: 300, cacheEverything: true },
+        })
+        if (res.ok) return await res.json()
+    } catch (_) { }
 
     return null
 }
 
 /**
- * Injeta os dados do checkout como window.__CHECKOUT_DATA__ no HTML
- * Substitui também o script de prefetch client-side (não é mais necessário)
+ * Constrói o <script> de injeção de dados.
+ * Se não tem dados: dispara o fetch no client (fallback).
  */
-function injectCheckoutData(html, shortId, data) {
-    const dataScript = data
-        ? `<script>
-        window.__IS_CHECKOUT_ROUTE__ = true;
-        window.__CHECKOUT_SHORT_ID__ = ${JSON.stringify(shortId)};
-        window.__CHECKOUT_DATA__ = ${JSON.stringify(data)};
-        // Dados já embutidos no HTML — sem fetch adicional necessário
-        window.__checkoutDataPromise = Promise.resolve(window.__CHECKOUT_DATA__);
-      </script>`
-        : `<script>
-        window.__IS_CHECKOUT_ROUTE__ = true;
-        window.__CHECKOUT_SHORT_ID__ = ${JSON.stringify(shortId)};
-        // Edge não tinha dados em cache — client vai buscar normalmente
-        window.__checkoutDataPromise = fetch(
-          'https://api.clicknich.com/api/checkout-data/' + ${JSON.stringify(shortId)},
-          { priority: 'high' }
-        ).then(function(r){ return r.ok ? r.json() : null; }).catch(function(){ return null; });
-      </script>`
+function buildScriptTag(shortId, data) {
+    if (data) {
+        return `<script>window.__IS_CHECKOUT_ROUTE__=true;window.__CHECKOUT_SHORT_ID__=${JSON.stringify(shortId)};window.__CHECKOUT_DATA__=${JSON.stringify(data)};window.__checkoutDataPromise=Promise.resolve(window.__CHECKOUT_DATA__);</script>\n`
+    }
+    return `<script>window.__IS_CHECKOUT_ROUTE__=true;window.__CHECKOUT_SHORT_ID__=${JSON.stringify(shortId)};window.__checkoutDataPromise=fetch('https://api.clicknich.com/api/checkout-data/'+${JSON.stringify(shortId)},{priority:'high'}).then(function(r){return r.ok?r.json():null;}).catch(function(){return null;});</script>\n`
+}
 
-    // Injeta imediatamente antes do </head> para execução o mais cedo possível
-    return html.replace('</head>', dataScript + '\n</head>')
+/** Usado apenas como fallback quando não há </head> no HTML */
+function buildInjectedHtml(html, shortId, data) {
+    return html.replace('</head>', buildScriptTag(shortId, data) + '</head>')
 }
