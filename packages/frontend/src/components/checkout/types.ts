@@ -8,6 +8,17 @@ export interface CustomBanner {
     imagePosition?: { x: number; y: number }
 }
 
+export interface Testimonial {
+    id: string
+    photo?: string
+    text: string
+    stars: number
+    name: string
+    backgroundColor: string
+    textColor: string
+    horizontalMode: boolean
+}
+
 export interface OrderBump {
     id: string
     offer_product_id: string
@@ -23,6 +34,22 @@ export interface OrderBump {
     show_product_image?: boolean
     discount_type?: 'percentage' | 'fixed' | 'none'
     discount_value?: number
+}
+
+export type ImageBlockSlot =
+    | 'below_payment_methods'
+    | 'above_button'
+    | 'below_button'
+    | 'above_testimonials'
+    | 'between_testimonials'
+    | 'below_testimonials'
+    | 'below_seals'
+
+export interface CheckoutImageBlock {
+    id: string
+    url: string
+    slot: ImageBlockSlot
+    width?: 'full' | 'large' | 'medium' | 'small'
 }
 
 export interface TimerConfig {
@@ -60,6 +87,7 @@ export interface CheckoutDigitalProps {
     onBannerClick?: () => void
     onBannerAdjust?: () => void
     onBannerRemove?: () => void
+    onBannerUpload?: (url: string) => void
     onBannerResize?: (height: number) => void
     onBannerImageScaleChange?: (scale: number) => void
     onBannerImagePositionChange?: (position: { x: number, y: number }) => void
@@ -68,7 +96,7 @@ export interface CheckoutDigitalProps {
     isDragging?: boolean
     timerConfig?: TimerConfig
     onTimerClick?: () => void
-    draggedComponentType?: 'image' | 'timer' | null
+    draggedComponentType?: 'image' | 'timer' | 'seals' | 'testimonials' | null
     selectedPaymentMethods?: ('credit_card')[]
     defaultPaymentMethod?: 'credit_card'
     productType?: 'app' | 'marketplace'
@@ -88,6 +116,12 @@ export interface CheckoutDigitalProps {
         redirectUrl?: string
     }>
     onLeadCapture?: (data: { email: string; name: string; phone: string }) => void
+    securitySealsEnabled?: boolean
+    onSecuritySealsClick?: () => void
+    testimonials?: Testimonial[]
+    onTestimonialsClick?: (id?: string) => void
+    imageBlocks?: CheckoutImageBlock[]
+    onImageBlockClick?: () => void
 }
 
 export type PaymentMethod = 'credit'

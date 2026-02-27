@@ -1,7 +1,8 @@
 import React, { useState } from 'react'
 import { Loader2, CheckCircle } from 'lucide-react'
-import { OrderBump } from './types'
+import { OrderBump, CheckoutImageBlock } from './types'
 import { formatPrice, calculateInstallmentValue } from './utils'
+import CheckoutImageDisplay from './components/CheckoutImageDisplay'
 
 interface OrderSummaryProps {
   productName: string
@@ -22,6 +23,7 @@ interface OrderSummaryProps {
   isMobile?: boolean
   t: any // translations object
   buttonColor?: string
+  imageBlocks?: CheckoutImageBlock[]
 }
 
 export const OrderSummary: React.FC<OrderSummaryProps> = ({
@@ -42,7 +44,8 @@ export const OrderSummary: React.FC<OrderSummaryProps> = ({
   isPreview,
   isMobile,
   t,
-  buttonColor = '#111827'
+  buttonColor = '#111827',
+  imageBlocks
 }) => {
   // ═══════════════════════════════════════════════════════════════════
   // OPTIMISTIC UI: Feedback visual instantâneo ao clicar
@@ -75,7 +78,7 @@ export const OrderSummary: React.FC<OrderSummaryProps> = ({
     }
   }
   const containerClass = isMobile
-    ? "bg-white px-4 py-5 border-t border-gray-100 w-full"
+    ? "bg-white rounded-xl mx-4 my-4 px-4 py-5 shadow-sm border border-gray-100"
     : "bg-white rounded-xl p-5 lg:p-6 shadow-sm border border-gray-100 sticky top-24"
 
   return (
@@ -141,6 +144,9 @@ export const OrderSummary: React.FC<OrderSummaryProps> = ({
         )}
       </div>
 
+      {/* Image block: above buy button */}
+      <CheckoutImageDisplay imageBlocks={imageBlocks} slot="above_button" className="px-0" isPreview={isPreview} />
+
       <button
         onClick={handleOptimisticClick}
         disabled={processing || isPreview}
@@ -165,6 +171,9 @@ export const OrderSummary: React.FC<OrderSummaryProps> = ({
           </>
         )}
       </button>
+
+      {/* Image block: below buy button */}
+      <CheckoutImageDisplay imageBlocks={imageBlocks} slot="below_button" className="px-0" isPreview={isPreview} />
 
       {paymentError && (
         <div className={`p-3 bg-red-50 border border-red-100 rounded-lg ${isMobile ? 'mb-4' : 'mt-3'}`}>

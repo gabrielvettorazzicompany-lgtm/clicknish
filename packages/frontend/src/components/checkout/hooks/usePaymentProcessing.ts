@@ -1,5 +1,6 @@
 import { useCallback, useRef } from 'react'
-import { useStripe, useElements, CardNumberElement } from '@stripe/react-stripe-js'
+import { CardNumberElement } from '@stripe/react-stripe-js'
+import type { Stripe, StripeElements } from '@stripe/stripe-js'
 import { isValidEmail } from '../utils'
 
 interface FormData {
@@ -35,6 +36,8 @@ interface UsePaymentProcessingProps {
     onProcessingChange: (processing: boolean) => void
     onMessageChange: (message: string) => void
     onErrorChange: (error: string | null) => void
+    stripe?: Stripe | null
+    elements?: StripeElements | null
 }
 
 export const usePaymentProcessing = ({
@@ -48,10 +51,10 @@ export const usePaymentProcessing = ({
     language = 'en',
     onProcessingChange,
     onMessageChange,
-    onErrorChange
+    onErrorChange,
+    stripe = null,
+    elements = null,
 }: UsePaymentProcessingProps) => {
-    const stripe = useStripe()
-    const elements = useElements()
     const paymentResultRef = useRef<{ purchaseId: string; thankyouToken: string } | null>(null)
 
     const processPayment = useCallback(async (paymentData: PaymentData): Promise<PaymentResult> => {

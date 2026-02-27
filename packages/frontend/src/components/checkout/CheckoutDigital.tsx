@@ -19,7 +19,7 @@ import { useI18n } from '@/i18n'
 import { useOrderBumps } from './useOrderBumps'
 import { useOrderBumpsOptimized } from './hooks/useOrderBumpsOptimized'
 import { useCheckoutState } from './hooks/useCheckoutState'
-import { usePaymentProcessing } from './hooks/usePaymentProcessing'
+// usePaymentProcessing moved to CheckoutDigitalForm only (needs Stripe context)
 import CheckoutHeader from './components/CheckoutHeader'
 import CheckoutTimer from './components/CheckoutTimer'
 import CheckoutBanner from './components/CheckoutBanner'
@@ -27,6 +27,9 @@ import CheckoutMainContent from './components/CheckoutMainContent'
 import CheckoutFooter from './components/CheckoutFooter'
 import ProductInfoHeader from './components/ProductInfoHeader'
 import OrderBumpsList from './components/OrderBumpsList'
+import SecuritySeals from './components/SecuritySeals'
+import TestimonialsSection from './components/TestimonialsSection'
+import CheckoutImageDisplay from './components/CheckoutImageDisplay'
 import { PaymentForm } from './PaymentForm'
 import { OrderSummary } from './OrderSummary'
 import Modal from './components/Modal'
@@ -49,6 +52,7 @@ function CheckoutDigital({
     onBannerAdjust,
     onBannerRemove,
     onBannerResize,
+    onBannerUpload,
     onBannerImageScaleChange,
     onBannerImagePositionChange,
     isPreview = false,
@@ -70,7 +74,13 @@ function CheckoutDigital({
     initialOrderBumps,
     initialAppProducts,
     sessionId,
-    trackingParameters
+    trackingParameters,
+    securitySealsEnabled = false,
+    onSecuritySealsClick,
+    testimonials = [],
+    onTestimonialsClick,
+    imageBlocks = [],
+    onImageBlockClick
 }: CheckoutDigitalProps) {
     const [showPrivacyPolicy, setShowPrivacyPolicy] = useState(false)
 
@@ -89,20 +99,6 @@ function CheckoutDigital({
         installments,
         setInstallments
     } = useCheckoutState()
-
-    const { processPayment } = usePaymentProcessing({
-        productId,
-        productType,
-        applicationId,
-        checkoutId,
-        sessionId,
-        trackingParameters,
-        isPreview,
-        language,
-        onProcessingChange: setProcessing,
-        onMessageChange: setPaymentMessage,
-        onErrorChange: setPaymentError
-    })
 
     // Use custom hook for order bumps
     // ✅ OTIMIZAÇÃO: Só usar hooks pesados quando necessário
@@ -133,6 +129,10 @@ function CheckoutDigital({
         if (isPreview || !onProcessPayment) return
 
         try {
+            setProcessing(true)
+            setPaymentError(null)
+            setPaymentMessage(language === 'pt' ? 'Processando pagamento...' : 'Processing payment...')
+
             // Preparar informações dos order bumps selecionados
             const selectedOrderBumps = orderBumps.filter(bump => selectedBumps.has(bump.id))
 
@@ -148,7 +148,7 @@ function CheckoutDigital({
                 installments,
             }
 
-            const result = await processPayment(paymentData)
+            const result = await onProcessPayment(paymentData)
 
             setPaymentSuccess(true)
 
@@ -162,26 +162,26 @@ function CheckoutDigital({
                         await onPaymentSuccess(callbackResult)
                     } catch (e) {
                         console.error('Callback error:', e)
-                        // Fallback redirect if success callback fails
                         if (result.success) {
                             window.location.href = '/members-login'
                         }
                     }
                 }, 150)
             } else if (result?.success) {
-                const redirectUrl = '/members-login'
                 setTimeout(() => {
-                    window.location.href = redirectUrl
+                    window.location.href = '/members-login'
                 }, 150)
             }
         } catch (error: any) {
             setPaymentError(error.message || t.paymentFailed)
             setPaymentMessage('')
+        } finally {
+            setProcessing(false)
         }
     }, [
         isPreview, onProcessPayment, orderBumps, selectedBumps, installments,
-        totalWithBumps, formData, processPayment, setPaymentSuccess,
-        onPaymentSuccess, setPaymentError, setPaymentMessage, t.paymentFailed
+        totalWithBumps, formData, language, setProcessing, setPaymentSuccess,
+        setPaymentError, setPaymentMessage, onPaymentSuccess, t.paymentFailed
     ])
 
     // Memoized privacy policy handlers
@@ -194,54 +194,6 @@ function CheckoutDigital({
         setShowPrivacyPolicy(false)
     }, [])
 
-    // ✅ OTIMIZAÇÃO: Memoizar componentes pesados
-    const PaymentFormComponent = useMemo(() => {
-        if (isPreview) return null
-        return (
-            <PaymentForm
-                formData={formData}
-                onFormDataChange={setFormData}
-                selectedPaymentMethods={selectedPaymentMethods}
-                defaultPaymentMethod={defaultPaymentMethod}
-                onSubmit={handleSubmit}
-                processing={paymentState.processing}
-                paymentSuccess={paymentState.success}
-                paymentError={paymentState.error}
-                totalAmount={totalWithBumps}
-                currency={productCurrency}
-                onInstallmentsChange={setInstallments}
-                isPreview={isPreview}
-                onLeadCapture={onLeadCapture}
-                t={t}
-            />
-        )
-    }, [isPreview, formData, selectedPaymentMethods, defaultPaymentMethod, handleSubmit, paymentState, totalWithBumps, productCurrency, installments, onLeadCapture, t])
-
-    const OrderSummaryComponent = useMemo(() => {
-        if (isPreview) return null
-        return (
-            <OrderSummary
-                productName={productName}
-                productPrice={productPrice}
-                productCurrency={productCurrency}
-                productImage={productImage}
-                productDescription={productDescription}
-                orderBumps={orderBumps}
-                selectedBumps={selectedBumps}
-                totalWithBumps={totalWithBumps}
-                installments={installments}
-                onSubmit={handleSubmit}
-                processing={paymentState.processing}
-                paymentSuccess={paymentState.success}
-                paymentError={paymentState.error}
-                isPreview={isPreview}
-                isMobile={false}
-                t={t}
-                buttonColor={buttonColor}
-            />
-        )
-    }, [isPreview, productName, productPrice, productCurrency, productImage, productDescription, orderBumps, selectedBumps, totalWithBumps, installments, handleSubmit, paymentState, buttonColor, t])
-
     // ═══════════════════════════════════════════════════════════════════
     // EAGER LOADING: Pré-aquecer Stripe Elements
     // ═══════════════════════════════════════════════════════════════════
@@ -249,7 +201,7 @@ function CheckoutDigital({
         if (stripePromise) {
             stripePromise.then(() => {
                 console.log('Stripe Elements pré-carregado com sucesso')
-            }).catch(err => {
+            }).catch((err: unknown) => {
                 console.warn('Falha no pré-carregamento do Stripe:', err)
             })
         }
@@ -277,7 +229,10 @@ function CheckoutDigital({
                 isDragging={isDragging}
                 draggedComponentType={draggedComponentType || undefined}
                 onBannerClick={onBannerClick}
+                onBannerAdjust={onBannerAdjust}
                 onBannerRemove={onBannerRemove}
+                onBannerResize={onBannerResize}
+                onBannerUpload={onBannerUpload}
                 onBannerImagePositionChange={onBannerImagePositionChange}
                 onBannerImageScaleChange={onBannerImageScaleChange}
                 isPreview={isPreview}
@@ -299,37 +254,23 @@ function CheckoutDigital({
                 <div className={`${isPreview && viewDevice === 'mobile' ? '' : 'lg:grid lg:grid-cols-5 lg:gap-8 lg:px-4'}`}>
                     {/* Form Section - 3 columns */}
                     <div className={`w-full ${isPreview && viewDevice === 'mobile' ? '' : 'lg:col-span-3'} ${isPreview && viewDevice === 'mobile' ? 'space-y-0' : 'space-y-0 lg:space-y-6'}`}>
-                        {/* ✅ PREVIEW: Mostrar placeholder */}
-                        {isPreview ? (
-                            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 mx-3 lg:mx-0">
-                                <div className="text-center py-8 space-y-4">
-                                    <div className="w-16 h-16 bg-gray-100 rounded-full mx-auto flex items-center justify-center">
-                                        <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
-                                        </svg>
-                                    </div>
-                                    <h3 className="text-lg font-medium text-gray-900">Formulário de Pagamento</h3>
-                                    <p className="text-sm text-gray-500">Preview do formulário de checkout</p>
-                                </div>
-                            </div>
-                        ) : (
-                            <PaymentForm
-                                formData={formData}
-                                onFormDataChange={setFormData}
-                                selectedPaymentMethods={selectedPaymentMethods}
-                                defaultPaymentMethod={defaultPaymentMethod}
-                                onSubmit={handleSubmit}
-                                processing={paymentState.processing}
-                                paymentSuccess={paymentState.success}
-                                paymentError={paymentState.error}
-                                totalAmount={totalWithBumps}
-                                currency={productCurrency}
-                                onInstallmentsChange={setInstallments}
-                                isPreview={isPreview}
-                                onLeadCapture={onLeadCapture}
-                                t={t}
-                            />
-                        )}
+                        <PaymentForm
+                            formData={formData}
+                            onFormDataChange={setFormData}
+                            selectedPaymentMethods={selectedPaymentMethods}
+                            defaultPaymentMethod={defaultPaymentMethod}
+                            onSubmit={handleSubmit}
+                            processing={paymentState.processing}
+                            paymentSuccess={paymentState.success}
+                            paymentError={paymentState.error}
+                            totalAmount={totalWithBumps}
+                            currency={productCurrency}
+                            onInstallmentsChange={setInstallments}
+                            isPreview={isPreview}
+                            onLeadCapture={onLeadCapture}
+                            t={t}
+                            imageBlocks={imageBlocks}
+                        />
 
                         <OrderBumpsList
                             orderBumps={orderBumps}
@@ -343,58 +284,6 @@ function CheckoutDigital({
 
                     {/* Order Summary Desktop - Right sidebar */}
                     <div className={`${isPreview && viewDevice === 'mobile' ? 'hidden' : 'hidden lg:block'} lg:col-span-2`}>
-                        {/* ✅ PREVIEW: Mostrar placeholder */}
-                        {isPreview ? (
-                            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-                                <div className="text-center py-8 space-y-4">
-                                    <div className="w-16 h-16 bg-gray-100 rounded-full mx-auto flex items-center justify-center">
-                                        <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-                                        </svg>
-                                    </div>
-                                    <h3 className="text-lg font-medium text-gray-900">Resumo do Pedido</h3>
-                                    <p className="text-sm text-gray-500">Preview do resumo de compra</p>
-                                </div>
-                            </div>
-                        ) : (
-                            <OrderSummary
-                                productName={productName}
-                                productPrice={productPrice}
-                                productCurrency={productCurrency}
-                                productImage={productImage}
-                                productDescription={productDescription}
-                                orderBumps={orderBumps}
-                                selectedBumps={selectedBumps}
-                                totalWithBumps={totalWithBumps}
-                                installments={installments}
-                                onSubmit={handleSubmit}
-                                processing={paymentState.processing}
-                                paymentSuccess={paymentState.success}
-                                paymentError={paymentState.error}
-                                isPreview={isPreview}
-                                isMobile={false}
-                                t={t}
-                                buttonColor={buttonColor}
-                            />
-                        )}
-                    </div>
-                </div>
-
-                {/* Order Summary Mobile - After form */}
-                <div className={`${isPreview && viewDevice === 'mobile' ? 'block' : 'lg:hidden'}`}>
-                    {isPreview ? (
-                        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 mx-3">
-                            <div className="text-center py-8 space-y-4">
-                                <div className="w-16 h-16 bg-gray-100 rounded-full mx-auto flex items-center justify-center">
-                                    <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-                                    </svg>
-                                </div>
-                                <h3 className="text-lg font-medium text-gray-900">Resumo do Pedido</h3>
-                                <p className="text-sm text-gray-500">Preview mobile do resumo</p>
-                            </div>
-                        </div>
-                    ) : (
                         <OrderSummary
                             productName={productName}
                             productPrice={productPrice}
@@ -410,13 +299,67 @@ function CheckoutDigital({
                             paymentSuccess={paymentState.success}
                             paymentError={paymentState.error}
                             isPreview={isPreview}
-                            isMobile={true}
+                            isMobile={false}
                             t={t}
                             buttonColor={buttonColor}
+                            imageBlocks={imageBlocks}
                         />
-                    )}
+                    </div>
+                </div>
+
+                {/* Order Summary Mobile - After form */}
+                <div className={`${isPreview && viewDevice === 'mobile' ? 'block' : 'lg:hidden'}`}>
+                    <OrderSummary
+                        productName={productName}
+                        productPrice={productPrice}
+                        productCurrency={productCurrency}
+                        productImage={productImage}
+                        productDescription={productDescription}
+                        orderBumps={orderBumps}
+                        selectedBumps={selectedBumps}
+                        totalWithBumps={totalWithBumps}
+                        installments={installments}
+                        onSubmit={handleSubmit}
+                        processing={paymentState.processing}
+                        paymentSuccess={paymentState.success}
+                        paymentError={paymentState.error}
+                        isPreview={isPreview}
+                        isMobile={true}
+                        t={t}
+                        buttonColor={buttonColor}
+                        imageBlocks={imageBlocks}
+                    />
                 </div>
             </div>
+
+            {/* Testimonials */}
+            <div className="w-full lg:max-w-7xl lg:mx-auto">
+                {/* Image block: above testimonials */}
+                <CheckoutImageDisplay imageBlocks={imageBlocks} slot="above_testimonials" isPreview={isPreview} onPreviewClick={isPreview ? onImageBlockClick : undefined} />
+                <TestimonialsSection
+                    testimonials={testimonials}
+                    isPreview={isPreview}
+                    onClick={isPreview && onTestimonialsClick ? (id) => onTestimonialsClick(id) : undefined}
+                    imageBlocks={imageBlocks}
+                    onPreviewAdd={isPreview && onTestimonialsClick ? () => onTestimonialsClick(undefined) : undefined}
+                />
+                {/* Image block: below testimonials */}
+                <CheckoutImageDisplay imageBlocks={imageBlocks} slot="below_testimonials" isPreview={isPreview} onPreviewClick={isPreview ? onImageBlockClick : undefined} />
+            </div>
+
+            {/* Security Seals */}
+            {(securitySealsEnabled || isPreview) && (
+                <div className={`w-full lg:max-w-7xl lg:mx-auto px-4 ${!securitySealsEnabled && isPreview ? 'opacity-30' : ''}`}>
+                    <SecuritySeals
+                        isPreview={isPreview}
+                        onClick={isPreview ? onSecuritySealsClick : undefined}
+                        isDraggingOver={false}
+                    />
+                </div>
+            )}
+
+            {/* Image block: below seals */}
+            <CheckoutImageDisplay imageBlocks={imageBlocks} slot="below_seals" className="w-full lg:max-w-7xl lg:mx-auto" isPreview={isPreview} onPreviewClick={isPreview ? onImageBlockClick : undefined} />
 
             <CheckoutFooter t={t} onPrivacyClick={handlePrivacyClick} />
 

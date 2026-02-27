@@ -9,6 +9,7 @@ interface UseBannerDragDropProps {
     customBanner?: any
     onBannerImagePositionChange?: (position: BannerPosition) => void
     onBannerImageScaleChange?: (scale: number) => void
+    onBannerResize?: (height: number) => void
     bannerSelected?: boolean
 }
 
@@ -16,15 +17,18 @@ export const useBannerDragDrop = ({
     customBanner,
     onBannerImagePositionChange,
     onBannerImageScaleChange,
+    onBannerResize,
     bannerSelected
 }: UseBannerDragDropProps) => {
     const [isDraggingImage, setIsDraggingImage] = useState(false)
     const [isResizingImage, setIsResizingImage] = useState(false)
+    const [isResizingHeight, setIsResizingHeight] = useState(false)
 
     const bannerRef = useRef<HTMLDivElement>(null)
     const dragStartPosRef = useRef({ x: 0, y: 0 })
     const initialPositionRef = useRef({ x: 50, y: 50 })
     const initialScaleRef = useRef(1)
+    const initialHeightRef = useRef(250)
     const resizeStartRef = useRef({ x: 0, y: 0 })
 
     const handleImageMouseDown = useCallback((e: React.MouseEvent) => {
@@ -48,6 +52,14 @@ export const useBannerDragDrop = ({
         setIsResizingImage(true)
         resizeStartRef.current = { x: e.clientX, y: e.clientY }
         initialScaleRef.current = customBanner.imageScale || 1
+    }, [customBanner])
+
+    const handleBottomHandleMouseDown = useCallback((e: React.MouseEvent) => {
+        e.preventDefault()
+        e.stopPropagation()
+        setIsResizingHeight(true)
+        resizeStartRef.current = { x: e.clientX, y: e.clientY }
+        initialHeightRef.current = customBanner?.customHeight || 250
     }, [customBanner])
 
     // Mouse move and up handlers
@@ -78,17 +90,24 @@ export const useBannerDragDrop = ({
 
                 onBannerImageScaleChange(newScale)
             }
+
+            if (isResizingHeight && onBannerResize) {
+                const deltaY = e.clientY - resizeStartRef.current.y
+                const newHeight = Math.max(80, Math.min(600, initialHeightRef.current + deltaY))
+                onBannerResize(newHeight)
+            }
         }
 
         const handleMouseUp = () => {
             setIsDraggingImage(false)
             setIsResizingImage(false)
+            setIsResizingHeight(false)
         }
 
-        if (isDraggingImage || isResizingImage) {
+        if (isDraggingImage || isResizingImage || isResizingHeight) {
             document.addEventListener('mousemove', handleMouseMove)
             document.addEventListener('mouseup', handleMouseUp)
-            document.body.style.cursor = isResizingImage ? 'nwse-resize' : 'grabbing'
+            document.body.style.cursor = isResizingHeight ? 'ns-resize' : isResizingImage ? 'nwse-resize' : 'grabbing'
             document.body.style.userSelect = 'none'
         }
 
@@ -98,13 +117,15 @@ export const useBannerDragDrop = ({
             document.body.style.cursor = ''
             document.body.style.userSelect = ''
         }
-    }, [isDraggingImage, isResizingImage, onBannerImagePositionChange, onBannerImageScaleChange, customBanner])
+    }, [isDraggingImage, isResizingImage, isResizingHeight, onBannerImagePositionChange, onBannerImageScaleChange, onBannerResize, customBanner])
 
     return {
         bannerRef,
         isDraggingImage,
         isResizingImage,
+        isResizingHeight,
         handleImageMouseDown,
-        handleResizeMouseDown
+        handleResizeMouseDown,
+        handleBottomHandleMouseDown
     }
 }

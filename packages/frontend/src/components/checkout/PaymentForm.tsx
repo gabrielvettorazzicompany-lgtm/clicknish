@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react'
 import { CardNumberElement, CardExpiryElement, CardCvcElement } from '@stripe/react-stripe-js'
 import { ChevronDown, CreditCard, Loader2, CheckCircle } from 'lucide-react'
-import { FormData } from './types'
+import { FormData, CheckoutImageBlock } from './types'
 import { stripeElementStyle, isValidEmail } from './utils'
 import { useI18n } from '@/i18n'
+import CheckoutImageDisplay from './components/CheckoutImageDisplay'
 
 interface PaymentFormProps {
   formData: FormData
@@ -20,6 +21,7 @@ interface PaymentFormProps {
   isPreview?: boolean
   onLeadCapture?: (data: { email: string; name: string; phone: string }) => void
   t: any // translations object
+  imageBlocks?: CheckoutImageBlock[]
 }
 
 export const PaymentForm: React.FC<PaymentFormProps> = ({
@@ -36,7 +38,8 @@ export const PaymentForm: React.FC<PaymentFormProps> = ({
   onInstallmentsChange,
   isPreview,
   onLeadCapture,
-  t
+  t,
+  imageBlocks
 }) => {
   const [expandedPaymentMethod, setExpandedPaymentMethod] = useState<'credit_card' | null>(defaultPaymentMethod)
   const [installments, setInstallments] = useState(1)
@@ -119,9 +122,9 @@ export const PaymentForm: React.FC<PaymentFormProps> = ({
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-0">
+    <form onSubmit={handleSubmit}>
       {/* Identificação */}
-      <div className="bg-white lg:rounded-xl px-4 py-5 sm:p-5 lg:p-7 lg:shadow-sm lg:border border-gray-100">
+      <div className="bg-white rounded-xl mx-4 lg:mx-0 px-4 py-5 sm:p-5 lg:p-7 shadow-sm border border-gray-100">
         <h2 className="text-[13px] sm:text-sm font-semibold text-gray-900 mb-4">
           {t.personalInformation}
         </h2>
@@ -195,7 +198,7 @@ export const PaymentForm: React.FC<PaymentFormProps> = ({
       </div>
 
       {/* Método de pagamento */}
-      <div className="bg-white lg:rounded-xl px-4 py-5 sm:p-5 lg:p-7 lg:shadow-sm lg:border border-gray-100 lg:mt-4">
+      <div className="bg-white rounded-xl mx-4 lg:mx-0 px-4 py-5 sm:p-5 lg:p-7 shadow-sm border border-gray-100 mt-3 lg:mt-4">
         <h2 className="text-[13px] sm:text-sm font-semibold text-gray-900 mb-1">
           {t.paymentMethod}
         </h2>
@@ -242,7 +245,11 @@ export const PaymentForm: React.FC<PaymentFormProps> = ({
                       {t.cardNumber}
                     </label>
                     <div className="w-full px-3.5 py-3 border border-gray-200 rounded-lg bg-white min-h-[44px] flex items-center">
-                      <CardNumberElement options={{ style: stripeElementStyle }} />
+                      {isPreview ? (
+                        <span className="text-gray-400 text-sm">1234 5678 9012 3456</span>
+                      ) : (
+                        <CardNumberElement options={{ style: stripeElementStyle }} />
+                      )}
                     </div>
                   </div>
 
@@ -253,7 +260,11 @@ export const PaymentForm: React.FC<PaymentFormProps> = ({
                         {t.expiryDate}
                       </label>
                       <div className="w-full px-3.5 py-3 border border-gray-200 rounded-lg bg-white min-h-[44px] flex items-center">
-                        <CardExpiryElement options={{ style: stripeElementStyle }} />
+                        {isPreview ? (
+                          <span className="text-gray-400 text-sm">12 / 28</span>
+                        ) : (
+                          <CardExpiryElement options={{ style: stripeElementStyle }} />
+                        )}
                       </div>
                     </div>
                     <div>
@@ -261,7 +272,11 @@ export const PaymentForm: React.FC<PaymentFormProps> = ({
                         {t.cvv}
                       </label>
                       <div className="w-full px-3.5 py-3 border border-gray-200 rounded-lg bg-white min-h-[44px] flex items-center">
-                        <CardCvcElement options={{ style: stripeElementStyle }} />
+                        {isPreview ? (
+                          <span className="text-gray-400 text-sm">•••</span>
+                        ) : (
+                          <CardCvcElement options={{ style: stripeElementStyle }} />
+                        )}
                       </div>
                     </div>
                   </div>
@@ -307,6 +322,9 @@ export const PaymentForm: React.FC<PaymentFormProps> = ({
           )}
         </div>
       </div>
+
+      {/* Image blocks: below payment methods */}
+      <CheckoutImageDisplay imageBlocks={imageBlocks} slot="below_payment_methods" isPreview={isPreview} />
 
       {/* Error and Success Messages */}
       {paymentError && (

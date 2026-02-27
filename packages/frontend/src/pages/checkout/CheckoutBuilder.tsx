@@ -1,20 +1,21 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ArrowLeft, Save, Eye, Upload, X, Monitor, Smartphone, Edit3, Image as ImageIcon, Clock, Link as LinkIcon, Check, RotateCw, Menu, ShoppingCart, Tag, Key, Code, Target, Tags } from 'lucide-react'
+import { ArrowLeft, Save, Eye, Upload, X, Monitor, Smartphone, Edit3, Clock, Link as LinkIcon, Check, RotateCw, Menu, ShoppingCart, Tag, Key, Code, Target, Tags, ShieldCheck, MessageSquare, Plus, Trash2, Star, Image as ImageIcon } from 'lucide-react'
 import Sidebar from '@/components/Sidebar'
 import Header from '@/components/Header'
 import CheckoutDigital from '@/components/checkout/CheckoutDigital'
 import type { CheckoutLanguage } from '@/components/checkout/translations'
+import type { Testimonial, CheckoutImageBlock, ImageBlockSlot } from '@/components/checkout/types'
 import { supabase } from '@/services/supabase'
 import { useI18n } from '@/i18n'
 
-type EditingElement = 'banner' | 'timer' | null
+type EditingElement = 'banner' | 'timer' | 'seals' | 'testimonials' | 'imageblock' | null
 
 interface ComponentItem {
     id: string
     name: string
     icon: any
-    type: 'image' | 'timer'
+    type: 'image' | 'timer' | 'seals' | 'testimonials'
 }
 
 interface Product {
@@ -56,8 +57,10 @@ export default function CheckoutBuilder() {
     const [linkCopied, setLinkCopied] = useState(false)
 
     const availableComponents: ComponentItem[] = [
-        { id: 'image', name: 'Image', icon: ImageIcon, type: 'image' },
-        { id: 'timer', name: 'Timer', icon: Clock, type: 'timer' }
+        { id: 'timer', name: 'Timer', icon: Clock, type: 'timer' },
+        { id: 'seals', name: 'Trust Seals', icon: ShieldCheck, type: 'seals' },
+        { id: 'testimonials', name: 'Depoimento', icon: MessageSquare, type: 'testimonials' },
+        { id: 'image', name: 'Imagem', icon: ImageIcon, type: 'image' }
     ]
 
     const [product, setProduct] = useState<Product | null>(null)
@@ -83,6 +86,16 @@ export default function CheckoutBuilder() {
     })
 
     const [timerInputValue, setTimerInputValue] = useState('')
+    const [securitySealsEnabled, setSecuritySealsEnabled] = useState(false)
+
+    // Testimonials state
+    const [testimonials, setTestimonials] = useState<Testimonial[]>([])
+    const [editingTestimonialId, setEditingTestimonialId] = useState<string | null>(null)
+    const [testimonialPhotoInput, setTestimonialPhotoInput] = useState<string>('')
+
+    // Image blocks state
+    const [imageBlocks, setImageBlocks] = useState<CheckoutImageBlock[]>([])
+    const [editingImageBlockId, setEditingImageBlockId] = useState<string | null>(null)
 
     const [checkoutLanguage, setCheckoutLanguage] = useState<CheckoutLanguage>('en')
 
@@ -223,6 +236,21 @@ export default function CheckoutBuilder() {
             if (checkoutData.language) {
                 setCheckoutLanguage(checkoutData.language as CheckoutLanguage)
             }
+
+            // Load security seals
+            if (customFields.securitySealsEnabled !== undefined) {
+                setSecuritySealsEnabled(customFields.securitySealsEnabled)
+            }
+
+            // Load testimonials
+            if (customFields.testimonials) {
+                setTestimonials(customFields.testimonials)
+            }
+
+            // Load image blocks
+            if (customFields.imageBlocks) {
+                setImageBlocks(customFields.imageBlocks)
+            }
         } catch (error) {
             console.error('Error loading data:', error)
             alert(t('checkout_pages.error_loading'))
@@ -263,7 +291,10 @@ export default function CheckoutBuilder() {
                 customPixels: customPixels.trim() || undefined,
                 customUtms: customUtms.trim() || undefined,
                 bannerImageScale: bannerImageScale,
-                bannerImagePosition: bannerImagePosition
+                bannerImagePosition: bannerImagePosition,
+                securitySealsEnabled: securitySealsEnabled,
+                testimonials: testimonials.length > 0 ? testimonials : undefined,
+                imageBlocks: imageBlocks.length > 0 ? imageBlocks : undefined
             }
 
 
@@ -333,9 +364,108 @@ export default function CheckoutBuilder() {
         setBannerForm(prev => ({ ...prev, customHeight: height }))
     }
 
+    const handleBannerUploadFromPreview = (url: string) => {
+        setBannerForm(prev => ({ ...prev, banner_image: url }))
+        setBannerImageScale(1)
+        setBannerImagePosition({ x: 50, y: 50 })
+        setEditingElement('banner')
+    }
+
     const handleCloseEditPanel = () => {
         setEditPanelOpen(false)
         setTimeout(() => setEditingElement(null), 300) // Aguarda animação
+    }
+
+    const handleAddImageBlock = () => {
+        const newBlock: CheckoutImageBlock = {
+            id: `img-${Date.now()}`,
+            url: '',
+            slot: 'below_button',
+            width: 'full'
+        }
+        setImageBlocks(prev => [...prev, newBlock])
+        setEditingImageBlockId(newBlock.id)
+        setEditingElement('imageblock')
+        setEditPanelOpen(true)
+    }
+
+    const handleUpdateImageBlock = (id: string, updates: Partial<CheckoutImageBlock>) => {
+        setImageBlocks(prev => prev.map(b => b.id === id ? { ...b, ...updates } : b))
+    }
+
+    const handleDeleteImageBlock = (id: string) => {
+        setImageBlocks(prev => prev.filter(b => b.id !== id))
+        if (editingImageBlockId === id) {
+            handleCloseEditPanel()
+        }
+    }
+
+    const handleImageBlockUpload = (e: React.ChangeEvent<HTMLInputElement>, id: string) => {
+        const file = e.target.files?.[0]
+        if (file) {
+            if (file.size > 10 * 1024 * 1024) {
+                alert('Imagem muito grande. Máximo: 10MB')
+                return
+            }
+            const reader = new FileReader()
+            reader.onload = (event) => {
+                const imageUrl = event.target?.result as string
+                handleUpdateImageBlock(id, { url: imageUrl })
+            }
+            reader.readAsDataURL(file)
+        }
+    }
+
+    const handleAddTestimonial = () => {
+        const newTestimonial: Testimonial = {
+            id: `t-${Date.now()}`,
+            photo: '',
+            text: 'Digite seu depoimento aqui',
+            stars: 5,
+            name: 'John Doe',
+            backgroundColor: '#ffffff',
+            textColor: '#111827',
+            horizontalMode: false
+        }
+        setTestimonials(prev => [...prev, newTestimonial])
+        setEditingTestimonialId(newTestimonial.id)
+        setTestimonialPhotoInput('')
+        setEditingElement('testimonials')
+        setEditPanelOpen(true)
+    }
+
+    const handleEditTestimonial = (id: string) => {
+        setEditingTestimonialId(id)
+        setTestimonialPhotoInput('')
+        setEditingElement('testimonials')
+        setEditPanelOpen(true)
+    }
+
+    const handleUpdateTestimonial = (id: string, updates: Partial<Testimonial>) => {
+        setTestimonials(prev => prev.map(t => t.id === id ? { ...t, ...updates } : t))
+    }
+
+    const handleDeleteTestimonial = (id: string) => {
+        setTestimonials(prev => prev.filter(t => t.id !== id))
+        if (editingTestimonialId === id) {
+            handleCloseEditPanel()
+        }
+    }
+
+    const handleTestimonialPhotoUpload = (e: React.ChangeEvent<HTMLInputElement>, id: string) => {
+        const file = e.target.files?.[0]
+        if (file) {
+            if (file.size > 10 * 1024 * 1024) {
+                alert('Imagem muito grande. Máximo: 10MB')
+                return
+            }
+            const reader = new FileReader()
+            reader.onload = (event) => {
+                const imageUrl = event.target?.result as string
+                handleUpdateTestimonial(id, { photo: imageUrl })
+            }
+            reader.readAsDataURL(file)
+        }
     }
 
     const handleDragStart = (component: ComponentItem) => {
@@ -353,15 +483,7 @@ export default function CheckoutBuilder() {
 
 
         if (draggedComponent) {
-            if (draggedComponent.type === 'image') {
-                // Quando arrasta imagem para qualquer lugar, abre o painel de edição do banner
-                handleEditElement('banner')
-                // Trigger file upload quando imagem é arrastada para o banner
-                const fileInput = document.getElementById('banner-upload-panel') as HTMLInputElement
-                if (fileInput) {
-                    fileInput.click()
-                }
-            } else if (draggedComponent.type === 'timer') {
+            if (draggedComponent.type === 'timer') {
                 if (dropZone === 'timer') {
                     // Ativar timer na área específica
                     setTimerConfig(prev => ({ ...prev, enabled: true }))
@@ -369,6 +491,13 @@ export default function CheckoutBuilder() {
                 } else {
                     alert(t('checkout_pages.timer_area_only'))
                 }
+            } else if (draggedComponent.type === 'seals') {
+                setSecuritySealsEnabled(true)
+                handleEditElement('seals')
+            } else if (draggedComponent.type === 'testimonials') {
+                handleAddTestimonial()
+            } else if (draggedComponent.type === 'image') {
+                handleAddImageBlock()
             }
         }
         setDraggedComponent(null)
@@ -544,8 +673,8 @@ export default function CheckoutBuilder() {
                     </div>
                 </div>
 
-                <main className="flex-1 overflow-y-auto px-3 lg:px-6 py-4">
-                    <div className="flex gap-4">
+                <div className="flex-1 flex overflow-hidden">
+                    <main className="flex-1 overflow-y-auto px-3 lg:px-6 py-4">
                         {/* Preview Area */}
                         <div className="flex-1 bg-[#1a1d2e] rounded-lg shadow-xl shadow-black/10 border border-[#1e2139]">
                             {/* Device Frame */}
@@ -618,34 +747,31 @@ export default function CheckoutBuilder() {
                                             productDescription={product.description}
                                             language={checkoutLanguage}
                                             customBanner={
-                                                (bannerForm.banner_image || bannerForm.banner_title) ? {
-                                                    image: bannerForm.banner_image,
+                                                {
+                                                    image: bannerForm.banner_image || '',
                                                     title: bannerForm.banner_title,
                                                     customHeight: bannerForm.customHeight,
                                                     imageScale: bannerImageScale,
                                                     imagePosition: bannerImagePosition
-                                                } : undefined
+                                                }
                                             }
                                             bannerSelected={editingElement === 'banner'}
                                             onBannerClick={() => {
                                                 if (editingElement === 'banner') {
                                                     setEditingElement(null)
-                                                    setEditPanelOpen(false)
                                                 } else {
                                                     setEditingElement('banner')
                                                 }
                                             }}
                                             onBannerAdjust={() => {
-                                                if (bannerForm.banner_image) {
-                                                    setTempImageForCrop(bannerForm.banner_image)
-                                                    setShowCropModal(true)
-                                                }
+                                                handleEditElement('banner')
                                             }}
                                             onBannerRemove={() => {
                                                 handleRemoveImage()
                                                 setEditingElement(null)
                                             }}
                                             onBannerResize={handleBannerResize}
+                                            onBannerUpload={handleBannerUploadFromPreview}
                                             onBannerImageScaleChange={(scale) => setBannerImageScale(scale)}
                                             onBannerImagePositionChange={(position) => setBannerImagePosition(position)}
                                             isPreview={true}
@@ -655,250 +781,264 @@ export default function CheckoutBuilder() {
                                             onTimerClick={() => handleEditElement('timer')}
                                             draggedComponentType={draggedComponent?.type || null}
                                             buttonColor={buttonColor}
+                                            securitySealsEnabled={securitySealsEnabled}
+                                            onSecuritySealsClick={() => handleEditElement('seals')}
+                                            testimonials={testimonials}
+                                            onTestimonialsClick={(id) => {
+                                                setEditingElement('testimonials')
+                                                setEditPanelOpen(true)
+                                                setEditingTestimonialId(id ?? testimonials[0]?.id ?? null)
+                                            }}
+                                            imageBlocks={imageBlocks}
                                         />
                                     </div>
                                 </div>
                             </div>
                         </div>
 
-                        {/* Components Panel - Right Side */}
-                        <div className="hidden lg:block w-56 flex-shrink-0">
-                            {/* Components */}
-                            <div className="bg-gradient-to-br from-[#1a1d2e] to-[#0f1117] rounded-xl shadow-xl shadow-blue-500/10 border-2 border-blue-500/30 p-4 sticky top-4">
-
-                                {/* Nome e Preço */}
-                                <div className="mb-4 pb-4 border-b border-[#252941] space-y-2">
-                                    <div>
-                                        <div className="text-[10px] font-semibold text-blue-400 tracking-widest mb-1">NOME</div>
-                                        <input
-                                            type="text"
-                                            value={checkoutName}
-                                            onChange={(e) => setCheckoutName(e.target.value)}
-                                            placeholder="Nome do checkout"
-                                            className="w-full px-2 py-1.5 bg-[#0f1117] border border-[#252941] rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-100 text-xs"
-                                        />
-                                    </div>
-                                    <div>
-                                        <div className="text-[10px] font-semibold text-blue-400 tracking-widest mb-1">PREÇO</div>
-                                        <input
-                                            type="number"
-                                            min="0"
-                                            step="0.01"
-                                            value={checkoutPrice}
-                                            onChange={(e) => setCheckoutPrice(e.target.value)}
-                                            placeholder={product ? String(product.price) : '0.00'}
-                                            className="w-full px-2 py-1.5 bg-[#0f1117] border border-[#252941] rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-100 text-xs"
-                                        />
-                                    </div>
-                                </div>
-
-                                <h3 className="text-sm font-bold text-gray-100 mb-3">{t('checkout_pages.components')}</h3>
-
-                                <div className="text-[10px] text-blue-400 uppercase tracking-wider mb-3 font-semibold">
-                                    {t('checkout_pages.drag_to_add')}
-                                </div>
-
-                                <div className="grid grid-cols-2 gap-2">
-                                    {availableComponents.map((component) => {
-                                        const Icon = component.icon
-                                        return (
-                                            <div
-                                                key={component.id}
-                                                draggable
-                                                onDragStart={() => handleDragStart(component)}
-                                                onDragEnd={handleDragEnd}
-                                                className="bg-[#0f1117] rounded-lg p-3 flex flex-col items-center justify-center gap-2 cursor-move hover:bg-blue-500/10 transition-all border border-[#252941] hover:border-blue-500 hover:shadow-lg hover:shadow-blue-500/20"
-                                            >
-                                                <div className="w-9 h-9 bg-[#252941] rounded-lg flex items-center justify-center">
-                                                    <Icon size={18} className="text-blue-400" />
-                                                </div>
-                                                <span className="text-[11px] text-gray-300 text-center font-medium">
-                                                    {component.name}
-                                                </span>
-                                            </div>
-                                        )
-                                    })}
-                                </div>
-
-                                {/* Button Color */}
-                                <div className="mt-4 pt-4 border-t border-[#252941]">
-                                    <div className="text-[10px] font-semibold text-blue-400 tracking-widest mb-2">
-                                        {t('checkout_pages.button_color')}
-                                    </div>
-                                    <div className="flex items-center gap-2">
-                                        <input
-                                            type="color"
-                                            value={buttonColor}
-                                            onChange={(e) => setButtonColor(e.target.value)}
-                                            className="w-10 h-10 border border-[#252941] rounded-lg cursor-pointer bg-transparent"
-                                        />
-                                        <input
-                                            type="text"
-                                            value={buttonColor}
-                                            onChange={(e) => setButtonColor(e.target.value)}
-                                            className="flex-1 px-2 py-1.5 bg-[#0f1117] border border-[#252941] rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-100 text-xs"
-                                        />
-                                    </div>
-                                </div>
-
-                                {/* Pixels Personalizados */}
-                                <div className="mt-4 pt-4 border-t border-[#252941]">
-                                    <div className="flex items-center gap-1.5 mb-2">
-                                        <div className="text-[10px] font-semibold text-blue-400 tracking-widest">
-                                            PIXELS DE TRACKING
-                                        </div>
-                                    </div>
-                                    <p className="text-[10px] text-gray-500 mb-2">
-                                        Facebook Pixel, Google Analytics, TikTok Pixel, etc.
-                                    </p>
-                                    <textarea
-                                        value={customPixels}
-                                        onChange={(e) => setCustomPixels(e.target.value)}
-                                        placeholder={`<!-- Exemplo: Pixel do Facebook -->\n<script>\n  fbq('init', 'SEU_PIXEL_ID');\n  fbq('track', 'PageView');\n</script>\n\n<!-- Google Analytics -->\n<script async src="https://www.googletagmanager.com/gtag/js?id=GA_ID"></script>\n<script>\n  window.dataLayer = window.dataLayer || [];\n  function gtag(){dataLayer.push(arguments);}\n  gtag('js', new Date());\n  gtag('config', 'GA_ID');\n</script>`}
-                                        rows={8}
-                                        className="w-full px-2 py-2 bg-[#0f1117] border border-[#252941] rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-300 text-[11px] font-mono resize-y"
-                                    />
-                                </div>
-
-                                {/* UTMs Personalizados */}
-                                <div className="mt-4 pt-4 border-t border-[#252941]">
-                                    <div className="flex items-center gap-1.5 mb-2">
-                                        <div className="text-[10px] font-semibold text-blue-400 tracking-widest">
-                                            UTMs CUSTOMIZADOS
-                                        </div>
-                                    </div>
-                                    <p className="text-[10px] text-gray-500 mb-2">
-                                        UTMs específicos para este checkout (sobrescreve URL).
-                                    </p>
-                                    <textarea
-                                        value={customUtms}
-                                        onChange={(e) => setCustomUtms(e.target.value)}
-                                        placeholder={`<!-- UTMs do Facebook -->\n<script>\n  window.customUTMs = {\n    utm_source: 'FB',\n    utm_campaign: '{{campaign.name}}|{{campaign.id}}',\n    utm_medium: '{{adset.name}}|{{adset.id}}',\n    utm_content: '{{ad.name}}|{{ad.id}}',\n    utm_term: '{{placement}}'\n  };\n</script>`}
-                                        rows={6}
-                                        className="w-full px-2 py-2 bg-[#0f1117] border border-[#252941] rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-300 text-[11px] font-mono resize-y"
-                                    />
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Tab: Offers - REMOVED
+                        {/* Tab: Offers - REMOVED
                         Now using the Funnels system to manage order bumps, upsells and downsells
                         Go to: Funnels > Configure Order Bumps on the funnel checkout page
                     */}
-                </main>
+                    </main>
+                    {/* Components Panel - Right Side */}
+                    <div className="hidden lg:block w-56 flex-shrink-0 sticky top-0 self-start max-h-screen overflow-y-auto py-4 pr-3">
+                        {/* Components */}
+                        <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-xl shadow-xl shadow-black/20 border-2 border-gray-600/30 p-4">
+
+                            {/* Nome e Preço */}
+                            <div className="mb-4 pb-4 border-b border-gray-700 space-y-2">
+                                <div>
+                                    <div className="text-[10px] font-semibold text-gray-400 tracking-widest mb-1">NOME</div>
+                                    <input
+                                        type="text"
+                                        value={checkoutName}
+                                        onChange={(e) => setCheckoutName(e.target.value)}
+                                        placeholder="Nome do checkout"
+                                        className="w-full px-2 py-1.5 bg-gray-900 border border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-500 text-gray-100 text-xs"
+                                    />
+                                </div>
+                                <div>
+                                    <div className="text-[10px] font-semibold text-gray-400 tracking-widest mb-1">PREÇO</div>
+                                    <input
+                                        type="number"
+                                        min="0"
+                                        step="0.01"
+                                        value={checkoutPrice}
+                                        onChange={(e) => setCheckoutPrice(e.target.value)}
+                                        placeholder={product ? String(product.price) : '0.00'}
+                                        className="w-full px-2 py-1.5 bg-gray-900 border border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-500 text-gray-100 text-xs"
+                                    />
+                                </div>
+                            </div>
+
+                            <h3 className="text-sm font-bold text-gray-100 mb-3">{t('checkout_pages.components')}</h3>
+
+                            <div className="text-[10px] text-gray-400 uppercase tracking-wider mb-3 font-semibold">
+                                {t('checkout_pages.drag_to_add')}
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-2">
+                                {availableComponents.map((component) => {
+                                    const Icon = component.icon
+                                    return (
+                                        <div
+                                            key={component.id}
+                                            draggable
+                                            onDragStart={() => handleDragStart(component)}
+                                            onDragEnd={handleDragEnd}
+                                            className="bg-gray-900 rounded-lg p-3 flex flex-col items-center justify-center gap-2 cursor-move hover:bg-gray-700/40 transition-all border border-gray-700 hover:border-gray-500 hover:shadow-lg hover:shadow-gray-900/40"
+                                        >
+                                            <div className="w-9 h-9 bg-gray-700 rounded-lg flex items-center justify-center">
+                                                <Icon size={18} className="text-gray-400" />
+                                            </div>
+                                            <span className="text-[11px] text-gray-300 text-center font-medium">
+                                                {component.name}
+                                            </span>
+                                        </div>
+                                    )
+                                })}
+                            </div>
+
+                            {/* Button Color */}
+                            <div className="mt-4 pt-4 border-t border-gray-700">
+                                <div className="text-[10px] font-semibold text-gray-400 tracking-widest mb-2">
+                                    {t('checkout_pages.button_color')}
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <input
+                                        type="color"
+                                        value={buttonColor}
+                                        onChange={(e) => setButtonColor(e.target.value)}
+                                        className="w-10 h-10 border border-gray-700 rounded-lg cursor-pointer bg-transparent"
+                                    />
+                                    <input
+                                        type="text"
+                                        value={buttonColor}
+                                        onChange={(e) => setButtonColor(e.target.value)}
+                                        className="flex-1 px-2 py-1.5 bg-gray-900 border border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-500 text-gray-100 text-xs"
+                                    />
+                                </div>
+                            </div>
+
+                            {/* Pixels Personalizados */}
+                            <div className="mt-4 pt-4 border-t border-gray-700">
+                                <div className="flex items-center gap-1.5 mb-2">
+                                    <div className="text-[10px] font-semibold text-gray-400 tracking-widest">
+                                        PIXELS DE TRACKING
+                                    </div>
+                                </div>
+                                <p className="text-[10px] text-gray-500 mb-2">
+                                    Facebook Pixel, Google Analytics, TikTok Pixel, etc.
+                                </p>
+                                <textarea
+                                    value={customPixels}
+                                    onChange={(e) => setCustomPixels(e.target.value)}
+                                    placeholder={`<!-- Exemplo: Pixel do Facebook -->\n<script>\n  fbq('init', 'SEU_PIXEL_ID');\n  fbq('track', 'PageView');\n</script>\n\n<!-- Google Analytics -->\n<script async src="https://www.googletagmanager.com/gtag/js?id=GA_ID"></script>\n<script>\n  window.dataLayer = window.dataLayer || [];\n  function gtag(){dataLayer.push(arguments);}\n  gtag('js', new Date());\n  gtag('config', 'GA_ID');\n</script>`}
+                                    rows={4}
+                                    className="w-full px-2 py-2 bg-gray-900 border border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-500 text-gray-300 text-[11px] font-mono resize-y"
+                                />
+                            </div>
+
+                            {/* UTMs Personalizados */}
+                            <div className="mt-4 pt-4 border-t border-gray-700">
+                                <div className="flex items-center gap-1.5 mb-2">
+                                    <div className="text-[10px] font-semibold text-gray-400 tracking-widest">
+                                        UTMs CUSTOMIZADOS
+                                    </div>
+                                </div>
+                                <p className="text-[10px] text-gray-500 mb-2">
+                                    UTMs específicos para este checkout (sobrescreve URL).
+                                </p>
+                                <textarea
+                                    value={customUtms}
+                                    onChange={(e) => setCustomUtms(e.target.value)}
+                                    placeholder={`<!-- UTMs do Facebook -->\n<script>\n  window.customUTMs = {\n    utm_source: 'FB',\n    utm_campaign: '{{campaign.name}}|{{campaign.id}}',\n    utm_medium: '{{adset.name}}|{{adset.id}}',\n    utm_content: '{{ad.name}}|{{ad.id}}',\n    utm_term: '{{placement}}'\n  };\n</script>`}
+                                    rows={4}
+                                    className="w-full px-2 py-2 bg-[#0f1117] border border-[#252941] rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-300 text-[11px] font-mono resize-y"
+                                />
+                            </div>
+
+                            {/* IMAGENS */}
+                            <div className="mt-4 pt-4 border-t border-gray-700">
+                                <div className="flex items-center justify-between mb-2">
+                                    <div className="text-[10px] font-semibold text-gray-400 tracking-widest">IMAGENS</div>
+                                    <button
+                                        onClick={handleAddImageBlock}
+                                        className="flex items-center gap-0.5 px-1.5 py-0.5 bg-gray-700 hover:bg-gray-600 text-gray-300 rounded text-[10px] transition-colors"
+                                        title="Adicionar bloco de imagem"
+                                    >
+                                        <Plus size={10} />
+                                    </button>
+                                </div>
+                                {imageBlocks.length === 0 ? (
+                                    <p className="text-[10px] text-gray-600 italic">Nenhuma imagem adicionada.</p>
+                                ) : (
+                                    <div className="space-y-1.5">
+                                        {imageBlocks.map((block, idx) => (
+                                            <div key={block.id} className="flex items-center gap-1.5 bg-gray-900 border border-gray-700 rounded-lg px-2 py-1.5">
+                                                {block.url ? (
+                                                    <img src={block.url} alt="" className="w-7 h-7 rounded object-cover flex-shrink-0 border border-gray-700" />
+                                                ) : (
+                                                    <div className="w-7 h-7 rounded bg-gray-700 flex items-center justify-center flex-shrink-0">
+                                                        <ImageIcon size={12} className="text-gray-500" />
+                                                    </div>
+                                                )}
+                                                <span className="flex-1 text-[10px] text-gray-400 truncate">Imagem {idx + 1}</span>
+                                                <button
+                                                    onClick={() => {
+                                                        setEditingImageBlockId(block.id)
+                                                        setEditingElement('imageblock')
+                                                        setEditPanelOpen(true)
+                                                    }}
+                                                    className="p-1 hover:bg-gray-700 rounded transition-colors text-gray-400 hover:text-gray-100"
+                                                    title="Editar"
+                                                >
+                                                    <Edit3 size={10} />
+                                                </button>
+                                                <button
+                                                    onClick={() => handleDeleteImageBlock(block.id)}
+                                                    className="p-1 hover:bg-red-500/10 rounded transition-colors text-gray-500 hover:text-red-400"
+                                                    title="Remover"
+                                                >
+                                                    <X size={10} />
+                                                </button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
 
             {/* Side Edit Panel */}
             <div
-                className={`fixed top-0 right-0 h-full w-full sm:w-96 md:w-[420px] bg-[#1a1d2e] shadow-2xl transform transition-transform duration-300 ease-in-out z-[100] ${editPanelOpen ? 'translate-x-0' : 'translate-x-full'
+                className={`fixed top-0 right-0 h-full w-full sm:w-72 bg-[#1a1d2e] shadow-2xl transform transition-transform duration-300 ease-in-out z-[100] ${editPanelOpen ? 'translate-x-0' : 'translate-x-full'
                     }`}
             >
                 <div className="flex flex-col h-full">
                     {/* Panel Header */}
-                    <div className="flex items-center justify-between px-4 sm:px-6 py-4 border-b border-[#1e2139] bg-[#0f1117]">
-                        <h3 className="text-lg font-semibold text-gray-100">
-                            {editingElement === 'banner' && t('checkout_pages.image')}
+                    <div className="flex items-center justify-between px-3 py-2.5 border-b border-[#1e2139] bg-[#0f1117]">
+                        <h3 className="text-xs font-semibold text-gray-100 uppercase tracking-wider">
+                            {editingElement === 'banner' && 'Banner'}
                             {editingElement === 'timer' && t('checkout_pages.timer')}
+                            {editingElement === 'seals' && 'Trust Seals'}
+                            {editingElement === 'testimonials' && 'Depoimento'}
+                            {editingElement === 'imageblock' && 'Bloco de Imagem'}
                         </h3>
                         <button
                             onClick={handleCloseEditPanel}
-                            className="p-2 hover:bg-[#252941] rounded-lg transition-colors text-gray-400 hover:text-gray-100"
+                            className="p-1 hover:bg-[#252941] rounded transition-colors text-gray-400 hover:text-gray-100"
                         >
-                            <X size={20} />
+                            <X size={14} />
                         </button>
                     </div>
 
                     {/* Panel Content */}
-                    <div className="flex-1 overflow-y-auto p-4 sm:p-6">
+                    <div className="flex-1 overflow-y-auto p-3">
                         {editingElement === 'banner' && (
-                            <div className="space-y-6">
+                            <div className="space-y-3">
                                 {/* Image */}
                                 <div>
-                                    <div className="space-y-3">
+                                    <div className="space-y-2">
                                         {bannerForm.banner_image ? (
                                             <>
                                                 <div className="relative">
                                                     <img
                                                         src={bannerForm.banner_image}
                                                         alt="Banner preview"
-                                                        className="w-full h-40 object-cover rounded-lg border border-[#1e2139]"
+                                                        className="w-full h-24 object-cover rounded border border-[#1e2139]"
                                                     />
-                                                    <div className="absolute top-2 right-2 flex gap-1">
+                                                    <div className="absolute top-1 right-1 flex gap-1">
+                                                        <label
+                                                            htmlFor="banner-upload-panel-replace"
+                                                            className="flex items-center gap-1 px-1.5 py-1 bg-blue-600 text-white text-[10px] font-medium rounded cursor-pointer hover:bg-blue-700 transition-colors"
+                                                            title="Trocar imagem"
+                                                        >
+                                                            <Upload size={10} />
+                                                            Trocar
+                                                        </label>
+                                                        <input
+                                                            type="file"
+                                                            accept="image/*"
+                                                            onChange={handleImageUpload}
+                                                            className="hidden"
+                                                            id="banner-upload-panel-replace"
+                                                        />
                                                         <button
                                                             onClick={handleRemoveImage}
-                                                            className="p-1.5 bg-red-600 text-white rounded-full hover:bg-red-700 transition-colors shadow-xl shadow-black/10"
+                                                            className="p-1 bg-red-600 text-white rounded hover:bg-red-700 transition-colors"
                                                             title={t('checkout_pages.remove')}
                                                         >
-                                                            <X size={14} />
+                                                            <X size={10} />
                                                         </button>
-                                                    </div>
-                                                </div>
-
-                                                {/* Image Scale Control */}
-                                                <div className="space-y-2">
-                                                    <div className="flex items-center justify-between">
-                                                        <label className="block text-sm font-medium text-gray-300">
-                                                            Tamanho da Imagem
-                                                        </label>
-                                                        <span className="text-xs text-gray-500">ou arraste os cantos no banner</span>
-                                                    </div>
-                                                    <input
-                                                        type="range"
-                                                        min="0.5"
-                                                        max="2"
-                                                        step="0.1"
-                                                        value={bannerImageScale}
-                                                        onChange={(e) => setBannerImageScale(parseFloat(e.target.value))}
-                                                        className="w-full h-2 bg-[#252941] rounded-lg appearance-none cursor-pointer"
-                                                    />
-                                                    <div className="text-xs text-gray-400 text-center">
-                                                        {Math.round(bannerImageScale * 100)}%
-                                                    </div>
-                                                </div>
-
-                                                {/* Image Position Controls */}
-                                                <div className="space-y-2">
-                                                    <div className="flex items-center justify-between">
-                                                        <label className="block text-sm font-medium text-gray-300">
-                                                            Posição Horizontal
-                                                        </label>
-                                                        <span className="text-xs text-gray-500">ou arraste no banner</span>
-                                                    </div>
-                                                    <input
-                                                        type="range"
-                                                        min="0"
-                                                        max="100"
-                                                        step="1"
-                                                        value={bannerImagePosition.x}
-                                                        onChange={(e) => setBannerImagePosition(prev => ({ ...prev, x: parseInt(e.target.value) }))}
-                                                        className="w-full h-2 bg-[#252941] rounded-lg appearance-none cursor-pointer"
-                                                    />
-                                                    <div className="text-xs text-gray-400 text-center">
-                                                        {bannerImagePosition.x}%
-                                                    </div>
-                                                </div>
-
-                                                <div className="space-y-2">
-                                                    <label className="block text-sm font-medium text-gray-300">
-                                                        Posição Vertical
-                                                    </label>
-                                                    <input
-                                                        type="range"
-                                                        min="0"
-                                                        max="100"
-                                                        step="1"
-                                                        value={bannerImagePosition.y}
-                                                        onChange={(e) => setBannerImagePosition(prev => ({ ...prev, y: parseInt(e.target.value) }))}
-                                                        className="w-full h-2 bg-[#252941] rounded-lg appearance-none cursor-pointer"
-                                                    />
-                                                    <div className="text-xs text-gray-400 text-center">
-                                                        {bannerImagePosition.y}%
                                                     </div>
                                                 </div>
                                             </>
                                         ) : (
-                                            <div className="border-2 border-dashed border-[#252941] rounded-lg p-6 text-center hover:border-blue-500 transition-colors cursor-pointer">
+                                            <div className="border-2 border-dashed border-[#252941] rounded p-4 text-center hover:border-blue-500 transition-colors cursor-pointer">
                                                 <input
                                                     type="file"
                                                     accept="image/*"
@@ -908,13 +1048,13 @@ export default function CheckoutBuilder() {
                                                 />
                                                 <label
                                                     htmlFor="banner-upload-panel"
-                                                    className="cursor-pointer flex flex-col items-center gap-2"
+                                                    className="cursor-pointer flex flex-col items-center gap-1"
                                                 >
-                                                    <Upload className="w-8 h-8 text-gray-400" />
-                                                    <span className="text-sm text-gray-400 font-medium">
+                                                    <Upload className="w-5 h-5 text-gray-400" />
+                                                    <span className="text-[11px] text-gray-400 font-medium">
                                                         {t('checkout_pages.click_to_upload')}
                                                     </span>
-                                                    <span className="text-xs text-gray-500">
+                                                    <span className="text-[10px] text-gray-500">
                                                         {t('checkout_pages.accepted_formats')}
                                                     </span>
                                                 </label>
@@ -925,24 +1065,372 @@ export default function CheckoutBuilder() {
                             </div>
                         )}
 
-                        {/* Timer Configuration */}
-                        {editingElement === 'timer' && (
-                            <div className="space-y-4">
+                        {/* Security Seals Configuration */}
+                        {editingElement === 'seals' && (
+                            <div className="space-y-3">
                                 <div className="flex items-center justify-between">
-                                    <h3 className="text-lg font-semibold text-gray-100">{t('checkout_pages.countdown')}</h3>
+                                    <span className="text-[11px] font-semibold text-gray-300 uppercase tracking-wider">Trust Seals</span>
                                     <button
-                                        onClick={() => setTimerConfig(prev => ({ ...prev, enabled: false }))}
-                                        className="p-2 text-red-500 hover:bg-red-500/10 rounded-lg transition-colors"
-                                        title={t('checkout_pages.remove_timer')}
+                                        onClick={() => {
+                                            setSecuritySealsEnabled(false)
+                                            handleCloseEditPanel()
+                                        }}
+                                        className="p-1 text-red-500 hover:bg-red-500/10 rounded transition-colors"
+                                        title="Remover selos"
                                     >
-                                        <X size={16} />
+                                        <Trash2 size={12} />
                                     </button>
                                 </div>
 
-                                <div className="space-y-4">
+                                <p className="text-[11px] text-gray-400">
+                                    Exibe 3 selos de segurança abaixo do checkout.
+                                </p>
+
+                                {/* Preview dos selos */}
+                                <div className="bg-white rounded-xl border border-[#252941] overflow-hidden">
+                                    <div className="grid grid-cols-3 divide-x divide-gray-200 py-4">
+                                        {/* SSL */}
+                                        <div className="flex flex-col items-center gap-1.5 px-3 text-center">
+                                            <svg viewBox="0 0 52 52" fill="none" className="w-10 h-10">
+                                                <path d="M26 2L6 10V26C6 37.05 14.74 47.35 26 50C37.26 47.35 46 37.05 46 26V10L26 2Z" fill="#22c55e" />
+                                                <path d="M26 4L8 11.6V26C8 36.2 16.06 45.68 26 48.2C35.94 45.68 44 36.2 44 26V11.6L26 4Z" fill="#16a34a" />
+                                                <rect x="19" y="21" width="14" height="13" rx="1.5" fill="white" />
+                                                <path d="M21 21V18C21 14.686 24.134 12 26 12C27.866 12 31 14.686 31 18V21" stroke="white" strokeWidth="2.5" strokeLinecap="round" fill="none" />
+                                                <circle cx="26" cy="27.5" r="2" fill="#16a34a" />
+                                                <rect x="25.2" y="27.5" width="1.6" height="3" rx="0.8" fill="#16a34a" />
+                                            </svg>
+                                            <div className="font-bold text-[9px] text-gray-700 uppercase">SSL Secured</div>
+                                            <div className="text-[8px] text-gray-500">Encrypted checkout</div>
+                                        </div>
+                                        {/* Secure Payments */}
+                                        <div className="flex flex-col items-center gap-1.5 px-3 text-center">
+                                            <svg viewBox="0 0 52 52" fill="none" className="w-10 h-10">
+                                                <circle cx="26" cy="26" r="24" fill="#b45309" />
+                                                <circle cx="26" cy="26" r="22" fill="#d97706" />
+                                                <circle cx="26" cy="26" r="20" fill="#f59e0b" />
+                                                <circle cx="26" cy="26" r="17" fill="#fde68a" />
+                                                <circle cx="26" cy="26" r="14" fill="#d97706" />
+                                                <text x="26" y="23.5" textAnchor="middle" fill="white" fontSize="8.5" fontWeight="bold" fontFamily="Arial, sans-serif">100%</text>
+                                                <text x="26" y="32" textAnchor="middle" fill="white" fontSize="5.5" fontWeight="600" fontFamily="Arial, sans-serif">SAFE</text>
+                                                <text x="13" y="27" textAnchor="middle" fill="#fde68a" fontSize="6">★</text>
+                                                <text x="39" y="27" textAnchor="middle" fill="#fde68a" fontSize="6">★</text>
+                                            </svg>
+                                            <div className="font-bold text-[9px] text-gray-700 uppercase">Secure Payments</div>
+                                            <div className="text-[8px] text-gray-500">Verified providers</div>
+                                        </div>
+                                        {/* 100% Garantia */}
+                                        <div className="flex flex-col items-center gap-1.5 px-3 text-center">
+                                            <svg viewBox="0 0 52 52" fill="none" className="w-10 h-10">
+                                                <path d="M26 2L6 10V26C6 37.05 14.74 47.35 26 50C37.26 47.35 46 37.05 46 26V10L26 2Z" fill="#7c3aed" />
+                                                <path d="M26 4L8 11.6V26C8 36.2 16.06 45.68 26 48.2C35.94 45.68 44 36.2 44 26V11.6L26 4Z" fill="#8b5cf6" />
+                                                <circle cx="26" cy="22" r="8" fill="white" opacity="0.2" />
+                                                <circle cx="26" cy="22" r="6" fill="white" opacity="0.9" />
+                                                <text x="26" y="26" textAnchor="middle" fill="#8b5cf6" fontSize="9" fontWeight="bold" fontFamily="Arial, sans-serif">★</text>
+                                                <path d="M20 30L26 34L32 30L30 42L26 39L22 42Z" fill="white" opacity="0.85" />
+                                            </svg>
+                                            <div className="font-bold text-[9px] text-gray-700 uppercase">100% Garantia</div>
+                                            <div className="text-[8px] text-gray-500">Compra protegida</div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="flex items-center gap-2 p-2 bg-green-500/10 border border-green-500/20 rounded">
+                                    <ShieldCheck size={12} className="text-green-400 flex-shrink-0" />
+                                    <p className="text-[10px] text-green-400">Selos ativos e visíveis no checkout</p>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Testimonials Configuration */}
+                        {editingElement === 'testimonials' && (() => {
+                            const resolvedId = editingTestimonialId ?? testimonials[0]?.id ?? null
+                            const testimonial = testimonials.find(t => t.id === resolvedId)
+                            if (!testimonial) return null
+                            if (resolvedId !== editingTestimonialId) setEditingTestimonialId(resolvedId)
+                            return (
+                                <div className="space-y-3">
+                                    {/* Header with list of all testimonials */}
+                                    <div>
+                                        <div className="flex items-center justify-between mb-1.5">
+                                            <span className="text-[10px] text-gray-400 font-semibold uppercase tracking-wider">Depoimentos</span>
+                                            <button
+                                                onClick={handleAddTestimonial}
+                                                className="flex items-center gap-0.5 text-[10px] text-blue-400 hover:text-blue-300 transition-colors"
+                                            >
+                                                <Plus size={11} />
+                                                Novo
+                                            </button>
+                                        </div>
+                                        <div className="flex flex-col gap-1">
+                                            {testimonials.map(t => (
+                                                <div
+                                                    key={t.id}
+                                                    className={`flex items-center justify-between px-2 py-1.5 rounded cursor-pointer transition-colors ${t.id === editingTestimonialId ? 'bg-blue-500/20 border border-blue-500/40' : 'bg-[#0f1117] border border-[#252941] hover:border-blue-500/40'}`}
+                                                    onClick={() => { setEditingTestimonialId(t.id) }}
+                                                >
+                                                    <div className="flex items-center gap-1.5 min-w-0">
+                                                        {t.photo ? (
+                                                            <img src={t.photo} alt="" className="w-5 h-5 rounded-full object-cover flex-shrink-0" />
+                                                        ) : (
+                                                            <div className="w-5 h-5 rounded-full bg-[#252941] flex items-center justify-center flex-shrink-0">
+                                                                <MessageSquare size={9} className="text-gray-400" />
+                                                            </div>
+                                                        )}
+                                                        <span className="text-[11px] text-gray-300 truncate">{t.name}</span>
+                                                    </div>
+                                                    <button
+                                                        onClick={(e) => { e.stopPropagation(); handleDeleteTestimonial(t.id) }}
+                                                        className="p-1 text-red-500 hover:bg-red-500/10 rounded transition-colors flex-shrink-0"
+                                                    >
+                                                        <Trash2 size={12} />
+                                                    </button>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+
+                                    <div className="border-t border-[#252941] pt-4 space-y-4">
+                                        {/* Photo upload */}
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-300 mb-2">Foto</label>
+                                            <div className="flex flex-col items-center gap-3">
+                                                {testimonial.photo ? (
+                                                    <div className="relative">
+                                                        <img src={testimonial.photo} alt="preview" className="w-20 h-20 rounded-full object-cover border-2 border-[#252941]" />
+                                                        <button
+                                                            onClick={() => handleUpdateTestimonial(testimonial.id, { photo: '' })}
+                                                            className="absolute -top-1 -right-1 w-5 h-5 bg-red-600 text-white rounded-full flex items-center justify-center hover:bg-red-700 transition-colors"
+                                                        >
+                                                            <X size={10} />
+                                                        </button>
+                                                    </div>
+                                                ) : (
+                                                    <label htmlFor={`testimonial-photo-${testimonial.id}`} className="w-20 h-20 rounded-full bg-[#252941] border-2 border-dashed border-[#3a3f5c] flex flex-col items-center justify-center gap-1 cursor-pointer hover:border-blue-500 transition-colors">
+                                                        <Upload size={16} className="text-gray-400" />
+                                                        <span className="text-[9px] text-gray-500 text-center leading-tight">Upload<br />photo</span>
+                                                    </label>
+                                                )}
+                                                <input
+                                                    id={`testimonial-photo-${testimonial.id}`}
+                                                    type="file"
+                                                    accept="image/jpeg,image/png"
+                                                    className="hidden"
+                                                    onChange={(e) => handleTestimonialPhotoUpload(e, testimonial.id)}
+                                                />
+                                                <span className="text-[10px] text-gray-500">Formatos aceitos: JPG ou PNG. Tamanho máximo: 10MB.</span>
+                                            </div>
+                                        </div>
+
+                                        {/* Testimonial text */}
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-300 mb-2">Depoimento</label>
+                                            <textarea
+                                                value={testimonial.text}
+                                                onChange={(e) => handleUpdateTestimonial(testimonial.id, { text: e.target.value })}
+                                                rows={4}
+                                                placeholder="Digite seu depoimento aqui"
+                                                className="w-full px-3 py-2 bg-[#0f1117] border border-[#252941] rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-100 text-sm resize-none"
+                                            />
+                                        </div>
+
+                                        {/* Stars */}
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-300 mb-2">Estrelas</label>
+                                            <div className="flex gap-1">
+                                                {[1, 2, 3, 4, 5].map((star) => (
+                                                    <button
+                                                        key={star}
+                                                        onClick={() => handleUpdateTestimonial(testimonial.id, { stars: star })}
+                                                        className="transition-transform hover:scale-110"
+                                                    >
+                                                        <svg viewBox="0 0 20 20" fill={star <= testimonial.stars ? '#f59e0b' : '#374151'} className="w-7 h-7">
+                                                            <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                                                        </svg>
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        </div>
+
+                                        {/* Name */}
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-300 mb-2">Nome</label>
+                                            <input
+                                                type="text"
+                                                value={testimonial.name}
+                                                onChange={(e) => handleUpdateTestimonial(testimonial.id, { name: e.target.value })}
+                                                placeholder="John Doe"
+                                                className="w-full px-3 py-2 bg-[#0f1117] border border-[#252941] rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-100 text-sm"
+                                            />
+                                        </div>
+
+                                        {/* Background color */}
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-300 mb-2">Cor de fundo</label>
+                                            <div className="flex items-center gap-2">
+                                                <input
+                                                    type="color"
+                                                    value={testimonial.backgroundColor}
+                                                    onChange={(e) => handleUpdateTestimonial(testimonial.id, { backgroundColor: e.target.value })}
+                                                    className="w-10 h-10 border border-[#252941] rounded-lg cursor-pointer bg-transparent"
+                                                />
+                                                <input
+                                                    type="text"
+                                                    value={testimonial.backgroundColor}
+                                                    onChange={(e) => handleUpdateTestimonial(testimonial.id, { backgroundColor: e.target.value })}
+                                                    className="flex-1 px-3 py-2 bg-[#0f1117] border border-[#252941] rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-100 text-sm"
+                                                />
+                                            </div>
+                                        </div>
+
+                                        {/* Text color */}
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-300 mb-2">Cor do texto</label>
+                                            <div className="flex items-center gap-2">
+                                                <input
+                                                    type="color"
+                                                    value={testimonial.textColor}
+                                                    onChange={(e) => handleUpdateTestimonial(testimonial.id, { textColor: e.target.value })}
+                                                    className="w-10 h-10 border border-[#252941] rounded-lg cursor-pointer bg-transparent"
+                                                />
+                                                <input
+                                                    type="text"
+                                                    value={testimonial.textColor}
+                                                    onChange={(e) => handleUpdateTestimonial(testimonial.id, { textColor: e.target.value })}
+                                                    className="flex-1 px-3 py-2 bg-[#0f1117] border border-[#252941] rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-100 text-sm"
+                                                />
+                                            </div>
+                                        </div>
+
+                                        {/* Horizontal mode toggle */}
+                                        <div className="flex items-center justify-between">
+                                            <label className="text-sm font-medium text-gray-300">Modo horizontal</label>
+                                            <button
+                                                onClick={() => handleUpdateTestimonial(testimonial.id, { horizontalMode: !testimonial.horizontalMode })}
+                                                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${testimonial.horizontalMode ? 'bg-blue-500' : 'bg-[#252941]'}`}
+                                            >
+                                                <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${testimonial.horizontalMode ? 'translate-x-6' : 'translate-x-1'}`} />
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            )
+                        })()}
+
+                        {/* Image Block Configuration */}
+                        {editingElement === 'imageblock' && (() => {
+                            const block = imageBlocks.find(b => b.id === editingImageBlockId)
+                            if (!block) return null
+                            return (
+                                <div className="space-y-3">
+                                    <div className="flex items-center justify-between">
+                                        <span className="text-[11px] font-semibold text-gray-300 uppercase tracking-wider">Bloco de Imagem</span>
+                                        <button
+                                            onClick={() => {
+                                                handleDeleteImageBlock(block.id)
+                                                handleCloseEditPanel()
+                                            }}
+                                            className="p-1 text-red-500 hover:bg-red-500/10 rounded transition-colors"
+                                            title="Remover imagem"
+                                        >
+                                            <Trash2 size={12} />
+                                        </button>
+                                    </div>
+
+                                    {/* Upload */}
+                                    <div>
+                                        <label className="block text-[10px] font-medium text-gray-400 mb-1">Imagem</label>
+                                        {block.url ? (
+                                            <div className="relative">
+                                                <img src={block.url} alt="" className="w-full rounded border border-[#1e2139] object-contain max-h-32" />
+                                                <div className="absolute top-1 right-1 flex gap-1">
+                                                    <label htmlFor={`img-block-upload-${block.id}`} className="flex items-center gap-1 px-1.5 py-1 bg-blue-600 text-white text-[10px] font-medium rounded cursor-pointer hover:bg-blue-700 transition-colors">
+                                                        <Upload size={10} />
+                                                        Trocar
+                                                    </label>
+                                                    <input type="file" accept="image/*" id={`img-block-upload-${block.id}`} className="hidden" onChange={(e) => handleImageBlockUpload(e, block.id)} />
+                                                    <button onClick={() => handleUpdateImageBlock(block.id, { url: '' })} className="p-1 bg-red-600 text-white rounded hover:bg-red-700 transition-colors">
+                                                        <X size={10} />
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        ) : (
+                                            <div className="border-2 border-dashed border-[#252941] rounded p-4 text-center hover:border-blue-500 transition-colors cursor-pointer">
+                                                <input type="file" accept="image/*" id={`img-block-upload-${block.id}`} className="hidden" onChange={(e) => handleImageBlockUpload(e, block.id)} />
+                                                <label htmlFor={`img-block-upload-${block.id}`} className="cursor-pointer flex flex-col items-center gap-1">
+                                                    <Upload className="w-5 h-5 text-gray-400" />
+                                                    <span className="text-[11px] text-gray-400 font-medium">Clique para enviar</span>
+                                                    <span className="text-[10px] text-gray-500">PNG, JPG, WEBP</span>
+                                                </label>
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    {/* Slot / Posição */}
+                                    <div>
+                                        <label className="block text-[10px] font-medium text-gray-400 mb-1">Posição no checkout</label>
+                                        <select
+                                            value={block.slot}
+                                            onChange={(e) => handleUpdateImageBlock(block.id, { slot: e.target.value as ImageBlockSlot })}
+                                            className="w-full px-2 py-1.5 bg-[#0f1117] border border-[#252941] rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500 text-gray-100 text-xs"
+                                        >
+                                            <option value="below_payment_methods">Abaixo dos métodos de pagamento</option>
+                                            <option value="above_button">Acima do botão de compra</option>
+                                            <option value="below_button">Abaixo do botão de compra</option>
+                                            <option value="above_testimonials">Acima dos depoimentos</option>
+                                            <option value="between_testimonials">Entre os depoimentos</option>
+                                            <option value="below_testimonials">Abaixo dos depoimentos</option>
+                                            <option value="below_seals">Abaixo dos selos de segurança</option>
+                                        </select>
+                                    </div>
+
+                                    {/* Largura */}
+                                    <div>
+                                        <label className="block text-[10px] font-medium text-gray-400 mb-1">Largura</label>
+                                        <select
+                                            value={block.width ?? 'full'}
+                                            onChange={(e) => handleUpdateImageBlock(block.id, { width: e.target.value as CheckoutImageBlock['width'] })}
+                                            className="w-full px-2 py-1.5 bg-[#0f1117] border border-[#252941] rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500 text-gray-100 text-xs"
+                                        >
+                                            <option value="full">Largura total</option>
+                                            <option value="large">Grande</option>
+                                            <option value="medium">Médio</option>
+                                            <option value="small">Pequeno</option>
+                                        </select>
+                                    </div>
+
+                                    {/* Link */}
+                                    <div>
+                                        <label className="block text-[10px] font-medium text-gray-400 mb-1">Link (opcional)</label>
+                                        <input
+                                            type="url"
+                                            value={(block as any).link ?? ''}
+                                            onChange={(e) => handleUpdateImageBlock(block.id, { link: e.target.value } as any)}
+                                            placeholder="https://..."
+                                            className="w-full px-2 py-1.5 bg-[#0f1117] border border-[#252941] rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500 text-gray-100 text-xs"
+                                        />
+                                    </div>
+                                </div>
+                            )
+                        })()}
+
+                        {/* Timer Configuration */}
+                        {editingElement === 'timer' && (
+                            <div className="space-y-3">
+                                <div className="flex items-center justify-between">
+                                    <span className="text-[11px] font-semibold text-gray-300 uppercase tracking-wider">{t('checkout_pages.countdown')}</span>
+                                    <button
+                                        onClick={() => setTimerConfig(prev => ({ ...prev, enabled: false }))}
+                                        className="p-1 text-red-500 hover:bg-red-500/10 rounded transition-colors"
+                                        title={t('checkout_pages.remove_timer')}
+                                    >
+                                        <Trash2 size={12} />
+                                    </button>
+                                </div>
+
+                                <div className="space-y-2.5">
                                     {/* Time in minutes */}
                                     <div>
-                                        <label className="block text-sm font-medium text-gray-300 mb-2">
+                                        <label className="block text-[11px] font-medium text-gray-400 mb-1">
                                             {t('checkout_pages.time_in_minutes')}
                                         </label>
                                         <input
@@ -978,96 +1466,40 @@ export default function CheckoutBuilder() {
                                                     }))
                                                 }
                                             }}
-                                            className="w-full px-3 py-2 bg-[#0f1117] border border-[#252941] rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-100"
+                                            className="w-full px-2 py-1.5 bg-[#0f1117] border border-[#252941] rounded focus:outline-none focus:ring-1 focus:ring-blue-500 text-gray-100 text-xs"
                                             maxLength={5}
                                         />
-                                        <p className="text-xs text-gray-500 mt-1">Formato: MM:SS (ex: 14:30)</p>
+                                        <p className="text-[10px] text-gray-500 mt-0.5">Formato: MM:SS (ex: 14:30)</p>
                                     </div>
 
-                                    {/* Background color */}
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-300 mb-2">
-                                            {t('checkout_pages.background_color')}
-                                        </label>
-                                        <div className="flex items-center gap-2">
-                                            <input
-                                                type="color"
-                                                value={timerConfig.backgroundColor}
-                                                onChange={(e) => setTimerConfig(prev => ({
-                                                    ...prev,
-                                                    backgroundColor: e.target.value
-                                                }))}
-                                                className="w-12 h-10 border border-[#252941] rounded-lg cursor-pointer"
-                                            />
-                                            <input
-                                                type="text"
-                                                value={timerConfig.backgroundColor}
-                                                onChange={(e) => setTimerConfig(prev => ({
-                                                    ...prev,
-                                                    backgroundColor: e.target.value
-                                                }))}
-                                                className="flex-1 px-3 py-2 bg-[#0f1117] border border-[#252941] rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-100"
-                                            />
+                                    {/* Colors row */}
+                                    <div className="flex gap-2">
+                                        <div className="flex-1">
+                                            <label className="block text-[10px] text-gray-400 mb-1">{t('checkout_pages.background_color')}</label>
+                                            <div className="flex items-center gap-1">
+                                                <input type="color" value={timerConfig.backgroundColor} onChange={(e) => setTimerConfig(prev => ({ ...prev, backgroundColor: e.target.value }))} className="w-7 h-7 border border-[#252941] rounded cursor-pointer flex-shrink-0" />
+                                                <input type="text" value={timerConfig.backgroundColor} onChange={(e) => setTimerConfig(prev => ({ ...prev, backgroundColor: e.target.value }))} className="flex-1 px-1.5 py-1 bg-[#0f1117] border border-[#252941] rounded focus:outline-none focus:ring-1 focus:ring-blue-500 text-gray-100 text-[10px]" />
+                                            </div>
                                         </div>
-                                    </div>
-
-                                    {/* Text color */}
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-300 mb-2">
-                                            {t('checkout_pages.text_color')}
-                                        </label>
-                                        <div className="flex items-center gap-2">
-                                            <input
-                                                type="color"
-                                                value={timerConfig.textColor}
-                                                onChange={(e) => setTimerConfig(prev => ({
-                                                    ...prev,
-                                                    textColor: e.target.value
-                                                }))}
-                                                className="w-12 h-10 border border-[#252941] rounded-lg cursor-pointer"
-                                            />
-                                            <input
-                                                type="text"
-                                                value={timerConfig.textColor}
-                                                onChange={(e) => setTimerConfig(prev => ({
-                                                    ...prev,
-                                                    textColor: e.target.value
-                                                }))}
-                                                className="flex-1 px-3 py-2 bg-[#0f1117] border border-[#252941] rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-100"
-                                            />
+                                        <div className="flex-1">
+                                            <label className="block text-[10px] text-gray-400 mb-1">{t('checkout_pages.text_color')}</label>
+                                            <div className="flex items-center gap-1">
+                                                <input type="color" value={timerConfig.textColor} onChange={(e) => setTimerConfig(prev => ({ ...prev, textColor: e.target.value }))} className="w-7 h-7 border border-[#252941] rounded cursor-pointer flex-shrink-0" />
+                                                <input type="text" value={timerConfig.textColor} onChange={(e) => setTimerConfig(prev => ({ ...prev, textColor: e.target.value }))} className="flex-1 px-1.5 py-1 bg-[#0f1117] border border-[#252941] rounded focus:outline-none focus:ring-1 focus:ring-blue-500 text-gray-100 text-[10px]" />
+                                            </div>
                                         </div>
                                     </div>
 
                                     {/* Active text */}
                                     <div>
-                                        <label className="block text-sm font-medium text-gray-300 mb-2">
-                                            {t('checkout_pages.active_countdown_text')}
-                                        </label>
-                                        <input
-                                            type="text"
-                                            value={timerConfig.activeText}
-                                            onChange={(e) => setTimerConfig(prev => ({
-                                                ...prev,
-                                                activeText: e.target.value
-                                            }))}
-                                            className="w-full px-3 py-2 bg-[#0f1117] border border-[#252941] rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-100"
-                                        />
+                                        <label className="block text-[10px] text-gray-400 mb-1">{t('checkout_pages.active_countdown_text')}</label>
+                                        <input type="text" value={timerConfig.activeText} onChange={(e) => setTimerConfig(prev => ({ ...prev, activeText: e.target.value }))} className="w-full px-2 py-1.5 bg-[#0f1117] border border-[#252941] rounded focus:outline-none focus:ring-1 focus:ring-blue-500 text-gray-100 text-xs" />
                                     </div>
 
                                     {/* Finished text */}
                                     <div>
-                                        <label className="block text-sm font-medium text-gray-300 mb-2">
-                                            {t('checkout_pages.finished_countdown_text')}
-                                        </label>
-                                        <input
-                                            type="text"
-                                            value={timerConfig.finishedText}
-                                            onChange={(e) => setTimerConfig(prev => ({
-                                                ...prev,
-                                                finishedText: e.target.value
-                                            }))}
-                                            className="w-full px-3 py-2 bg-[#0f1117] border border-[#252941] rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-100"
-                                        />
+                                        <label className="block text-[10px] text-gray-400 mb-1">{t('checkout_pages.finished_countdown_text')}</label>
+                                        <input type="text" value={timerConfig.finishedText} onChange={(e) => setTimerConfig(prev => ({ ...prev, finishedText: e.target.value }))} className="w-full px-2 py-1.5 bg-[#0f1117] border border-[#252941] rounded focus:outline-none focus:ring-1 focus:ring-blue-500 text-gray-100 text-xs" />
                                     </div>
                                 </div>
                             </div>
@@ -1075,18 +1507,16 @@ export default function CheckoutBuilder() {
                     </div>
 
                     {/* Panel Footer */}
-                    <div className="px-4 sm:px-6 py-4 border-t border-[#1e2139] bg-[#0f1117] flex gap-3">
+                    <div className="px-3 py-2.5 border-t border-[#1e2139] bg-[#0f1117] flex gap-2">
                         <button
                             onClick={handleCloseEditPanel}
-                            className="flex-1 px-4 py-2.5 border border-[#252941] text-gray-300 rounded-lg hover:bg-[#252941] transition-colors font-medium"
+                            className="flex-1 px-3 py-1.5 border border-[#252941] text-gray-300 rounded text-xs hover:bg-[#252941] transition-colors"
                         >
                             {t('common.cancel')}
                         </button>
                         <button
-                            onClick={() => {
-                                handleCloseEditPanel()
-                            }}
-                            className="flex-1 px-4 py-2.5 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors font-medium"
+                            onClick={() => { handleCloseEditPanel() }}
+                            className="flex-1 px-3 py-1.5 bg-blue-500 text-white rounded text-xs hover:bg-blue-600 transition-colors font-medium"
                         >
                             {t('checkout_pages.apply')}
                         </button>

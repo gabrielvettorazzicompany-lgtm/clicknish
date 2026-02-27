@@ -12,7 +12,7 @@ const ProductInfoHeader = memo(({ customBanner, productName, t }: ProductInfoHea
     }
 
     return (
-        <div className="bg-white lg:rounded-xl shadow-sm lg:border border-gray-100 px-4 py-3 lg:mx-4 mb-0 lg:mb-4">
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 px-4 py-3 mx-4 mb-4">
             <div className="flex items-center gap-3">
                 <div className="bg-gray-100 p-2 rounded-lg flex-shrink-0">
                     <svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">

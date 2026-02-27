@@ -14,31 +14,31 @@ const CheckoutFooter = memo(({ t, onPrivacyClick }: CheckoutFooterProps) => {
                 <div className="flex justify-center mb-4">
                     <div className="flex items-center gap-2">
                         <ShieldCheck className="text-green-500" size={14} />
-                        <span className="text-[11px] text-gray-500">{t.securePurchase} &middot; {t.dataProtected}</span>
+                        <span className="text-[11px] text-gray-700">{t.securePurchase} &middot; {t.dataProtected}</span>
                     </div>
                 </div>
 
                 {/* ClickNich */}
                 <div className="text-center mb-3">
-                    <p className="text-[10px] text-gray-500 mb-0.5">{t.paymentProcessedBy}</p>
-                    <span className="font-semibold text-gray-600 text-[13px]">ClickNich</span>
+                    <p className="text-[10px] text-gray-600 mb-0.5">{t.paymentProcessedBy}</p>
+                    <span className="font-semibold text-gray-800 text-[13px]">ClickNich</span>
                 </div>
 
                 {/* Footer Text */}
                 <div className="text-center space-y-1">
-                    <p className="text-[10px] text-gray-500">{t.footerCopyright}</p>
-                    <p className="text-[10px] text-gray-500">
+                    <p className="text-[10px] text-gray-600">{t.footerCopyright}</p>
+                    <p className="text-[10px] text-gray-600">
                         {t.footerConsent}{' '}
                         <button
                             onClick={onPrivacyClick}
-                            className="text-blue-500 hover:underline"
+                            className="text-blue-600 hover:underline"
                         >
                             {t.termsOfPurchase}
                         </button>
                         {' '}{t.and}{' '}
                         <button
                             onClick={onPrivacyClick}
-                            className="text-blue-500 hover:underline"
+                            className="text-blue-600 hover:underline"
                         >
                             {t.privacyTerms}
                         </button>.

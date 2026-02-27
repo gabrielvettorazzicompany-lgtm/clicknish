@@ -55,6 +55,9 @@ export default function CheckoutPublic() {
     const [buttonColor, setButtonColor] = useState('#111827')
     const [customPixels, setCustomPixels] = useState('')
     const [customUtms, setCustomUtms] = useState('')
+    const [securitySealsEnabled, setSecuritySealsEnabled] = useState(false)
+    const [testimonials, setTestimonials] = useState<any[]>([])
+    const [imageBlocks, setImageBlocks] = useState<any[]>([])
     const [preloadedRedirect, setPreloadedRedirect] = useState<{ url: string | null } | null>(null)
     const [initialOrderBumps, setInitialOrderBumps] = useState<any[] | undefined>(undefined)
     const [initialAppProducts, setInitialAppProducts] = useState<any[] | undefined>(undefined)
@@ -206,6 +209,15 @@ export default function CheckoutPublic() {
                     }
                     if (customFields.buttonColor) {
                         setButtonColor(customFields.buttonColor)
+                    }
+                    if (customFields.securitySealsEnabled !== undefined) {
+                        setSecuritySealsEnabled(customFields.securitySealsEnabled)
+                    }
+                    if (customFields.testimonials) {
+                        setTestimonials(customFields.testimonials)
+                    }
+                    if (customFields.imageBlocks) {
+                        setImageBlocks(customFields.imageBlocks)
                     }
                     if (customFields.customPixels) {
                         setCustomPixels(customFields.customPixels)
@@ -411,6 +423,19 @@ export default function CheckoutPublic() {
             // Load button color
             if (customFields.buttonColor) {
                 setButtonColor(customFields.buttonColor)
+            }
+
+            // Load security seals
+            if (customFields.securitySealsEnabled !== undefined) {
+                setSecuritySealsEnabled(customFields.securitySealsEnabled)
+            }
+
+            // Load testimonials and image blocks
+            if (customFields.testimonials) {
+                setTestimonials(customFields.testimonials)
+            }
+            if (customFields.imageBlocks) {
+                setImageBlocks(customFields.imageBlocks)
             }
 
             // Load pixels e UTMs personalizados
@@ -756,6 +781,9 @@ export default function CheckoutPublic() {
             timerConfig={timerConfig}
             isPreview={false}
             buttonColor={buttonColor}
+            securitySealsEnabled={securitySealsEnabled}
+            testimonials={testimonials}
+            imageBlocks={imageBlocks}
             onProcessPayment={handleProcessPayment}
             onLeadCapture={(data) => {
                 leadDataRef.current = data
