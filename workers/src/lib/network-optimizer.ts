@@ -135,11 +135,8 @@ export class NetworkOptimizer {
             headers.set('Link', linkHeader)
         }
 
-        // ✅ COMPRESSION & ENCODING
-        if (this.config.enableBrotli) {
-            headers.set('Content-Encoding', 'br')
-            headers.set('Vary', 'Accept-Encoding')
-        }
+        // ✅ VARY (Brotli/GZIP é aplicado automaticamente pelo Cloudflare Workers)
+        headers.set('Vary', 'Accept-Encoding')
 
         // ✅ CACHE CONTROL
         headers.set('Cache-Control', `public, max-age=${this.config.cacheTTL}, stale-while-revalidate=86400`)
