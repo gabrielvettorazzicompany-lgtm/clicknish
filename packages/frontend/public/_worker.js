@@ -53,7 +53,9 @@ export default {
             try {
                 const cachedHtml = await env.CACHE.get(`html:${shortId}`)
                 if (cachedHtml) {
-                    return new Response(cachedHtml, {
+                    // Garante que HTML em cache também não tenha o manifest (segurança)
+                    const safeHtml = cachedHtml.replace(/<link[^>]+rel=["']manifest["'][^>]*>/gi, '')
+                    return new Response(safeHtml, {
                         status: 200,
                         headers: makeHeaders(shortId),
                     })
@@ -85,7 +87,9 @@ export default {
             return new Response(full, { status: 200, headers: makeHeaders(shortId) })
         }
 
-        const headChunk = html.slice(0, splitIdx)   // tudo ATÉ </head> (excluso)
+        // Remove <link rel="manifest"> do checkout → impede prompt de instalação do PWA
+        const rawHead = html.slice(0, splitIdx)
+        const headChunk = rawHead.replace(/<link[^>]+rel=["']manifest["'][^>]*>/gi, '')
         const tailChunk = html.slice(splitIdx)       // </head><body>...</body></html>
 
         // Cria um stream: flushar head IMEDIATAMENTE → browser inicia downloads
@@ -151,11 +155,14 @@ async function fetchCheckoutData(shortId, env) {
  * Constrói o <script> de injeção de dados.
  * Se não tem dados: dispara o fetch no client (fallback).
  */
+// Script que bloqueia o prompt de instalação do PWA em páginas de checkout
+const BLOCK_PWA_INSTALL = `<script>window.addEventListener('beforeinstallprompt',function(e){e.preventDefault();},true);</script>`
+
 function buildScriptTag(shortId, data) {
     if (data) {
-        return `<script>window.__IS_CHECKOUT_ROUTE__=true;window.__CHECKOUT_SHORT_ID__=${JSON.stringify(shortId)};window.__CHECKOUT_DATA__=${JSON.stringify(data)};window.__checkoutDataPromise=Promise.resolve(window.__CHECKOUT_DATA__);</script>\n`
+        return BLOCK_PWA_INSTALL + `<script>window.__IS_CHECKOUT_ROUTE__=true;window.__CHECKOUT_SHORT_ID__=${JSON.stringify(shortId)};window.__CHECKOUT_DATA__=${JSON.stringify(data)};window.__checkoutDataPromise=Promise.resolve(window.__CHECKOUT_DATA__);</script>\n`
     }
-    return `<script>window.__IS_CHECKOUT_ROUTE__=true;window.__CHECKOUT_SHORT_ID__=${JSON.stringify(shortId)};window.__checkoutDataPromise=fetch('https://api.clicknich.com/api/checkout-data/'+${JSON.stringify(shortId)},{priority:'high'}).then(function(r){return r.ok?r.json():null;}).catch(function(){return null;});</script>\n`
+    return BLOCK_PWA_INSTALL + `<script>window.__IS_CHECKOUT_ROUTE__=true;window.__CHECKOUT_SHORT_ID__=${JSON.stringify(shortId)};window.__checkoutDataPromise=fetch('https://api.clicknich.com/api/checkout-data/'+${JSON.stringify(shortId)},{priority:'high'}).then(function(r){return r.ok?r.json():null;}).catch(function(){return null;});</script>\n`
 }
 
 /** Usado apenas como fallback quando não há </head> no HTML */
