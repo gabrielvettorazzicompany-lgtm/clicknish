@@ -39,10 +39,19 @@ export default {
         const url = new URL(request.url)
         const { pathname } = url
 
-        // ── Rotas não-checkout → assets estáticos ──────────────────────────────
+        // ── Rotas não-checkout ──────────────────────────────────────────────────
         const checkoutMatch = pathname.match(/^\/c\/([^/?#]+)/)
         if (!checkoutMatch) {
-            return env.ASSETS.fetch(request)
+            // Tenta servir o asset estático (JS, CSS, imagens, etc.)
+            const assetRes = await env.ASSETS.fetch(request)
+
+            // Se encontrou o arquivo → retorna direto
+            if (assetRes.status !== 404) return assetRes
+
+            // 404 = rota de SPA (ex: /dashboard, /login, /c/... sem match real)
+            // O _redirects é ignorado quando há _worker.js, então fazemos o fallback
+            // manualmente: servir index.html para o React Router assumir
+            return env.ASSETS.fetch(new Request(`${url.origin}/index.html`))
         }
 
         const shortId = checkoutMatch[1]
