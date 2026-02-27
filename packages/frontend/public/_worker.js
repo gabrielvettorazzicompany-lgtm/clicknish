@@ -87,9 +87,12 @@ export default {
             return new Response(full, { status: 200, headers: makeHeaders(shortId) })
         }
 
-        // Remove <link rel="manifest"> do checkout → impede prompt de instalação do PWA
+        // Remove tudo que torna a página elegível para instalação de PWA
         const rawHead = html.slice(0, splitIdx)
-        const headChunk = rawHead.replace(/<link[^>]+rel=["']manifest["'][^>]*>/gi, '')
+        const headChunk = rawHead
+            .replace(/<link[^>]+rel=["']manifest["'][^>]*>/gi, '')          // manifest.json
+            .replace(/<meta[^>]+apple-mobile-web-app[^>]*>/gi, '')           // apple PWA metas
+            .replace(/<link[^>]+rel=["']apple-touch-icon["'][^>]*>/gi, '')   // apple touch icon
         const tailChunk = html.slice(splitIdx)       // </head><body>...</body></html>
 
         // Cria um stream: flushar head IMEDIATAMENTE → browser inicia downloads
@@ -112,6 +115,7 @@ export default {
 
                 // 4. Background: grava HTML completo no KV para próximas requisições
                 if (env.CACHE && checkoutData) {
+                    // Grava sem manifest/apple metas (já foram removidos do headChunk)
                     const fullHtml = headChunk + scriptTag + tailChunk
                     env.CACHE.put(`html:${shortId}`, fullHtml, { expirationTtl: 30 }).catch(() => { })
                 }

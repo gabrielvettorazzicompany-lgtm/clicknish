@@ -384,13 +384,7 @@
       });
       observer.observe(document.getElementById('root'), { childList: true });
 
-      // Service Worker
-      if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.register('/sw.js', { updateViaCache: 'all' })
-          .then(function (reg) {
-            if (reg.active) reg.active.postMessage({ type: 'PRECACHE_CHECKOUT' });
-          }).catch(function () { });
-      }
+      // ⛔ NÃO registra Service Worker no checkout → impede elegibilidade de PWA
     })();
 
     // Para rotas não-checkout, remover spinner após React montar
