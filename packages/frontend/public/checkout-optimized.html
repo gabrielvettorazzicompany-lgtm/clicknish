@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <!-- ✅ CRITICAL META -->
+    <title>Checkout Seguro | ClickNish</title>
+    <meta name="description" content="Finalize sua compra com segurança total. Checkout otimizado e ultrarrápido.">
+    <meta name="robots" content="noindex, nofollow">
+
+    <!-- ✅ DNS PREFETCH: Conectar antecipadamente -->
+    <link rel="dns-prefetch" href="//js.stripe.com">
+    <link rel="dns-prefetch" href="//api.stripe.com">
+    <link rel="dns-prefetch" href="//fonts.googleapis.com">
+    <link rel="dns-prefetch" href="//fonts.gstatic.com">
+    <link rel="dns-prefetch" href="//api.clicknich.com">
+
+    <!-- ✅ PRECONNECT: Preparar conexões críticas -->
+    <link rel="preconnect" href="https://js.stripe.com" crossorigin>
+    <link rel="preconnect" href="https://api.stripe.com" crossorigin>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin>
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="preconnect" href="https://api.clicknich.com" crossorigin>
+
+    <!-- ✅ CRITICAL CSS: Inline para First Paint otimizado -->
+    <style id="critical-css-checkout">
+        /* Critical CSS será injetado aqui pelo build */
+        *,
+        *::before,
+        *::after {
+            box-sizing: border-box;
+        }
+
+        html {
+            line-height: 1.15;
+            -webkit-text-size-adjust: 100%;
+        }
+
+        body {
+            margin: 0;
+            font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+            background: #f9fafb;
+            color: #111827;
+        }
+
+        .min-h-screen {
+            min-height: 100vh;
+        }
+
+        .bg-gray-50 {
+            background-color: #f9fafb;
+        }
+
+        .checkout-skeleton {
+            padding: 2rem;
+        }
+
+        .skeleton {
+            background: #e5e7eb;
+            border-radius: 0.25rem;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+
+            0%,
+            100% {
+                opacity: 1;
+            }
+
+            50% {
+                opacity: 0.5;
+            }
+        }
+
+        .loading-spinner {
+            width: 1rem;
+            height: 1rem;
+            border: 2px solid #e5e7eb;
+            border-top: 2px solid #3b82f6;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% {
+                transform: rotate(0deg);
+            }
+
+            100% {
+                transform: rotate(360deg);
+            }
+        }
+    </style>
+
+    <!-- ✅ PRELOAD: Recursos críticos com priority hints -->
+    <link rel="preload" href="https://js.stripe.com/v3/" as="script" crossorigin fetchpriority="high">
+    <link rel="preload"
+        href="https://fonts.gstatic.com/s/inter/v12/UcCO3FwrK3iLTeHuS_fvQtMwCp50KnMw2boKoduKmMEVuLyeMZhrib2Bg-4.woff2"
+        as="font" type="font/woff2" crossorigin fetchpriority="high">
+
+    <!-- ✅ ASYNC CSS: Carregamento não-blocante -->
+    <link rel="preload" href="/assets/checkout.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
+    <noscript>
+        <link rel="stylesheet" href="/assets/checkout.css">
+    </noscript>
+
+    <!-- ✅ FONTS: Otimizadas com display=swap -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+    <!-- ✅ SECURITY & PERFORMANCE -->
+    <meta http-equiv="X-Content-Type-Options" content="nosniff">
+    <meta http-equiv="X-Frame-Options" content="DENY">
+    <meta http-equiv="Referrer-Policy" content="strict-origin-when-cross-origin">
+    <meta name="theme-color" content="#111827">
+
+    <!-- ✅ PWA MANIFEST -->
+    <link rel="manifest" href="/manifest.json">
+
+    <!-- ✅ FAVICON: Otimizado -->
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+    <link rel="icon" type="image/png" href="/favicon.png">
+
+    <!-- ✅ RESOURCE HINTS: Para módulos seguintes -->
+    <link rel="modulepreload" href="/assets/vendor-stripe.js">
+    <link rel="modulepreload" href="/assets/checkout-critical.js">
+
+    <!-- ✅ EARLY DATA: Checkout data prefetch -->
+    <script>
+        // Detectar shortId da URL e iniciar prefetch imediato
+        (function () {
+            const pathParts = location.pathname.split('/');
+            const shortId = pathParts[pathParts.length - 1];
+
+            if (shortId && shortId.length > 5) {
+                // Iniciar fetch em paralelo com o carregamento da página
+                window.__checkoutDataPromise = fetch(
+                    `https://api.clicknich.com/api/checkout-data/${shortId}`,
+                    {
+                        method: 'GET',
+                        priority: 'high',
+                        cache: 'force-cache'
+                    }
+                ).then(r => r.json()).catch(console.warn);
+            }
+        })();
+    </script>
+
+    <!-- ✅ SERVICE WORKER: Registro antecipado -->
+    <script>
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('/checkout-sw.js', {
+                scope: '/',
+                updateViaCache: 'none'
+            }).then(function (reg) {
+                console.log('SW registered:', reg.scope);
+            }).catch(console.warn);
+        }
+    </script>
+</head>
+
+<body>
+    <!-- ✅ CHECKOUT CONTAINER -->
+    <div id="checkout-root" class="min-h-screen bg-gray-50">
+        <!-- ✅ LOADING SKELETON: Immediate visual feedback -->
+        <div id="checkout-skeleton" class="checkout-skeleton">
+            <!-- Header skeleton -->
+            <div
+                style="background: white; border-bottom: 1px solid #f3f4f6; height: 4rem; display: flex; align-items: center; padding: 0 1rem;">
+                <div class="skeleton" style="width: 5rem; height: 1rem;"></div>
+            </div>
+
+            <!-- Main content skeleton -->
+            <div style="max-width: 80rem; margin: 0 auto; padding: 2rem 1rem;">
+                <div style="display: grid; grid-template-columns: 1fr; gap: 2rem;">
+
+                    <!-- Form skeleton -->
+                    <div style="background: white; border-radius: 0.75rem; padding: 1.5rem; border: 1px solid #f3f4f6;">
+                        <div class="skeleton" style="height: 1.5rem; margin-bottom: 1rem; width: 75%;"></div>
+                        <div class="skeleton" style="height: 1rem; margin-bottom: 1.5rem; width: 50%;"></div>
+
+                        <div style="margin-bottom: 1rem;">
+                            <div class="skeleton" style="height: 2.5rem; margin-bottom: 0.75rem;"></div>
+                            <div class="skeleton" style="height: 2.5rem; margin-bottom: 0.75rem;"></div>
+                            <div class="skeleton" style="height: 2.5rem; margin-bottom: 1.5rem;"></div>
+                        </div>
+
+                        <div class="skeleton" style="height: 3rem; background: #dbeafe;"></div>
+                    </div>
+
+                </div>
+            </div>
+
+            <!-- Loading indicator -->
+            <div
+                style="position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); display: flex; align-items: center; gap: 0.5rem; background: white; padding: 1rem 1.5rem; border-radius: 0.5rem; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);">
+                <div class="loading-spinner"></div>
+                <span style="font-size: 0.875rem; color: #6b7280;">Carregando checkout seguro...</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- ✅ CRITICAL JS: Inline script para inicialização -->
+    <script>
+        // Performance measurement
+        window.__performanceStart = performance.now();
+
+        // Remove skeleton quando React carregar
+        window.__removeSkeletonWhenReady = function () {
+            const skeleton = document.getElementById('checkout-skeleton');
+            if (skeleton) {
+                skeleton.style.opacity = '0';
+                skeleton.style.transition = 'opacity 0.3s ease';
+                setTimeout(() => skeleton.remove(), 300);
+            }
+        };
+
+        // Error fallback
+        window.addEventListener('error', function (e) {
+            console.error('Checkout error:', e.error);
+
+            const skeleton = document.getElementById('checkout-skeleton');
+            if (skeleton) {
+                skeleton.innerHTML = `
+                    <div style="text-align: center; padding: 4rem 1rem;">
+                        <h1 style="color: #dc2626; margin-bottom: 1rem;">Erro no Checkout</h1>
+                        <p style="color: #6b7280; margin-bottom: 2rem;">Ocorreu um erro ao carregar o checkout. Tente recarregar a página.</p>
+                        <button onclick="location.reload()" style="background: #3b82f6; color: white; padding: 0.75rem 1.5rem; border: none; border-radius: 0.5rem; cursor: pointer;">
+                            Recarregar Página
+                        </button>
+                    </div>
+                `;
+            }
+        });
+    </script>
+
+    <!-- ✅ MAIN APP: Carregamento assíncrono -->
+    <script type="module" src="/assets/checkout-critical.js" async defer></script>
+
+    <!-- ✅ ANALYTICS: Performance tracking -->
+    <script>
+        // Track performance metrics
+        window.addEventListener('load', function () {
+            setTimeout(function () {
+                const nav = performance.getEntriesByType('navigation')[0];
+                const paint = performance.getEntriesByType('paint');
+
+                const metrics = {
+                    ttfb: Math.round(nav.responseStart - nav.requestStart),
+                    domContentLoaded: Math.round(nav.domContentLoadedEventEnd - nav.navigationStart),
+                    loadComplete: Math.round(nav.loadEventEnd - nav.navigationStart),
+                    firstPaint: paint.find(p => p.name === 'first-paint')?.startTime || null,
+                    firstContentfulPaint: paint.find(p => p.name === 'first-contentful-paint')?.startTime || null,
+                    totalTime: Math.round(performance.now() - window.__performanceStart)
+                };
+
+                console.log('📊 Checkout Performance:', metrics);
+
+                // Send to analytics (opcional)
+                if (metrics.loadComplete < 1000) {
+                    console.log('🎯 Checkout loaded in under 1 second!');
+                } else {
+                    console.log('⚠️ Checkout took', metrics.loadComplete, 'ms to load');
+                }
+            }, 0);
+        });
+    </script>
+
+    <!-- ✅ STRUCTURED DATA: SEO otimizado -->
+    <script type="application/ld+json">
+    {
+        "@context": "https://schema.org",
+        "@type": "WebPage",
+        "name": "Checkout Seguro",
+        "description": "Página de checkout segura para finalização de compras",
+        "url": "https://clicknish.com/checkout",
+        "isPartOf": {
+            "@type": "WebSite",
+            "name": "ClickNish",
+            "url": "https://clicknish.com"
+        }
+    }
+    </script>
+</body>
+
+</html>

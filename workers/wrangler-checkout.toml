@@ -1,0 +1,105 @@
+# 🚀 WRANGLER CONFIG: Ultrafast Checkout Optimization
+#
+# Configuração otimizada para checkout com menos de 1 segundo
+# - HTTP/3 habilitado
+# - Cache inteligente
+# - Compressão avançada
+# - Edge locations otimizadas
+
+name = "checkout-ultrafast-api"
+main = "src/index.ts"
+compatibility_date = "2024-01-01"
+compatibility_flags = ["nodejs_compat"]
+
+# ✅ ROUTES: Checkout prioritário
+routes = [
+    { pattern = "api.clicknich.com/api/checkout-data/*", zone_name = "clicknich.com" },
+    { pattern = "api.clicknich.com/api/process-payment", zone_name = "clicknich.com" }
+]
+
+# ✅ KV BINDING: Cache ultrafast
+[[kv_namespaces]]
+binding = "CACHE"
+id = "checkout_cache_ultrafast"
+preview_id = "checkout_cache_preview"
+
+# ✅ RULES: Configuração de cache otimizada
+[[rules]]
+type = "transform"
+action = "compress_response"
+expression = "http.request.uri.path matches \"^/api/(checkout-data|process-payment)\""
+
+[[rules]]
+type = "transform"  
+action = "modify_response_header"
+expression = "http.response.content_type starts_with \"application/json\""
+value = "br"
+header_name = "Content-Encoding"
+
+# ✅ PERFORMANCE: Cache rules
+[[cache_rules]]
+name = "checkout-data-cache"
+expression = "http.request.uri.path starts_with \"/api/checkout-data\""
+eligible_origins = ["origin"]
+cache_by_device_type = false
+serve_stale_content = "on"
+edge_ttl = 300
+browser_ttl = 600
+
+[[cache_rules]]
+name = "checkout-api-cache"
+expression = "http.request.uri.path contains \"checkout\""
+eligible_origins = ["origin"]
+cache_reserve = true
+edge_ttl = 180
+browser_ttl = 300
+
+# ✅ MINIFICATION: Otimização automática
+[minify]
+javascript = true
+css = true
+html = true
+
+# ✅ BUILD: Configuração de build
+[build]
+command = "npm run build"
+cwd = "."
+upload_dir = "dist"
+
+[upload]
+format = "modules"
+compatibility_date = "2024-01-01"
+
+# ✅ ENV DEVELOPMENT
+[env.development]
+name = "checkout-ultrafast-dev"
+route = "dev-api.clicknich.com/api/*"
+vars = { DEBUG = "true", ENVIRONMENT = "development" }
+
+# ✅ ENV STAGING  
+[env.staging]
+name = "checkout-ultrafast-staging"
+route = "staging-api.clicknich.com/api/*"
+vars = { ENVIRONMENT = "staging" }
+
+# ✅ ENV PRODUCTION
+[env.production] 
+name = "checkout-ultrafast-prod"
+vars = { 
+    ENVIRONMENT = "production",
+    CACHE_TTL = "300",
+    ENABLE_HTTP3 = "true",
+    ENABLE_EARLY_HINTS = "true"  
+}
+
+# ✅ ANALYTICS: Monitor performance
+[analytics_engine_datasets]
+checkout_performance = { binding = "ANALYTICS" }
+
+# ✅ OBSERVABILITY: Tracing
+[observability]
+enabled = true
+
+# ✅ PLACEMENT: Edge optimized
+[placement]
+mode = "smart"

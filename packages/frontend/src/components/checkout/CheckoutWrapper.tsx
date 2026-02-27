@@ -3,8 +3,6 @@ import { CheckoutDigitalProps } from './types'
 
 // ✅ LAZY LOADING: Componentes pesados só carregam quando necessário
 const CheckoutDigital = lazy(() => import('./CheckoutDigital'))
-const CheckoutTimer = lazy(() => import('./components/CheckoutTimer'))
-const CheckoutBanner = lazy(() => import('./components/CheckoutBanner'))
 
 // ✅ PRELOADING: Carregar componentes em background
 const preloadComponents = () => {

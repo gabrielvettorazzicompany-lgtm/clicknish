@@ -40,6 +40,7 @@ export default function CheckoutPublic() {
     const [product, setProduct] = useState<Product | null>(null)
     const [checkout, setCheckout] = useState<Checkout | null>(null)
     const [finalCheckoutId, setFinalCheckoutId] = useState<string | null>(null)
+
     const [timerConfig, setTimerConfig] = useState({
         enabled: false,
         minutes: 15,

@@ -45,8 +45,6 @@ export default function Login() {
 
           // Criar admin_profile básico para novos usuários do painel administrativo
           try {
-            console.log('Criando admin_profile para usuário:', data.user.id)
-
             const { error: profileError } = await supabase
               .from('admin_profiles')
               .upsert({ // Usar upsert para evitar conflitos
@@ -63,8 +61,6 @@ export default function Login() {
               setLoading(false)
               return
             }
-
-            console.log('Admin_profile criado com sucesso')
           } catch (profileErr: any) {
             console.error('Fetch error ao criar admin_profile:', profileErr)
             setError('Conta criada, mas houve um problema ao configurar o perfil. Tente fazer login.')

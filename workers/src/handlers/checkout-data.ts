@@ -13,6 +13,7 @@
  */
 
 import { createClient } from '../lib/supabase'
+import { checkoutNetworkOptimizer } from '../lib/network-optimizer'
 import type { Env } from '../index'
 
 const corsHeaders = {
@@ -35,26 +36,11 @@ export async function handleCheckoutData(
     }
 
     if (!shortId) {
-        return json({ error: 'shortId required' }, 400)
+        return checkoutNetworkOptimizer.createOptimizedResponse(
+            JSON.stringify({ error: 'shortId required' }),
+            { status: 400 }
+        )
     }
-
-    // ═══════════════════════════════════════════════════════════════════
-    // ULTRA-FAST PRELOADS: Recursos críticos carregados IMEDIATAMENTE
-    // ═══════════════════════════════════════════════════════════════════
-    const criticalPreloads = [
-        '<https://js.stripe.com>; rel=preconnect; crossorigin',
-        '<https://api.stripe.com>; rel=preconnect; crossorigin',
-        '<https://fonts.googleapis.com>; rel=preconnect; crossorigin',
-        '<https://fonts.gstatic.com>; rel=preconnect; crossorigin',
-        '<https://cdn.jsdelivr.net>; rel=preconnect; crossorigin',
-        // Assets críticos do checkout
-        '</assets/checkout.css>; rel=preload; as=style',
-        '</assets/checkout.js>; rel=preload; as=script',
-        '</assets/logo.png>; rel=preload; as=image; fetchpriority=high'
-    ].join(', ')
-
-    // Enviar Link headers ANTES de qualquer processamento
-    const linkHeader = criticalPreloads
 
     try {
         // ═══════════════════════════════════════════════════════════════════
@@ -66,14 +52,14 @@ export async function handleCheckoutData(
             const cached = await env.CACHE.get(cacheKey, 'json')
             if (cached) {
                 console.log(`[checkout-data] ⚡ ULTRA CACHE HIT: ${shortId}`)
-                return json(cached, 200, {
-                    'X-Cache': 'HIT-ULTRA',
-                    'Link': linkHeader,
-                    'Cache-Control': 'public, max-age=300, stale-while-revalidate=86400, stale-if-error=604800',
-                    'X-Content-Type-Options': 'nosniff',
-                    'Vary': 'Accept-Encoding',
-                    'Server-Timing': 'cache-hit;dur=1'
-                })
+                return checkoutNetworkOptimizer.createCheckoutResponse(
+                    JSON.stringify(cached),
+                    {
+                        shortId,
+                        cacheHit: true,
+                        processingTime: 1
+                    }
+                )
             }
         }
 
@@ -85,12 +71,14 @@ export async function handleCheckoutData(
             const microCached = await env.CACHE.get(microCacheKey, 'json')
             if (microCached) {
                 console.log(`[checkout-data] ⚡ MICRO CACHE HIT: ${shortId}`)
-                return json(microCached, 200, {
-                    'X-Cache': 'HIT-MICRO',
-                    'Link': linkHeader,
-                    'Cache-Control': 'public, max-age=30',
-                    'Server-Timing': 'micro-hit;dur=2'
-                })
+                return checkoutNetworkOptimizer.createCheckoutResponse(
+                    JSON.stringify(microCached),
+                    {
+                        shortId,
+                        cacheHit: true,
+                        processingTime: 2
+                    }
+                )
             }
         }
 
@@ -107,11 +95,17 @@ export async function handleCheckoutData(
 
         if (rpcError) {
             console.error('[checkout-data] RPC error:', rpcError)
-            return json({ error: 'RPC failed', details: rpcError }, 500)
+            return checkoutNetworkOptimizer.createOptimizedResponse(
+                JSON.stringify({ error: 'RPC failed', details: rpcError }),
+                { status: 500 }
+            )
         }
 
         if (!rpcResult || rpcResult.error) {
-            return json({ error: rpcResult?.error || 'Checkout not found' }, 404)
+            return checkoutNetworkOptimizer.createOptimizedResponse(
+                JSON.stringify({ error: rpcResult?.error || 'Checkout not found' }),
+                { status: 404 }
+            )
         }
 
         // ═══════════════════════════════════════════════════════════════════
@@ -135,40 +129,23 @@ export async function handleCheckoutData(
         }
 
         const startTime = Date.now()
-        const response = json(rpcResult, 200, {
-            'X-Cache': 'MISS',
-            'Link': linkHeader,
-            'Cache-Control': 'public, max-age=300, stale-while-revalidate=86400',
-            'Server-Timing': `db-query;dur=${Date.now() - startTime}`,
-            'X-Response-Time': `${Date.now() - startTime}ms`,
-            'Vary': 'Accept-Encoding'
-        })
+        const processingTime = Date.now() - startTime
 
-        return response
+        // ✅ OPTIMIZED RESPONSE: Com Early Hints e HTTP/3
+        return checkoutNetworkOptimizer.createCheckoutResponse(
+            JSON.stringify(rpcResult),
+            {
+                shortId,
+                cacheHit: false,
+                processingTime
+            }
+        )
 
     } catch (error: any) {
         console.error('[checkout-data] Error:', error)
-        return json({ error: 'Internal server error', details: error.message }, 500)
+        return checkoutNetworkOptimizer.createOptimizedResponse(
+            JSON.stringify({ error: 'Internal server error', details: error.message }),
+            { status: 500 }
+        )
     }
-}
-
-function json(data: any, status = 200, extraHeaders: Record<string, string> = {}): Response {
-    const jsonString = JSON.stringify(data)
-
-    return new Response(jsonString, {
-        status,
-        headers: {
-            ...corsHeaders,
-            'Content-Type': 'application/json; charset=utf-8',
-            // Performance otimizada
-            'Content-Length': String(new TextEncoder().encode(jsonString).length),
-            'Connection': 'keep-alive',
-            'Keep-Alive': 'timeout=5, max=1000',
-            // Security headers
-            'X-Frame-Options': 'DENY',
-            'X-Content-Type-Options': 'nosniff',
-            'Referrer-Policy': 'strict-origin-when-cross-origin',
-            ...extraHeaders,
-        },
-    })
 }
