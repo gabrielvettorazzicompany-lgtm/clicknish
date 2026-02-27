@@ -10,6 +10,21 @@
   <meta name="theme-color" content="#080b14" />
   <title>ClickNich</title>
 
+  <!-- ⚡ Desregistra Service Workers antigos imediatamente (PWA foi removido) -->
+  <script>
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.getRegistrations().then(function (regs) {
+        regs.forEach(function (reg) { reg.unregister(); });
+      });
+      // Limpa todos os caches antigos do SW
+      if ('caches' in window) {
+        caches.keys().then(function (keys) {
+          keys.forEach(function (key) { caches.delete(key); });
+        });
+      }
+    }
+  </script>
+
   <!-- ⚡ ULTRA-FAST LOADING: Critical resource preloading -->
   <link rel="preconnect" href="https://js.stripe.com" crossorigin />
   <link rel="preconnect" href="https://api.stripe.com" crossorigin />
