@@ -85,6 +85,8 @@ const CheckoutBanner = memo(({
                         src={customBanner.image}
                         alt="Banner"
                         className="w-full h-full"
+                        fetchPriority="high"
+                        decoding="async"
                         style={{
                             objectFit: 'cover',
                             objectPosition: `${customBanner.imagePosition?.x || 50}% ${customBanner.imagePosition?.y || 50}%`,

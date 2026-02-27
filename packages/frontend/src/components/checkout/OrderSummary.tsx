@@ -144,9 +144,9 @@ export const OrderSummary: React.FC<OrderSummaryProps> = ({
       <button
         onClick={handleOptimisticClick}
         disabled={processing || isPreview}
-        className={`w-full disabled:opacity-40 disabled:cursor-not-allowed text-white font-medium rounded-lg transition-all duration-200 text-[13px] flex items-center justify-center gap-2 ${isMobile ? 'py-3 mb-4' : 'py-2.5'} ${optimisticClick ? 'scale-[0.96] bg-opacity-90' : 'hover:scale-[1.02] active:scale-[0.98]'
+        className={`w-full disabled:opacity-40 disabled:cursor-not-allowed text-white font-medium rounded-lg transition-all duration-200 text-[13px] flex items-center justify-center gap-2 ${isMobile ? 'py-3 mb-4' : 'py-3'} ${optimisticClick ? 'scale-[0.96] bg-opacity-90' : 'hover:scale-[1.02] active:scale-[0.98]'
           }`}
-        style={{ backgroundColor: buttonColor }}
+        style={{ backgroundColor: buttonColor, touchAction: 'manipulation', minHeight: '44px' }}
       >
         {processing ? (
           <>

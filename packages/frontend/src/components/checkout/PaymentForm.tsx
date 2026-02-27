@@ -141,9 +141,12 @@ export const PaymentForm: React.FC<PaymentFormProps> = ({
                   onLeadCapture({ email: formData.email, name: formData.name, phone: formData.phone })
                 }
               }}
-              className="w-full px-3.5 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 transition-all text-sm bg-white text-gray-900 placeholder-gray-300"
+              className="w-full px-3.5 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 transition-all text-base bg-white text-gray-900 placeholder-gray-300"
               placeholder={t.emailPlaceholder}
               autoComplete="email"
+              autoCorrect="off"
+              autoCapitalize="off"
+              inputMode="email"
             />
             <p className="text-[10px] text-gray-400 mt-1">{t.emailHelper}</p>
           </div>
@@ -162,7 +165,7 @@ export const PaymentForm: React.FC<PaymentFormProps> = ({
                   onLeadCapture({ email: formData.email, name: formData.name, phone: formData.phone })
                 }
               }}
-              className="w-full px-3.5 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 transition-all text-sm bg-white text-gray-900 placeholder-gray-300"
+              className="w-full px-3.5 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 transition-all text-base bg-white text-gray-900 placeholder-gray-300"
               placeholder={t.fullNamePlaceholder}
               autoComplete="name"
             />
@@ -182,9 +185,10 @@ export const PaymentForm: React.FC<PaymentFormProps> = ({
                   onLeadCapture({ email: formData.email, name: formData.name, phone: formData.phone })
                 }
               }}
-              className="w-full px-3.5 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 transition-all text-sm bg-white text-gray-900 placeholder-gray-300"
+              className="w-full px-3.5 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 transition-all text-base bg-white text-gray-900 placeholder-gray-300"
               placeholder={t.phonePlaceholder}
               autoComplete="tel"
+              inputMode="tel"
             />
           </div>
         </div>
@@ -210,7 +214,8 @@ export const PaymentForm: React.FC<PaymentFormProps> = ({
                 onClick={() => setExpandedPaymentMethod(
                   expandedPaymentMethod === 'credit_card' ? null : 'credit_card'
                 )}
-                className="w-full flex items-center gap-3 p-3.5"
+                className="w-full flex items-center gap-3 p-3.5 min-h-[44px]"
+                style={{ touchAction: 'manipulation' }}
               >
                 <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center transition-colors ${expandedPaymentMethod === 'credit_card' ? 'border-blue-500' : 'border-gray-300'
                   }`}>
@@ -236,7 +241,7 @@ export const PaymentForm: React.FC<PaymentFormProps> = ({
                     <label className="block text-[11px] font-medium text-gray-700 mb-1 uppercase tracking-wider">
                       {t.cardNumber}
                     </label>
-                    <div className="w-full px-3.5 py-2.5 border border-gray-200 rounded-lg bg-white">
+                    <div className="w-full px-3.5 py-3 border border-gray-200 rounded-lg bg-white min-h-[44px] flex items-center">
                       <CardNumberElement options={{ style: stripeElementStyle }} />
                     </div>
                   </div>
@@ -247,7 +252,7 @@ export const PaymentForm: React.FC<PaymentFormProps> = ({
                       <label className="block text-[11px] font-medium text-gray-700 mb-1 uppercase tracking-wider">
                         {t.expiryDate}
                       </label>
-                      <div className="w-full px-3.5 py-2.5 border border-gray-200 rounded-lg bg-white">
+                      <div className="w-full px-3.5 py-3 border border-gray-200 rounded-lg bg-white min-h-[44px] flex items-center">
                         <CardExpiryElement options={{ style: stripeElementStyle }} />
                       </div>
                     </div>
@@ -255,7 +260,7 @@ export const PaymentForm: React.FC<PaymentFormProps> = ({
                       <label className="block text-[11px] font-medium text-gray-700 mb-1 uppercase tracking-wider">
                         {t.cvv}
                       </label>
-                      <div className="w-full px-3.5 py-2.5 border border-gray-200 rounded-lg bg-white">
+                      <div className="w-full px-3.5 py-3 border border-gray-200 rounded-lg bg-white min-h-[44px] flex items-center">
                         <CardCvcElement options={{ style: stripeElementStyle }} />
                       </div>
                     </div>
@@ -269,7 +274,7 @@ export const PaymentForm: React.FC<PaymentFormProps> = ({
                     <select
                       value={installments}
                       onChange={(e) => setInstallments(Number(e.target.value))}
-                      className="w-full px-3.5 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 transition-all text-sm bg-white text-gray-900 appearance-none"
+                      className="w-full px-3.5 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 transition-all text-base bg-white text-gray-900 appearance-none"
                     >
                       {Array.from({ length: getAvailableInstallments() }, (_, i) => i + 1).map(num => {
                         const installmentValue = calculateInstallmentValue(num)
