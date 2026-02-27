@@ -27,6 +27,7 @@ interface OrderSummaryProps {
   imageBlocks?: CheckoutImageBlock[]
   isDragging?: boolean
   draggedComponentType?: string
+  onUpdateImageBlock?: (id: string, updates: Partial<CheckoutImageBlock>) => void
 }
 
 export const OrderSummary: React.FC<OrderSummaryProps> = ({
@@ -50,7 +51,8 @@ export const OrderSummary: React.FC<OrderSummaryProps> = ({
   buttonColor = '#111827',
   imageBlocks,
   isDragging,
-  draggedComponentType
+  draggedComponentType,
+  onUpdateImageBlock
 }) => {
   // ═══════════════════════════════════════════════════════════════════
   // OPTIMISTIC UI: Feedback visual instantâneo ao clicar
@@ -151,7 +153,7 @@ export const OrderSummary: React.FC<OrderSummaryProps> = ({
 
       {/* Image block: above buy button */}
       <ImageDropZone slot="above_button" isPreview={isPreview} isDragging={isDragging} draggedComponentType={draggedComponentType} />
-      <CheckoutImageDisplay imageBlocks={imageBlocks} slot="above_button" className="px-0" isPreview={isPreview} />
+      <CheckoutImageDisplay imageBlocks={imageBlocks} slot="above_button" className="px-0" isPreview={isPreview} onUpdateImageBlock={onUpdateImageBlock} />
 
       <button
         onClick={handleOptimisticClick}
@@ -180,7 +182,7 @@ export const OrderSummary: React.FC<OrderSummaryProps> = ({
 
       {/* Image block: below buy button */}
       <ImageDropZone slot="below_button" isPreview={isPreview} isDragging={isDragging} draggedComponentType={draggedComponentType} />
-      <CheckoutImageDisplay imageBlocks={imageBlocks} slot="below_button" className="px-0" isPreview={isPreview} />
+      <CheckoutImageDisplay imageBlocks={imageBlocks} slot="below_button" className="px-0" isPreview={isPreview} onUpdateImageBlock={onUpdateImageBlock} />
 
       {paymentError && (
         <div className={`p-3 bg-red-50 border border-red-100 rounded-lg ${isMobile ? 'mb-4' : 'mt-3'}`}>

@@ -16,6 +16,7 @@ interface CheckoutBannerProps {
     onBannerAdjust?: () => void
     onBannerImagePositionChange?: (position: { x: number; y: number }) => void
     onBannerImageScaleChange?: (scale: number) => void
+    onUpdateBannerWidth?: (width: number) => void
     t?: any
 }
 
@@ -27,50 +28,75 @@ const CheckoutBanner = memo(({
     onBannerAdjust,
     onBannerResize,
     onBannerUpload,
+    onUpdateBannerWidth,
     isPreview = false,
 }: CheckoutBannerProps) => {
     const fileInputRef = useRef<HTMLInputElement>(null)
     const containerRef = useRef<HTMLDivElement>(null)
     const [height, setHeight] = useState(customBanner?.customHeight || 250)
-    const isResizing = useRef(false)
+    const [currentWidth, setCurrentWidth] = useState(customBanner?.customWidth || 800)
+    const [isResizingWidth, setIsResizingWidth] = useState(false)
+    const [isResizingHeight, setIsResizingHeight] = useState(false)
+    const startX = useRef(0)
     const startY = useRef(0)
+    const startWidth = useRef(0)
     const startHeight = useRef(0)
 
-    // sync height when customBanner changes externally
+    // sync height and width when customBanner changes externally
     useEffect(() => {
         setHeight(customBanner?.customHeight || 250)
-    }, [customBanner?.customHeight])
+        setCurrentWidth(customBanner?.customWidth || 800)
+    }, [customBanner?.customHeight, customBanner?.customWidth])
 
-    const handleResizeMouseDown = (e: React.MouseEvent) => {
+    const handleWidthResizeMouseDown = (e: React.MouseEvent) => {
+        if (!isPreview || !onUpdateBannerWidth) return
         e.preventDefault()
         e.stopPropagation()
-        isResizing.current = true
-        startY.current = e.clientY
-        startHeight.current = height
-        document.body.style.cursor = 'ns-resize'
-        document.body.style.userSelect = 'none'
+        setIsResizingWidth(true)
+        startX.current = e.clientX
+        startWidth.current = currentWidth
+
+        const handleMouseMove = (moveEvent: MouseEvent) => {
+            const deltaX = moveEvent.clientX - startX.current
+            const newWidth = Math.max(300, Math.min(1200, startWidth.current + deltaX * 2))
+            setCurrentWidth(newWidth)
+        }
+
+        const handleMouseUp = () => {
+            setIsResizingWidth(false)
+            onUpdateBannerWidth(currentWidth)
+            document.removeEventListener('mousemove', handleMouseMove)
+            document.removeEventListener('mouseup', handleMouseUp)
+        }
+
+        document.addEventListener('mousemove', handleMouseMove)
+        document.addEventListener('mouseup', handleMouseUp)
     }
 
-    useEffect(() => {
-        const onMove = (e: MouseEvent) => {
-            if (!isResizing.current) return
-            const delta = e.clientY - startY.current
-            const newHeight = Math.max(80, Math.min(600, startHeight.current + delta))
+    const handleHeightResizeMouseDown = (e: React.MouseEvent) => {
+        if (!isPreview || !onBannerResize) return
+        e.preventDefault()
+        e.stopPropagation()
+        setIsResizingHeight(true)
+        startY.current = e.clientY
+        startHeight.current = height
+
+        const handleMouseMove = (moveEvent: MouseEvent) => {
+            const deltaY = moveEvent.clientY - startY.current
+            const newHeight = Math.max(100, Math.min(600, startHeight.current + deltaY))
             setHeight(newHeight)
-            onBannerResize?.(newHeight)
         }
-        const onUp = () => {
-            isResizing.current = false
-            document.body.style.cursor = ''
-            document.body.style.userSelect = ''
+
+        const handleMouseUp = () => {
+            setIsResizingHeight(false)
+            onBannerResize(height)
+            document.removeEventListener('mousemove', handleMouseMove)
+            document.removeEventListener('mouseup', handleMouseUp)
         }
-        document.addEventListener('mousemove', onMove)
-        document.addEventListener('mouseup', onUp)
-        return () => {
-            document.removeEventListener('mousemove', onMove)
-            document.removeEventListener('mouseup', onUp)
-        }
-    }, [onBannerResize])
+
+        document.addEventListener('mousemove', handleMouseMove)
+        document.addEventListener('mouseup', handleMouseUp)
+    }
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0]
@@ -105,13 +131,20 @@ const CheckoutBanner = memo(({
     }
 
     // ── Com imagem ──
+    // Sempre usa customWidth/customHeight se existir
+    const effectiveWidth = customBanner?.customWidth || (isPreview ? currentWidth : undefined)
+    const effectiveHeight = customBanner?.customHeight || height
+
+    const bannerStyle = effectiveWidth
+        ? { width: `${effectiveWidth}px`, maxWidth: '100%', height: `${effectiveHeight}px` }
+        : { height: `${effectiveHeight}px` }
     return (
-        <div className="w-full lg:max-w-7xl lg:mx-auto px-4 mt-6">
+        <div className="w-full px-4 mt-6 flex justify-center">
             <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleFileChange} />
             <div
                 ref={containerRef}
-                className="relative select-none rounded-xl overflow-visible"
-                style={{ height: `${height}px` }}
+                className={`relative select-none rounded-xl overflow-visible group ${!effectiveWidth ? 'w-full lg:max-w-7xl' : ''}`}
+                style={bannerStyle}
             >
                 {/* Imagem */}
                 <div
@@ -153,11 +186,44 @@ const CheckoutBanner = memo(({
                                 </button>
                             )}
                         </div>
+                    </>
+                )}
 
-                        {/* Handle de resize no canto inferior-direito */}
+                {/* Resize handles laterais (horizontal) - aparecem no hover */}
+                {isPreview && onUpdateBannerWidth && (
+                    <>
                         <div
-                            className="absolute bottom-0 right-0 translate-x-1/2 translate-y-1/2 z-20 w-5 h-5 bg-white border-2 border-blue-500 rounded cursor-ns-resize shadow-md hover:bg-blue-500 transition-colors"
-                            onMouseDown={handleResizeMouseDown}
+                            onMouseDown={handleWidthResizeMouseDown}
+                            className={`absolute -right-2 top-1/2 -translate-y-1/2 w-4 h-16 bg-blue-500 rounded cursor-ew-resize opacity-0 group-hover:opacity-100 transition-opacity z-20 ${isResizingWidth ? 'opacity-100' : ''
+                                }`}
+                            title="Arrastar para redimensionar largura"
+                            onClick={(e) => e.stopPropagation()}
+                        />
+                        <div
+                            onMouseDown={handleWidthResizeMouseDown}
+                            className={`absolute -left-2 top-1/2 -translate-y-1/2 w-4 h-16 bg-blue-500 rounded cursor-ew-resize opacity-0 group-hover:opacity-100 transition-opacity z-20 ${isResizingWidth ? 'opacity-100' : ''
+                                }`}
+                            title="Arrastar para redimensionar largura"
+                            onClick={(e) => e.stopPropagation()}
+                        />
+                    </>
+                )}
+
+                {/* Resize handles verticais (altura) - aparecem no hover */}
+                {isPreview && onBannerResize && (
+                    <>
+                        <div
+                            onMouseDown={handleHeightResizeMouseDown}
+                            className={`absolute -top-2 left-1/2 -translate-x-1/2 h-4 w-16 bg-blue-500 rounded cursor-ns-resize opacity-0 group-hover:opacity-100 transition-opacity z-20 ${isResizingHeight ? 'opacity-100' : ''
+                                }`}
+                            title="Arrastar para redimensionar altura"
+                            onClick={(e) => e.stopPropagation()}
+                        />
+                        <div
+                            onMouseDown={handleHeightResizeMouseDown}
+                            className={`absolute -bottom-2 left-1/2 -translate-x-1/2 h-4 w-16 bg-blue-500 rounded cursor-ns-resize opacity-0 group-hover:opacity-100 transition-opacity z-20 ${isResizingHeight ? 'opacity-100' : ''
+                                }`}
+                            title="Arrastar para redimensionar altura"
                             onClick={(e) => e.stopPropagation()}
                         />
                     </>

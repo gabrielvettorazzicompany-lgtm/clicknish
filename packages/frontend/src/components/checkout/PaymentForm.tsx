@@ -25,6 +25,7 @@ interface PaymentFormProps {
   imageBlocks?: CheckoutImageBlock[]
   isDragging?: boolean
   draggedComponentType?: string
+  onUpdateImageBlock?: (id: string, updates: Partial<CheckoutImageBlock>) => void
 }
 
 export const PaymentForm: React.FC<PaymentFormProps> = ({
@@ -44,7 +45,8 @@ export const PaymentForm: React.FC<PaymentFormProps> = ({
   t,
   imageBlocks,
   isDragging,
-  draggedComponentType
+  draggedComponentType,
+  onUpdateImageBlock
 }) => {
   const [expandedPaymentMethod, setExpandedPaymentMethod] = useState<'credit_card' | null>(defaultPaymentMethod)
   const [installments, setInstallments] = useState(1)
@@ -330,7 +332,7 @@ export const PaymentForm: React.FC<PaymentFormProps> = ({
 
       {/* Image blocks: below payment methods */}
       <ImageDropZone slot="below_payment_methods" isPreview={isPreview} isDragging={isDragging} draggedComponentType={draggedComponentType} />
-      <CheckoutImageDisplay imageBlocks={imageBlocks} slot="below_payment_methods" isPreview={isPreview} />
+      <CheckoutImageDisplay imageBlocks={imageBlocks} slot="below_payment_methods" isPreview={isPreview} onUpdateImageBlock={onUpdateImageBlock} />
 
       {/* Error and Success Messages */}
       {paymentError && (

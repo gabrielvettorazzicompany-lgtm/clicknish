@@ -13,6 +13,7 @@ interface TestimonialsSectionProps {
     onPreviewAdd?: () => void
     isDragging?: boolean
     draggedComponentType?: string
+    onUpdateImageBlock?: (id: string, updates: Partial<CheckoutImageBlock>) => void
 }
 
 function StarRating({ stars, color }: { stars: number; color: string }) {
@@ -134,7 +135,7 @@ export default function TestimonialsSection({ testimonials, isPreview, onClick, 
 
             {/* Image block: between testimonials groups */}
             <ImageDropZone slot="between_testimonials" isPreview={isPreview} isDragging={isDragging} draggedComponentType={draggedComponentType} />
-            <CheckoutImageDisplay imageBlocks={imageBlocks} slot="between_testimonials" isPreview={isPreview} />
+            <CheckoutImageDisplay imageBlocks={imageBlocks} slot="between_testimonials" isPreview={isPreview} onUpdateImageBlock={onUpdateImageBlock} />
 
             {/* Horizontal cards */}
             {hasHorizontal && (

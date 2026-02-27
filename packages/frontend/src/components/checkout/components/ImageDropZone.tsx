@@ -36,11 +36,7 @@ const ImageDropZone = memo(({
             className="w-full px-4 py-2"
             data-drop-zone={slot}
         >
-            <div className="min-h-[60px] border-2 border-dashed border-blue-500 bg-blue-500/10 rounded-lg flex items-center justify-center transition-all hover:bg-blue-500/20">
-                <div className="text-center text-gray-600">
-                    <ImageIcon size={20} className="mx-auto mb-1 opacity-50" />
-                    <p className="text-xs font-medium">{label || slotLabels[slot]}</p>
-                </div>
+            <div className="min-h-[60px] border-2 border-dashed border-blue-500 bg-blue-500/10 rounded-lg transition-all hover:bg-blue-500/20">
             </div>
         </div>
     )

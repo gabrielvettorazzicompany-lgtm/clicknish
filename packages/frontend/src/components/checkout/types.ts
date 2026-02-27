@@ -4,6 +4,7 @@ export interface CustomBanner {
     subtitle?: string
     description?: string
     customHeight?: number
+    customWidth?: number
     imageScale?: number
     imagePosition?: { x: number; y: number }
 }
@@ -50,6 +51,7 @@ export interface CheckoutImageBlock {
     url: string
     slot: ImageBlockSlot
     width?: 'full' | 'large' | 'medium' | 'small'
+    customWidth?: number
 }
 
 export interface TimerConfig {
@@ -89,6 +91,7 @@ export interface CheckoutDigitalProps {
     onBannerRemove?: () => void
     onBannerUpload?: (url: string) => void
     onBannerResize?: (height: number) => void
+    onUpdateBannerWidth?: (width: number) => void
     onBannerImageScaleChange?: (scale: number) => void
     onBannerImagePositionChange?: (position: { x: number, y: number }) => void
     isPreview?: boolean
@@ -122,6 +125,7 @@ export interface CheckoutDigitalProps {
     onTestimonialsClick?: (id?: string) => void
     imageBlocks?: CheckoutImageBlock[]
     onImageBlockClick?: () => void
+    onUpdateImageBlock?: (id: string, updates: Partial<CheckoutImageBlock>) => void
 }
 
 export type PaymentMethod = 'credit'

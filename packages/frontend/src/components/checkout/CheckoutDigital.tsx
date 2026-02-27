@@ -50,6 +50,7 @@ function CheckoutDigital({
     onBannerAdjust,
     onBannerRemove,
     onBannerResize,
+    onUpdateBannerWidth,
     onBannerUpload,
     onBannerImageScaleChange,
     onBannerImagePositionChange,
@@ -78,7 +79,8 @@ function CheckoutDigital({
     testimonials = [],
     onTestimonialsClick,
     imageBlocks = [],
-    onImageBlockClick
+    onImageBlockClick,
+    onUpdateImageBlock
 }: CheckoutDigitalProps) {
     const [showPrivacyPolicy, setShowPrivacyPolicy] = useState(false)
 
@@ -230,6 +232,7 @@ function CheckoutDigital({
                 onBannerAdjust={onBannerAdjust}
                 onBannerRemove={onBannerRemove}
                 onBannerResize={onBannerResize}
+                onUpdateBannerWidth={onUpdateBannerWidth}
                 onBannerUpload={onBannerUpload}
                 onBannerImagePositionChange={onBannerImagePositionChange}
                 onBannerImageScaleChange={onBannerImageScaleChange}
@@ -270,6 +273,7 @@ function CheckoutDigital({
                             imageBlocks={imageBlocks}
                             isDragging={isDragging}
                             draggedComponentType={draggedComponentType || undefined}
+                            onUpdateImageBlock={onUpdateImageBlock}
                         />
 
                         <OrderBumpsList
@@ -305,6 +309,7 @@ function CheckoutDigital({
                             imageBlocks={imageBlocks}
                             isDragging={isDragging}
                             draggedComponentType={draggedComponentType || undefined}
+                            onUpdateImageBlock={onUpdateImageBlock}
                         />
                     </div>
                 </div>
@@ -332,6 +337,7 @@ function CheckoutDigital({
                         imageBlocks={imageBlocks}
                         isDragging={isDragging}
                         draggedComponentType={draggedComponentType || undefined}
+                        onUpdateImageBlock={onUpdateImageBlock}
                     />
                 </div>
             </div>
@@ -342,7 +348,7 @@ function CheckoutDigital({
                 <div className="w-full lg:max-w-7xl lg:mx-auto">
                     {/* Image block: above testimonials */}
                     <ImageDropZone slot="above_testimonials" isPreview={isPreview} isDragging={isDragging} draggedComponentType={draggedComponentType || undefined} />
-                    <CheckoutImageDisplay imageBlocks={imageBlocks} slot="above_testimonials" isPreview={isPreview} onPreviewClick={isPreview ? onImageBlockClick : undefined} />
+                    <CheckoutImageDisplay imageBlocks={imageBlocks} slot="above_testimonials" isPreview={isPreview} onPreviewClick={isPreview ? onImageBlockClick : undefined} onUpdateImageBlock={onUpdateImageBlock} />
                     <TestimonialsSection
                         testimonials={testimonials}
                         isPreview={isPreview}
@@ -351,15 +357,16 @@ function CheckoutDigital({
                         onPreviewAdd={isPreview && onTestimonialsClick ? () => onTestimonialsClick(undefined) : undefined}
                         isDragging={isDragging}
                         draggedComponentType={draggedComponentType || undefined}
+                        onUpdateImageBlock={onUpdateImageBlock}
                     />
                     {/* Image block: below testimonials */}
                     <ImageDropZone slot="below_testimonials" isPreview={isPreview} isDragging={isDragging} draggedComponentType={draggedComponentType || undefined} />
-                    <CheckoutImageDisplay imageBlocks={imageBlocks} slot="below_testimonials" isPreview={isPreview} onPreviewClick={isPreview ? onImageBlockClick : undefined} />
+                    <CheckoutImageDisplay imageBlocks={imageBlocks} slot="below_testimonials" isPreview={isPreview} onPreviewClick={isPreview ? onImageBlockClick : undefined} onUpdateImageBlock={onUpdateImageBlock} />
                 </div>
 
                 {/* Image block: below seals */}
                 <ImageDropZone slot="below_seals" isPreview={isPreview} isDragging={isDragging} draggedComponentType={draggedComponentType || undefined} />
-                <CheckoutImageDisplay imageBlocks={imageBlocks} slot="below_seals" className="w-full lg:max-w-7xl lg:mx-auto" isPreview={isPreview} onPreviewClick={isPreview ? onImageBlockClick : undefined} />
+                <CheckoutImageDisplay imageBlocks={imageBlocks} slot="below_seals" className="w-full lg:max-w-7xl lg:mx-auto" isPreview={isPreview} onPreviewClick={isPreview ? onImageBlockClick : undefined} onUpdateImageBlock={onUpdateImageBlock} />
 
                 <CheckoutFooter t={t} onPrivacyClick={handlePrivacyClick} />
 

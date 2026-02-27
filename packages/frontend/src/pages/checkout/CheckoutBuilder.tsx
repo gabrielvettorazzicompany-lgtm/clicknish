@@ -69,7 +69,8 @@ export default function CheckoutBuilder() {
     const [bannerForm, setBannerForm] = useState({
         banner_image: '',
         banner_title: '',
-        customHeight: undefined as number | undefined
+        customHeight: undefined as number | undefined,
+        customWidth: undefined as number | undefined
     })
 
     const [bannerImageScale, setBannerImageScale] = useState(1)
@@ -192,7 +193,8 @@ export default function CheckoutBuilder() {
             setBannerForm({
                 banner_image: fetchedCheckout.banner_image || '',
                 banner_title: fetchedCheckout.banner_title === fetchedProduct.name ? '' : fetchedCheckout.banner_title || '',
-                customHeight: (checkoutData as any).custom_height
+                customHeight: (checkoutData as any).custom_height,
+                customWidth: (checkoutData as any).custom_width
             })
 
             // Carregar configurações do timer se existirem
@@ -308,6 +310,7 @@ export default function CheckoutBuilder() {
                     banner_image: bannerForm.banner_image,
                     banner_title: bannerForm.banner_title,
                     custom_height: bannerForm.customHeight,
+                    custom_width: bannerForm.customWidth,
                     custom_fields: updatedFields,
                     language: checkoutLanguage
                 })
@@ -361,6 +364,10 @@ export default function CheckoutBuilder() {
 
     const handleBannerResize = (height: number) => {
         setBannerForm(prev => ({ ...prev, customHeight: height }))
+    }
+
+    const handleBannerWidthUpdate = (width: number) => {
+        setBannerForm(prev => ({ ...prev, customWidth: width }))
     }
 
     const handleBannerUploadFromPreview = (url: string) => {
@@ -577,13 +584,13 @@ export default function CheckoutBuilder() {
 
     if (loading) {
         return (
-            <div className="min-h-screen bg-gray-50 dark:bg-[#0f1117] flex transition-colors duration-200">
+            <div className="min-h-screen bg-gray-50 dark:bg-gray-950 flex transition-colors duration-200">
                 <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
                 <div className="flex-1 flex flex-col min-w-0">
                     <Header onMenuClick={() => setSidebarOpen(true)} />
                     <div className="flex-1 flex items-center justify-center pt-20">
                         <div className="text-center">
-                            <div className="animate-spin rounded-full h-8 w-8 border-2 border-[#252941] border-t-blue-600 mx-auto"></div>
+                            <div className="animate-spin rounded-full h-8 w-8 border-2 border-gray-700 border-t-blue-600 mx-auto"></div>
                             <p className="mt-3 text-sm text-gray-600">{t('common.loading')}</p>
                         </div>
                     </div>
@@ -594,7 +601,7 @@ export default function CheckoutBuilder() {
 
     if (!product || !checkout) {
         return (
-            <div className="min-h-screen bg-[#0f1117] flex items-center justify-center">
+            <div className="min-h-screen bg-gray-950 flex items-center justify-center">
                 <div className="text-center">
                     <p className="text-red-600">{t('checkout_pages.error_loading')}</p>
                 </div>
@@ -603,7 +610,7 @@ export default function CheckoutBuilder() {
     }
 
     return (
-        <div className="min-h-screen bg-[#0f1117] flex">
+        <div className="min-h-screen bg-[#080b14] flex">
             <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
             <div className="flex-1 flex flex-col min-w-0">
@@ -611,12 +618,12 @@ export default function CheckoutBuilder() {
                 <Header onMenuClick={() => setSidebarOpen(true)} />
 
                 {/* Navbar - Fixed below header */}
-                <div className="bg-[#1a1d2e] border-b border-[#1e2139] mt-12 sticky top-12 z-[60]">
+                <div className="bg-gray-900 border-b border-gray-800 mt-12 sticky top-12 z-[60]">
                     <div className="flex items-center justify-between px-4 lg:px-6">
                         <div className="flex items-center gap-4">
                             <button
                                 onClick={() => navigate(-1)}
-                                className="p-2 hover:bg-[#252941]/50 rounded-lg transition-colors duration-200 flex-shrink-0"
+                                className="p-2 hover:bg-gray-800/50 rounded-lg transition-colors duration-200 flex-shrink-0"
                             >
                                 <ArrowLeft size={14} className="text-blue-400" />
                             </button>
@@ -628,11 +635,11 @@ export default function CheckoutBuilder() {
 
                         <div className="flex items-center gap-3">
                             {/* Device Controls */}
-                            <div className="flex items-center gap-0.5 bg-[#252941] rounded-lg p-0.5">
+                            <div className="flex items-center gap-0.5 rounded-lg p-0.5">
                                 <button
                                     onClick={() => setViewDevice('desktop')}
                                     className={`flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-medium transition-colors ${viewDevice === 'desktop'
-                                        ? 'bg-[#1a1d2e] text-gray-100 shadow-sm'
+                                        ? 'text-gray-100 shadow-sm'
                                         : 'text-gray-500 hover:text-gray-300'
                                         }`}
                                     title="Desktop"
@@ -643,7 +650,7 @@ export default function CheckoutBuilder() {
                                 <button
                                     onClick={() => setViewDevice('mobile')}
                                     className={`flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-medium transition-colors ${viewDevice === 'mobile'
-                                        ? 'bg-[#1a1d2e] text-gray-100 shadow-sm'
+                                        ? 'text-gray-100 shadow-sm'
                                         : 'text-gray-500 hover:text-gray-300'
                                         }`}
                                     title="Mobile"
@@ -657,7 +664,7 @@ export default function CheckoutBuilder() {
                             <select
                                 value={checkoutLanguage}
                                 onChange={(e) => setCheckoutLanguage(e.target.value as CheckoutLanguage)}
-                                className="bg-[#252941] text-gray-100 text-[11px] font-medium rounded-lg px-2 py-1 border-none focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
+                                className="bg-transparent text-gray-100 text-[11px] font-medium rounded-lg px-2 py-1 border-none focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
                                 title="Checkout Language"
                             >
                                 <option value="en">🇺🇸 EN</option>
@@ -667,7 +674,7 @@ export default function CheckoutBuilder() {
                             {/* Preview Button */}
                             <button
                                 onClick={() => window.open(`/checkout/${productId}/${checkoutId}`, '_blank')}
-                                className="flex items-center gap-1 px-3 py-1 bg-[#252941] text-gray-300 rounded-lg hover:bg-[#2e3354] hover:text-white transition-colors text-[11px] font-medium"
+                                className="flex items-center gap-1 px-3 py-1 text-gray-300 rounded-lg hover:text-white transition-colors text-[11px] font-medium"
                                 title="Preview"
                             >
                                 <Eye size={12} />
@@ -690,18 +697,18 @@ export default function CheckoutBuilder() {
                 <div className="flex-1 flex overflow-hidden">
                     <main className="flex-1 overflow-y-auto px-3 lg:px-6 py-4">
                         {/* Preview Area */}
-                        <div className="flex-1 bg-[#1a1d2e] rounded-lg shadow-xl shadow-black/10 border border-[#1e2139]">
+                        <div className="max-w-4xl mx-auto">
                             {/* Device Frame */}
-                            <div className={`transition-all duration-300 p-4 sm:p-6 ${viewDevice === 'mobile'
+                            <div className={`transition-all duration-300 ${viewDevice === 'mobile'
                                 ? 'max-w-sm mx-auto'
                                 : 'w-full'
                                 }`}>
                                 <div
-                                    className={`border border-[#252941] rounded-lg ${viewDevice === 'mobile'
-                                        ? 'bg-[#0f1117] overflow-auto shadow-xl shadow-black/20'
-                                        : 'bg-[#0f1117]'
+                                    className={`rounded-lg ${viewDevice === 'mobile'
+                                        ? 'overflow-auto shadow-xl shadow-black/20'
+                                        : ''
                                         }`}
-                                    style={viewDevice === 'mobile' ? { maxHeight: '70vh' } : {}}
+                                    style={viewDevice === 'mobile' ? { maxHeight: '85vh' } : {}}
                                     onDrop={handleDrop}
                                     onDragOver={handleDragOver}
                                 >
@@ -765,6 +772,7 @@ export default function CheckoutBuilder() {
                                                     image: bannerForm.banner_image || '',
                                                     title: bannerForm.banner_title,
                                                     customHeight: bannerForm.customHeight,
+                                                    customWidth: bannerForm.customWidth,
                                                     imageScale: bannerImageScale,
                                                     imagePosition: bannerImagePosition
                                                 }
@@ -785,6 +793,7 @@ export default function CheckoutBuilder() {
                                                 setEditingElement(null)
                                             }}
                                             onBannerResize={handleBannerResize}
+                                            onUpdateBannerWidth={handleBannerWidthUpdate}
                                             onBannerUpload={handleBannerUploadFromPreview}
                                             onBannerImageScaleChange={(scale) => setBannerImageScale(scale)}
                                             onBannerImagePositionChange={(position) => setBannerImagePosition(position)}
@@ -804,6 +813,7 @@ export default function CheckoutBuilder() {
                                                 setEditingTestimonialId(id ?? testimonials[0]?.id ?? null)
                                             }}
                                             imageBlocks={imageBlocks}
+                                            onUpdateImageBlock={handleUpdateImageBlock}
                                         />
                                     </div>
                                 </div>
@@ -816,185 +826,187 @@ export default function CheckoutBuilder() {
                     */}
                     </main>
                     {/* Components Panel - Right Side */}
-                    <div className="hidden lg:block w-56 flex-shrink-0 sticky top-0 self-start max-h-screen overflow-y-auto py-4 pr-3">
-                        {/* Components */}
-                        <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-xl shadow-xl shadow-black/20 border-2 border-gray-600/30 p-4">
+                    <aside className="hidden lg:block w-56 flex-shrink-0">
+                        <div className="fixed top-[5rem] right-6 w-56 h-[calc(100vh-6rem)]">
+                            {/* Components */}
+                            <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-xl shadow-xl shadow-black/20 border-2 border-gray-600/30 p-4 h-full overflow-y-auto">
 
-                            {/* Nome e Preço */}
-                            <div className="mb-4 pb-4 border-b border-gray-700 space-y-2">
-                                <div>
-                                    <div className="text-[10px] font-semibold text-gray-400 tracking-widest mb-1">NOME</div>
-                                    <input
-                                        type="text"
-                                        value={checkoutName}
-                                        onChange={(e) => setCheckoutName(e.target.value)}
-                                        placeholder="Nome do checkout"
-                                        className="w-full px-2 py-1.5 bg-gray-900 border border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-500 text-gray-100 text-xs"
-                                    />
+                                {/* Nome e Preço */}
+                                <div className="mb-4 pb-4 border-b border-gray-700 space-y-2">
+                                    <div>
+                                        <div className="text-[10px] font-semibold text-gray-400 tracking-widest mb-1">NOME</div>
+                                        <input
+                                            type="text"
+                                            value={checkoutName}
+                                            onChange={(e) => setCheckoutName(e.target.value)}
+                                            placeholder="Nome do checkout"
+                                            className="w-full px-2 py-1.5 bg-gray-900 border border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-500 text-gray-100 text-xs"
+                                        />
+                                    </div>
+                                    <div>
+                                        <div className="text-[10px] font-semibold text-gray-400 tracking-widest mb-1">PREÇO</div>
+                                        <input
+                                            type="number"
+                                            min="0"
+                                            step="0.01"
+                                            value={checkoutPrice}
+                                            onChange={(e) => setCheckoutPrice(e.target.value)}
+                                            placeholder={product ? String(product.price) : '0.00'}
+                                            className="w-full px-2 py-1.5 bg-gray-900 border border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-500 text-gray-100 text-xs"
+                                        />
+                                    </div>
                                 </div>
-                                <div>
-                                    <div className="text-[10px] font-semibold text-gray-400 tracking-widest mb-1">PREÇO</div>
-                                    <input
-                                        type="number"
-                                        min="0"
-                                        step="0.01"
-                                        value={checkoutPrice}
-                                        onChange={(e) => setCheckoutPrice(e.target.value)}
-                                        placeholder={product ? String(product.price) : '0.00'}
-                                        className="w-full px-2 py-1.5 bg-gray-900 border border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-500 text-gray-100 text-xs"
-                                    />
+
+                                <h3 className="text-sm font-bold text-gray-100 mb-3">{t('checkout_pages.components')}</h3>
+
+                                <div className="text-[10px] text-gray-400 uppercase tracking-wider mb-3 font-semibold">
+                                    {t('checkout_pages.drag_to_add')}
                                 </div>
-                            </div>
 
-                            <h3 className="text-sm font-bold text-gray-100 mb-3">{t('checkout_pages.components')}</h3>
-
-                            <div className="text-[10px] text-gray-400 uppercase tracking-wider mb-3 font-semibold">
-                                {t('checkout_pages.drag_to_add')}
-                            </div>
-
-                            <div className="grid grid-cols-2 gap-2">
-                                {availableComponents.map((component) => {
-                                    const Icon = component.icon
-                                    return (
-                                        <div
-                                            key={component.id}
-                                            draggable
-                                            onDragStart={() => handleDragStart(component)}
-                                            onDragEnd={handleDragEnd}
-                                            className="bg-gray-900 rounded-lg p-3 flex flex-col items-center justify-center gap-2 cursor-move hover:bg-gray-700/40 transition-all border border-gray-700 hover:border-gray-500 hover:shadow-lg hover:shadow-gray-900/40"
-                                        >
-                                            <div className="w-9 h-9 bg-gray-700 rounded-lg flex items-center justify-center">
-                                                <Icon size={18} className="text-gray-400" />
+                                <div className="grid grid-cols-2 gap-2">
+                                    {availableComponents.map((component) => {
+                                        const Icon = component.icon
+                                        return (
+                                            <div
+                                                key={component.id}
+                                                draggable
+                                                onDragStart={() => handleDragStart(component)}
+                                                onDragEnd={handleDragEnd}
+                                                className="bg-gray-900 rounded-lg p-3 flex flex-col items-center justify-center gap-2 cursor-move hover:bg-gray-700/40 transition-all border border-gray-700 hover:border-gray-500 hover:shadow-lg hover:shadow-gray-900/40"
+                                            >
+                                                <div className="w-9 h-9 bg-gray-700 rounded-lg flex items-center justify-center">
+                                                    <Icon size={18} className="text-gray-400" />
+                                                </div>
+                                                <span className="text-[11px] text-gray-300 text-center font-medium">
+                                                    {component.name}
+                                                </span>
                                             </div>
-                                            <span className="text-[11px] text-gray-300 text-center font-medium">
-                                                {component.name}
-                                            </span>
+                                        )
+                                    })}
+                                </div>
+
+                                {/* Button Color */}
+                                <div className="mt-4 pt-4 border-t border-gray-700">
+                                    <div className="text-[10px] font-semibold text-gray-400 tracking-widest mb-2">
+                                        {t('checkout_pages.button_color')}
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <input
+                                            type="color"
+                                            value={buttonColor}
+                                            onChange={(e) => setButtonColor(e.target.value)}
+                                            className="w-10 h-10 border border-gray-700 rounded-lg cursor-pointer bg-transparent"
+                                        />
+                                        <input
+                                            type="text"
+                                            value={buttonColor}
+                                            onChange={(e) => setButtonColor(e.target.value)}
+                                            className="flex-1 px-2 py-1.5 bg-gray-900 border border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-500 text-gray-100 text-xs"
+                                        />
+                                    </div>
+                                </div>
+
+                                {/* Pixels Personalizados */}
+                                <div className="mt-4 pt-4 border-t border-gray-700">
+                                    <div className="flex items-center gap-1.5 mb-2">
+                                        <div className="text-[10px] font-semibold text-gray-400 tracking-widest">
+                                            PIXELS DE TRACKING
                                         </div>
-                                    )
-                                })}
-                            </div>
-
-                            {/* Button Color */}
-                            <div className="mt-4 pt-4 border-t border-gray-700">
-                                <div className="text-[10px] font-semibold text-gray-400 tracking-widest mb-2">
-                                    {t('checkout_pages.button_color')}
-                                </div>
-                                <div className="flex items-center gap-2">
-                                    <input
-                                        type="color"
-                                        value={buttonColor}
-                                        onChange={(e) => setButtonColor(e.target.value)}
-                                        className="w-10 h-10 border border-gray-700 rounded-lg cursor-pointer bg-transparent"
-                                    />
-                                    <input
-                                        type="text"
-                                        value={buttonColor}
-                                        onChange={(e) => setButtonColor(e.target.value)}
-                                        className="flex-1 px-2 py-1.5 bg-gray-900 border border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-500 text-gray-100 text-xs"
+                                    </div>
+                                    <p className="text-[10px] text-gray-500 mb-2">
+                                        Facebook Pixel, Google Analytics, TikTok Pixel, etc.
+                                    </p>
+                                    <textarea
+                                        value={customPixels}
+                                        onChange={(e) => setCustomPixels(e.target.value)}
+                                        placeholder={`<!-- Exemplo: Pixel do Facebook -->\n<script>\n  fbq('init', 'SEU_PIXEL_ID');\n  fbq('track', 'PageView');\n</script>\n\n<!-- Google Analytics -->\n<script async src="https://www.googletagmanager.com/gtag/js?id=GA_ID"></script>\n<script>\n  window.dataLayer = window.dataLayer || [];\n  function gtag(){dataLayer.push(arguments);}\n  gtag('js', new Date());\n  gtag('config', 'GA_ID');\n</script>`}
+                                        rows={4}
+                                        className="w-full px-2 py-2 bg-gray-900 border border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-500 text-gray-300 text-[11px] font-mono resize-y"
                                     />
                                 </div>
-                            </div>
 
-                            {/* Pixels Personalizados */}
-                            <div className="mt-4 pt-4 border-t border-gray-700">
-                                <div className="flex items-center gap-1.5 mb-2">
-                                    <div className="text-[10px] font-semibold text-gray-400 tracking-widest">
-                                        PIXELS DE TRACKING
+                                {/* UTMs Personalizados */}
+                                <div className="mt-4 pt-4 border-t border-gray-700">
+                                    <div className="flex items-center gap-1.5 mb-2">
+                                        <div className="text-[10px] font-semibold text-gray-400 tracking-widest">
+                                            UTMs CUSTOMIZADOS
+                                        </div>
                                     </div>
+                                    <p className="text-[10px] text-gray-500 mb-2">
+                                        UTMs específicos para este checkout (sobrescreve URL).
+                                    </p>
+                                    <textarea
+                                        value={customUtms}
+                                        onChange={(e) => setCustomUtms(e.target.value)}
+                                        placeholder={`<script\n  src="https://cdn.utmify.com.br/scripts/utms/latest.js"\n  data-utmify-prevent-xcod-sck\n  data-utmify-prevent-subids\n  async\n  defer\n></script>`}
+                                        rows={4}
+                                        className="w-full px-2 py-2 bg-gray-950 border border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-300 text-[11px] font-mono resize-y"
+                                    />
                                 </div>
-                                <p className="text-[10px] text-gray-500 mb-2">
-                                    Facebook Pixel, Google Analytics, TikTok Pixel, etc.
-                                </p>
-                                <textarea
-                                    value={customPixels}
-                                    onChange={(e) => setCustomPixels(e.target.value)}
-                                    placeholder={`<!-- Exemplo: Pixel do Facebook -->\n<script>\n  fbq('init', 'SEU_PIXEL_ID');\n  fbq('track', 'PageView');\n</script>\n\n<!-- Google Analytics -->\n<script async src="https://www.googletagmanager.com/gtag/js?id=GA_ID"></script>\n<script>\n  window.dataLayer = window.dataLayer || [];\n  function gtag(){dataLayer.push(arguments);}\n  gtag('js', new Date());\n  gtag('config', 'GA_ID');\n</script>`}
-                                    rows={4}
-                                    className="w-full px-2 py-2 bg-gray-900 border border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-500 text-gray-300 text-[11px] font-mono resize-y"
-                                />
-                            </div>
 
-                            {/* UTMs Personalizados */}
-                            <div className="mt-4 pt-4 border-t border-gray-700">
-                                <div className="flex items-center gap-1.5 mb-2">
-                                    <div className="text-[10px] font-semibold text-gray-400 tracking-widest">
-                                        UTMs CUSTOMIZADOS
+                                {/* IMAGENS */}
+                                <div className="mt-4 pt-4 border-t border-gray-700">
+                                    <div className="flex items-center justify-between mb-2">
+                                        <div className="text-[10px] font-semibold text-gray-400 tracking-widest">IMAGENS</div>
+                                        <button
+                                            onClick={handleAddImageBlock}
+                                            className="flex items-center gap-0.5 px-1.5 py-0.5 bg-gray-700 hover:bg-gray-600 text-gray-300 rounded text-[10px] transition-colors"
+                                            title="Adicionar bloco de imagem"
+                                        >
+                                            <Plus size={10} />
+                                        </button>
                                     </div>
+                                    {imageBlocks.length === 0 ? (
+                                        <p className="text-[10px] text-gray-600 italic">Nenhuma imagem adicionada.</p>
+                                    ) : (
+                                        <div className="space-y-1.5">
+                                            {imageBlocks.map((block, idx) => (
+                                                <div key={block.id} className="flex items-center gap-1.5 bg-gray-900 border border-gray-700 rounded-lg px-2 py-1.5">
+                                                    {block.url ? (
+                                                        <img src={block.url} alt="" className="w-7 h-7 rounded object-cover flex-shrink-0 border border-gray-700" />
+                                                    ) : (
+                                                        <div className="w-7 h-7 rounded bg-gray-700 flex items-center justify-center flex-shrink-0">
+                                                            <ImageIcon size={12} className="text-gray-500" />
+                                                        </div>
+                                                    )}
+                                                    <span className="flex-1 text-[10px] text-gray-400 truncate">Imagem {idx + 1}</span>
+                                                    <button
+                                                        onClick={() => {
+                                                            setEditingImageBlockId(block.id)
+                                                            setEditingElement('imageblock')
+                                                            setEditPanelOpen(true)
+                                                        }}
+                                                        className="p-1 hover:bg-gray-700 rounded transition-colors text-gray-400 hover:text-gray-100"
+                                                        title="Editar"
+                                                    >
+                                                        <Edit3 size={10} />
+                                                    </button>
+                                                    <button
+                                                        onClick={() => handleDeleteImageBlock(block.id)}
+                                                        className="p-1 hover:bg-red-500/10 rounded transition-colors text-gray-500 hover:text-red-400"
+                                                        title="Remover"
+                                                    >
+                                                        <X size={10} />
+                                                    </button>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
                                 </div>
-                                <p className="text-[10px] text-gray-500 mb-2">
-                                    UTMs específicos para este checkout (sobrescreve URL).
-                                </p>
-                                <textarea
-                                    value={customUtms}
-                                    onChange={(e) => setCustomUtms(e.target.value)}
-                                    placeholder={`<script\n  src="https://cdn.utmify.com.br/scripts/utms/latest.js"\n  data-utmify-prevent-xcod-sck\n  data-utmify-prevent-subids\n  async\n  defer\n></script>`}
-                                    rows={4}
-                                    className="w-full px-2 py-2 bg-[#0f1117] border border-[#252941] rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-300 text-[11px] font-mono resize-y"
-                                />
-                            </div>
-
-                            {/* IMAGENS */}
-                            <div className="mt-4 pt-4 border-t border-gray-700">
-                                <div className="flex items-center justify-between mb-2">
-                                    <div className="text-[10px] font-semibold text-gray-400 tracking-widest">IMAGENS</div>
-                                    <button
-                                        onClick={handleAddImageBlock}
-                                        className="flex items-center gap-0.5 px-1.5 py-0.5 bg-gray-700 hover:bg-gray-600 text-gray-300 rounded text-[10px] transition-colors"
-                                        title="Adicionar bloco de imagem"
-                                    >
-                                        <Plus size={10} />
-                                    </button>
-                                </div>
-                                {imageBlocks.length === 0 ? (
-                                    <p className="text-[10px] text-gray-600 italic">Nenhuma imagem adicionada.</p>
-                                ) : (
-                                    <div className="space-y-1.5">
-                                        {imageBlocks.map((block, idx) => (
-                                            <div key={block.id} className="flex items-center gap-1.5 bg-gray-900 border border-gray-700 rounded-lg px-2 py-1.5">
-                                                {block.url ? (
-                                                    <img src={block.url} alt="" className="w-7 h-7 rounded object-cover flex-shrink-0 border border-gray-700" />
-                                                ) : (
-                                                    <div className="w-7 h-7 rounded bg-gray-700 flex items-center justify-center flex-shrink-0">
-                                                        <ImageIcon size={12} className="text-gray-500" />
-                                                    </div>
-                                                )}
-                                                <span className="flex-1 text-[10px] text-gray-400 truncate">Imagem {idx + 1}</span>
-                                                <button
-                                                    onClick={() => {
-                                                        setEditingImageBlockId(block.id)
-                                                        setEditingElement('imageblock')
-                                                        setEditPanelOpen(true)
-                                                    }}
-                                                    className="p-1 hover:bg-gray-700 rounded transition-colors text-gray-400 hover:text-gray-100"
-                                                    title="Editar"
-                                                >
-                                                    <Edit3 size={10} />
-                                                </button>
-                                                <button
-                                                    onClick={() => handleDeleteImageBlock(block.id)}
-                                                    className="p-1 hover:bg-red-500/10 rounded transition-colors text-gray-500 hover:text-red-400"
-                                                    title="Remover"
-                                                >
-                                                    <X size={10} />
-                                                </button>
-                                            </div>
-                                        ))}
-                                    </div>
-                                )}
                             </div>
                         </div>
-                    </div>
+                    </aside>
                 </div>
             </div>
 
             {/* Side Edit Panel */}
             <div
-                className={`fixed top-0 right-0 h-full w-full sm:w-72 bg-[#1a1d2e] shadow-2xl transform transition-transform duration-300 ease-in-out z-[100] ${editPanelOpen ? 'translate-x-0' : 'translate-x-full'
+                className={`fixed top-0 right-0 h-full w-full sm:w-72 bg-gray-900 shadow-2xl transform transition-transform duration-300 ease-in-out z-[100] ${editPanelOpen ? 'translate-x-0' : 'translate-x-full'
                     }`}
             >
                 <div className="flex flex-col h-full">
                     {/* Panel Header */}
-                    <div className="flex items-center justify-between px-3 py-2.5 border-b border-[#1e2139] bg-[#0f1117]">
+                    <div className="flex items-center justify-between px-3 py-2.5 border-b border-gray-800 bg-gray-950">
                         <h3 className="text-xs font-semibold text-gray-100 uppercase tracking-wider">
                             {editingElement === 'banner' && 'Banner'}
                             {editingElement === 'timer' && t('checkout_pages.timer')}
@@ -1004,7 +1016,7 @@ export default function CheckoutBuilder() {
                         </h3>
                         <button
                             onClick={handleCloseEditPanel}
-                            className="p-1 hover:bg-[#252941] rounded transition-colors text-gray-400 hover:text-gray-100"
+                            className="p-1 hover:bg-gray-800 rounded transition-colors text-gray-400 hover:text-gray-100"
                         >
                             <X size={14} />
                         </button>
@@ -1023,7 +1035,7 @@ export default function CheckoutBuilder() {
                                                     <img
                                                         src={bannerForm.banner_image}
                                                         alt="Banner preview"
-                                                        className="w-full h-24 object-cover rounded border border-[#1e2139]"
+                                                        className="w-full h-24 object-cover rounded border border-gray-800"
                                                     />
                                                     <div className="absolute top-1 right-1 flex gap-1">
                                                         <label
@@ -1052,7 +1064,7 @@ export default function CheckoutBuilder() {
                                                 </div>
                                             </>
                                         ) : (
-                                            <div className="border-2 border-dashed border-[#252941] rounded p-4 text-center hover:border-blue-500 transition-colors cursor-pointer">
+                                            <div className="border-2 border-dashed border-gray-700 rounded p-4 text-center hover:border-blue-500 transition-colors cursor-pointer">
                                                 <input
                                                     type="file"
                                                     accept="image/*"
@@ -1101,7 +1113,7 @@ export default function CheckoutBuilder() {
                                 </p>
 
                                 {/* Preview dos selos */}
-                                <div className="bg-white rounded-xl border border-[#252941] overflow-hidden">
+                                <div className="bg-white rounded-xl border border-gray-700 overflow-hidden">
                                     <div className="grid grid-cols-3 divide-x divide-gray-200 py-4">
                                         {/* SSL */}
                                         <div className="flex flex-col items-center gap-1.5 px-3 text-center">
@@ -1179,14 +1191,14 @@ export default function CheckoutBuilder() {
                                             {testimonials.map(t => (
                                                 <div
                                                     key={t.id}
-                                                    className={`flex items-center justify-between px-2 py-1.5 rounded cursor-pointer transition-colors ${t.id === editingTestimonialId ? 'bg-blue-500/20 border border-blue-500/40' : 'bg-[#0f1117] border border-[#252941] hover:border-blue-500/40'}`}
+                                                    className={`flex items-center justify-between px-2 py-1.5 rounded cursor-pointer transition-colors ${t.id === editingTestimonialId ? 'bg-blue-500/20 border border-blue-500/40' : 'bg-gray-950 border border-gray-700 hover:border-blue-500/40'}`}
                                                     onClick={() => { setEditingTestimonialId(t.id) }}
                                                 >
                                                     <div className="flex items-center gap-1.5 min-w-0">
                                                         {t.photo ? (
                                                             <img src={t.photo} alt="" className="w-5 h-5 rounded-full object-cover flex-shrink-0" />
                                                         ) : (
-                                                            <div className="w-5 h-5 rounded-full bg-[#252941] flex items-center justify-center flex-shrink-0">
+                                                            <div className="w-5 h-5 rounded-full bg-gray-800 flex items-center justify-center flex-shrink-0">
                                                                 <MessageSquare size={9} className="text-gray-400" />
                                                             </div>
                                                         )}
@@ -1203,14 +1215,14 @@ export default function CheckoutBuilder() {
                                         </div>
                                     </div>
 
-                                    <div className="border-t border-[#252941] pt-4 space-y-4">
+                                    <div className="border-t border-gray-700 pt-4 space-y-4">
                                         {/* Photo upload */}
                                         <div>
                                             <label className="block text-sm font-medium text-gray-300 mb-2">Foto</label>
                                             <div className="flex flex-col items-center gap-3">
                                                 {testimonial.photo ? (
                                                     <div className="relative">
-                                                        <img src={testimonial.photo} alt="preview" className="w-20 h-20 rounded-full object-cover border-2 border-[#252941]" />
+                                                        <img src={testimonial.photo} alt="preview" className="w-20 h-20 rounded-full object-cover border-2 border-gray-700" />
                                                         <button
                                                             onClick={() => handleUpdateTestimonial(testimonial.id, { photo: '' })}
                                                             className="absolute -top-1 -right-1 w-5 h-5 bg-red-600 text-white rounded-full flex items-center justify-center hover:bg-red-700 transition-colors"
@@ -1219,7 +1231,7 @@ export default function CheckoutBuilder() {
                                                         </button>
                                                     </div>
                                                 ) : (
-                                                    <label htmlFor={`testimonial-photo-${testimonial.id}`} className="w-20 h-20 rounded-full bg-[#252941] border-2 border-dashed border-[#3a3f5c] flex flex-col items-center justify-center gap-1 cursor-pointer hover:border-blue-500 transition-colors">
+                                                    <label htmlFor={`testimonial-photo-${testimonial.id}`} className="w-20 h-20 rounded-full bg-gray-800 border-2 border-dashed border-gray-600 flex flex-col items-center justify-center gap-1 cursor-pointer hover:border-blue-500 transition-colors">
                                                         <Upload size={16} className="text-gray-400" />
                                                         <span className="text-[9px] text-gray-500 text-center leading-tight">Upload<br />photo</span>
                                                     </label>
@@ -1243,7 +1255,7 @@ export default function CheckoutBuilder() {
                                                 onChange={(e) => handleUpdateTestimonial(testimonial.id, { text: e.target.value })}
                                                 rows={4}
                                                 placeholder="Digite seu depoimento aqui"
-                                                className="w-full px-3 py-2 bg-[#0f1117] border border-[#252941] rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-100 text-sm resize-none"
+                                                className="w-full px-3 py-2 bg-gray-950 border border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-100 text-sm resize-none"
                                             />
                                         </div>
 
@@ -1273,7 +1285,7 @@ export default function CheckoutBuilder() {
                                                 value={testimonial.name}
                                                 onChange={(e) => handleUpdateTestimonial(testimonial.id, { name: e.target.value })}
                                                 placeholder="John Doe"
-                                                className="w-full px-3 py-2 bg-[#0f1117] border border-[#252941] rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-100 text-sm"
+                                                className="w-full px-3 py-2 bg-gray-950 border border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-100 text-sm"
                                             />
                                         </div>
 
@@ -1285,13 +1297,13 @@ export default function CheckoutBuilder() {
                                                     type="color"
                                                     value={testimonial.backgroundColor}
                                                     onChange={(e) => handleUpdateTestimonial(testimonial.id, { backgroundColor: e.target.value })}
-                                                    className="w-10 h-10 border border-[#252941] rounded-lg cursor-pointer bg-transparent"
+                                                    className="w-10 h-10 border border-gray-700 rounded-lg cursor-pointer bg-transparent"
                                                 />
                                                 <input
                                                     type="text"
                                                     value={testimonial.backgroundColor}
                                                     onChange={(e) => handleUpdateTestimonial(testimonial.id, { backgroundColor: e.target.value })}
-                                                    className="flex-1 px-3 py-2 bg-[#0f1117] border border-[#252941] rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-100 text-sm"
+                                                    className="flex-1 px-3 py-2 bg-gray-950 border border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-100 text-sm"
                                                 />
                                             </div>
                                         </div>
@@ -1304,13 +1316,13 @@ export default function CheckoutBuilder() {
                                                     type="color"
                                                     value={testimonial.textColor}
                                                     onChange={(e) => handleUpdateTestimonial(testimonial.id, { textColor: e.target.value })}
-                                                    className="w-10 h-10 border border-[#252941] rounded-lg cursor-pointer bg-transparent"
+                                                    className="w-10 h-10 border border-gray-700 rounded-lg cursor-pointer bg-transparent"
                                                 />
                                                 <input
                                                     type="text"
                                                     value={testimonial.textColor}
                                                     onChange={(e) => handleUpdateTestimonial(testimonial.id, { textColor: e.target.value })}
-                                                    className="flex-1 px-3 py-2 bg-[#0f1117] border border-[#252941] rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-100 text-sm"
+                                                    className="flex-1 px-3 py-2 bg-gray-950 border border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-100 text-sm"
                                                 />
                                             </div>
                                         </div>
@@ -1320,7 +1332,7 @@ export default function CheckoutBuilder() {
                                             <label className="text-sm font-medium text-gray-300">Modo horizontal</label>
                                             <button
                                                 onClick={() => handleUpdateTestimonial(testimonial.id, { horizontalMode: !testimonial.horizontalMode })}
-                                                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${testimonial.horizontalMode ? 'bg-blue-500' : 'bg-[#252941]'}`}
+                                                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${testimonial.horizontalMode ? 'bg-blue-500' : 'bg-gray-800'}`}
                                             >
                                                 <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${testimonial.horizontalMode ? 'translate-x-6' : 'translate-x-1'}`} />
                                             </button>
@@ -1336,8 +1348,7 @@ export default function CheckoutBuilder() {
                             if (!block) return null
                             return (
                                 <div className="space-y-3">
-                                    <div className="flex items-center justify-between">
-                                        <span className="text-[11px] font-semibold text-gray-300 uppercase tracking-wider">Bloco de Imagem</span>
+                                    <div className="flex items-center justify-end">
                                         <button
                                             onClick={() => {
                                                 handleDeleteImageBlock(block.id)
@@ -1355,7 +1366,7 @@ export default function CheckoutBuilder() {
                                         <label className="block text-[10px] font-medium text-gray-400 mb-1">Imagem</label>
                                         {block.url ? (
                                             <div className="relative">
-                                                <img src={block.url} alt="" className="w-full rounded border border-[#1e2139] object-contain max-h-32" />
+                                                <img src={block.url} alt="" className="w-full rounded border border-gray-800 object-contain max-h-32" />
                                                 <div className="absolute top-1 right-1 flex gap-1">
                                                     <label htmlFor={`img-block-upload-${block.id}`} className="flex items-center gap-1 px-1.5 py-1 bg-blue-600 text-white text-[10px] font-medium rounded cursor-pointer hover:bg-blue-700 transition-colors">
                                                         <Upload size={10} />
@@ -1368,7 +1379,7 @@ export default function CheckoutBuilder() {
                                                 </div>
                                             </div>
                                         ) : (
-                                            <div className="border-2 border-dashed border-[#252941] rounded p-4 text-center hover:border-blue-500 transition-colors cursor-pointer">
+                                            <div className="border-2 border-dashed border-gray-700 rounded p-4 text-center hover:border-blue-500 transition-colors cursor-pointer">
                                                 <input type="file" accept="image/*" id={`img-block-upload-${block.id}`} className="hidden" onChange={(e) => handleImageBlockUpload(e, block.id)} />
                                                 <label htmlFor={`img-block-upload-${block.id}`} className="cursor-pointer flex flex-col items-center gap-1">
                                                     <Upload className="w-5 h-5 text-gray-400" />
@@ -1377,39 +1388,6 @@ export default function CheckoutBuilder() {
                                                 </label>
                                             </div>
                                         )}
-                                    </div>
-
-                                    {/* Slot / Posição */}
-                                    <div>
-                                        <label className="block text-[10px] font-medium text-gray-400 mb-1">Posição no checkout</label>
-                                        <select
-                                            value={block.slot}
-                                            onChange={(e) => handleUpdateImageBlock(block.id, { slot: e.target.value as ImageBlockSlot })}
-                                            className="w-full px-2 py-1.5 bg-[#0f1117] border border-[#252941] rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500 text-gray-100 text-xs"
-                                        >
-                                            <option value="below_payment_methods">Abaixo dos métodos de pagamento</option>
-                                            <option value="above_button">Acima do botão de compra</option>
-                                            <option value="below_button">Abaixo do botão de compra</option>
-                                            <option value="above_testimonials">Acima dos depoimentos</option>
-                                            <option value="between_testimonials">Entre os depoimentos</option>
-                                            <option value="below_testimonials">Abaixo dos depoimentos</option>
-                                            <option value="below_seals">Abaixo dos selos de segurança</option>
-                                        </select>
-                                    </div>
-
-                                    {/* Largura */}
-                                    <div>
-                                        <label className="block text-[10px] font-medium text-gray-400 mb-1">Largura</label>
-                                        <select
-                                            value={block.width ?? 'full'}
-                                            onChange={(e) => handleUpdateImageBlock(block.id, { width: e.target.value as CheckoutImageBlock['width'] })}
-                                            className="w-full px-2 py-1.5 bg-[#0f1117] border border-[#252941] rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500 text-gray-100 text-xs"
-                                        >
-                                            <option value="full">Largura total</option>
-                                            <option value="large">Grande</option>
-                                            <option value="medium">Médio</option>
-                                            <option value="small">Pequeno</option>
-                                        </select>
                                     </div>
                                 </div>
                             )
@@ -1468,7 +1446,7 @@ export default function CheckoutBuilder() {
                                                     }))
                                                 }
                                             }}
-                                            className="w-full px-2 py-1.5 bg-[#0f1117] border border-[#252941] rounded focus:outline-none focus:ring-1 focus:ring-blue-500 text-gray-100 text-xs"
+                                            className="w-full px-2 py-1.5 bg-gray-950 border border-gray-700 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 text-gray-100 text-xs"
                                             maxLength={5}
                                         />
                                         <p className="text-[10px] text-gray-500 mt-0.5">Formato: MM:SS (ex: 14:30)</p>
@@ -1479,15 +1457,15 @@ export default function CheckoutBuilder() {
                                         <div className="flex-1">
                                             <label className="block text-[10px] text-gray-400 mb-1">{t('checkout_pages.background_color')}</label>
                                             <div className="flex items-center gap-1">
-                                                <input type="color" value={timerConfig.backgroundColor} onChange={(e) => setTimerConfig(prev => ({ ...prev, backgroundColor: e.target.value }))} className="w-7 h-7 border border-[#252941] rounded cursor-pointer flex-shrink-0" />
-                                                <input type="text" value={timerConfig.backgroundColor} onChange={(e) => setTimerConfig(prev => ({ ...prev, backgroundColor: e.target.value }))} className="flex-1 px-1.5 py-1 bg-[#0f1117] border border-[#252941] rounded focus:outline-none focus:ring-1 focus:ring-blue-500 text-gray-100 text-[10px]" />
+                                                <input type="color" value={timerConfig.backgroundColor} onChange={(e) => setTimerConfig(prev => ({ ...prev, backgroundColor: e.target.value }))} className="w-7 h-7 border border-gray-700 rounded cursor-pointer flex-shrink-0" />
+                                                <input type="text" value={timerConfig.backgroundColor} onChange={(e) => setTimerConfig(prev => ({ ...prev, backgroundColor: e.target.value }))} className="flex-1 px-1.5 py-1 bg-gray-950 border border-gray-700 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 text-gray-100 text-[10px]" />
                                             </div>
                                         </div>
                                         <div className="flex-1">
                                             <label className="block text-[10px] text-gray-400 mb-1">{t('checkout_pages.text_color')}</label>
                                             <div className="flex items-center gap-1">
-                                                <input type="color" value={timerConfig.textColor} onChange={(e) => setTimerConfig(prev => ({ ...prev, textColor: e.target.value }))} className="w-7 h-7 border border-[#252941] rounded cursor-pointer flex-shrink-0" />
-                                                <input type="text" value={timerConfig.textColor} onChange={(e) => setTimerConfig(prev => ({ ...prev, textColor: e.target.value }))} className="flex-1 px-1.5 py-1 bg-[#0f1117] border border-[#252941] rounded focus:outline-none focus:ring-1 focus:ring-blue-500 text-gray-100 text-[10px]" />
+                                                <input type="color" value={timerConfig.textColor} onChange={(e) => setTimerConfig(prev => ({ ...prev, textColor: e.target.value }))} className="w-7 h-7 border border-gray-700 rounded cursor-pointer flex-shrink-0" />
+                                                <input type="text" value={timerConfig.textColor} onChange={(e) => setTimerConfig(prev => ({ ...prev, textColor: e.target.value }))} className="flex-1 px-1.5 py-1 bg-gray-950 border border-gray-700 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 text-gray-100 text-[10px]" />
                                             </div>
                                         </div>
                                     </div>
@@ -1495,13 +1473,13 @@ export default function CheckoutBuilder() {
                                     {/* Active text */}
                                     <div>
                                         <label className="block text-[10px] text-gray-400 mb-1">{t('checkout_pages.active_countdown_text')}</label>
-                                        <input type="text" value={timerConfig.activeText} onChange={(e) => setTimerConfig(prev => ({ ...prev, activeText: e.target.value }))} className="w-full px-2 py-1.5 bg-[#0f1117] border border-[#252941] rounded focus:outline-none focus:ring-1 focus:ring-blue-500 text-gray-100 text-xs" />
+                                        <input type="text" value={timerConfig.activeText} onChange={(e) => setTimerConfig(prev => ({ ...prev, activeText: e.target.value }))} className="w-full px-2 py-1.5 bg-gray-950 border border-gray-700 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 text-gray-100 text-xs" />
                                     </div>
 
                                     {/* Finished text */}
                                     <div>
                                         <label className="block text-[10px] text-gray-400 mb-1">{t('checkout_pages.finished_countdown_text')}</label>
-                                        <input type="text" value={timerConfig.finishedText} onChange={(e) => setTimerConfig(prev => ({ ...prev, finishedText: e.target.value }))} className="w-full px-2 py-1.5 bg-[#0f1117] border border-[#252941] rounded focus:outline-none focus:ring-1 focus:ring-blue-500 text-gray-100 text-xs" />
+                                        <input type="text" value={timerConfig.finishedText} onChange={(e) => setTimerConfig(prev => ({ ...prev, finishedText: e.target.value }))} className="w-full px-2 py-1.5 bg-gray-950 border border-gray-700 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 text-gray-100 text-xs" />
                                     </div>
                                 </div>
                             </div>
@@ -1509,10 +1487,10 @@ export default function CheckoutBuilder() {
                     </div>
 
                     {/* Panel Footer */}
-                    <div className="px-3 py-2.5 border-t border-[#1e2139] bg-[#0f1117] flex gap-2">
+                    <div className="px-3 py-2.5 border-t border-gray-800 bg-gray-950 flex gap-2">
                         <button
                             onClick={handleCloseEditPanel}
-                            className="flex-1 px-3 py-1.5 border border-[#252941] text-gray-300 rounded text-xs hover:bg-[#252941] transition-colors"
+                            className="flex-1 px-3 py-1.5 border border-gray-700 text-gray-300 rounded text-xs hover:bg-gray-700 transition-colors"
                         >
                             {t('common.cancel')}
                         </button>
