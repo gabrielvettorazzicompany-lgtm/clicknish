@@ -155,6 +155,13 @@ export default function App() {
   useEffect(() => {
     const checkAuth = async () => {
       try {
+        // ⚡ SKIP AUTH para rotas públicas de checkout — eliminam 1 roundtrip desnecessário
+        // O checkout é uma página pública: nunca precisa de sessão do admin
+        if (window.__IS_CHECKOUT_ROUTE__) {
+          setLoading(false)
+          return
+        }
+
         const { data: { session } } = await supabase.auth.getSession()
         if (session?.user) {
           setUser(session.user)
@@ -167,6 +174,9 @@ export default function App() {
     }
 
     checkAuth()
+
+    // Também não assina onAuthStateChange para rotas de checkout
+    if (window.__IS_CHECKOUT_ROUTE__) return
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (_event, session) => {

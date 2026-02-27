@@ -125,12 +125,26 @@ export default function CheckoutPublic() {
             // OPTIMIZED PATH: Edge-cached RPC → All data  
             // ═══════════════════════════════════════════
             if (shortId && !isUpsellCheckout) {
-                // Usar Worker com cache edge (KV) ao invés de RPC direto
-                // Benefícios: ~10ms em cache hit vs ~200ms RPC, reduz carga no DB
-                const response = await fetch(`https://api.clicknich.com/api/checkout-data/${shortId}`)
-                const rpcResult = await response.json()
+                // ⚡ INSTANT PATH: dados já disponíveis via pre-render do index.html
+                // Quando KV hit (<5ms), os dados chegam antes do React montar — zero fetch
+                const preRendered = (window as any).__CHECKOUT_DATA__
+                if (preRendered) {
+                    delete (window as any).__CHECKOUT_DATA__
+                    delete (window as any).__checkoutDataPromise
+                }
 
-                if (response.ok && rpcResult && !rpcResult.error) {
+                // ⚡ FAST PATH: promise já em voo iniciada no index.html
+                const rpcResult = preRendered ?? await (
+                    (window as any).__checkoutDataPromise
+                    ?? fetch(`https://api.clicknich.com/api/checkout-data/${shortId}`, { priority: 'high' } as any).then((r: Response) => r.json())
+                )
+
+                if ((window as any).__checkoutDataPromise) {
+                    delete (window as any).__checkoutDataPromise
+                }
+
+
+                if (rpcResult && !rpcResult.error) {
                     const ck = rpcResult.checkout
                     const prod = rpcResult.product
 

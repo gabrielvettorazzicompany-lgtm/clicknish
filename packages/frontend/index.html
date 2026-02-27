@@ -15,12 +15,19 @@
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <title>ClickNich</title>
 
-  <!-- ⚡ Preconnect: navegador abre conexão TLS antecipada para APIs críticas -->
+  <!-- ⚡ ULTRA-FAST LOADING: Critical resource preloading -->
   <link rel="preconnect" href="https://js.stripe.com" crossorigin />
   <link rel="preconnect" href="https://api.stripe.com" crossorigin />
   <link rel="preconnect" href="https://api.clicknich.com" crossorigin />
+  <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
+
+  <!-- DNS prefetch for ultra-fast resolution -->
   <link rel="dns-prefetch" href="https://js.stripe.com" />
   <link rel="dns-prefetch" href="https://api.clicknich.com" />
+  <link rel="dns-prefetch" href="https://cdn.tailwindcss.com" />
+  <link rel="dns-prefetch" href="https://unpkg.com" />
 
   <!-- Open Graph / Facebook / WhatsApp -->
   <meta property="og:type" content="website" />
@@ -36,8 +43,188 @@
   <meta name="twitter:description" content="Plataforma para criar aplicativos personalizados para infoprodutos" />
   <meta name="twitter:image" content="https://app.clicknich.com/icon.jpeg" />
 
-  <!-- Preload de assets críticos -->
-  <link rel="preload" href="/pw.jpg" as="image" type="image/jpeg" />
+  <!-- Preload de assets críticos para rendering instantâneo -->
+  <link rel="preload" href="/pw.jpg" as="image" type="image/jpeg" fetchpriority="high" />
+  <link rel="modulepreload" href="/src/main.tsx" />
+  <link rel="modulepreload" href="/src/App.tsx" />
+
+  <!-- Critical CSS inline para zero FOUC -->
+  <style>
+    /* Critical above-the-fold styles */
+    body {
+      margin: 0;
+      background: #080b14;
+      font-family: ui-sans-serif, system-ui, sans-serif;
+      color: #fff
+    }
+
+    #root {
+      min-height: 100vh
+    }
+
+    #root:empty+#ck-pre {
+      display: block !important
+    }
+
+    .page-loading {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      background: #080b14
+    }
+
+    .spinner {
+      width: 2rem;
+      height: 2rem;
+      border: 2px solid #374151;
+      border-top: 2px solid #3b82f6;
+      border-radius: 50%;
+      animation: spin 1s linear infinite
+    }
+
+    @keyframes spin {
+      to {
+        transform: rotate(360deg)
+      }
+    }
+
+    @keyframes pulse {
+
+      0%,
+      100% {
+        opacity: 1
+      }
+
+      50% {
+        opacity: .5
+      }
+    }
+
+    @keyframes fadeIn {
+      from {
+        opacity: 0;
+        transform: translateY(8px)
+      }
+
+      to {
+        opacity: 1;
+        transform: translateY(0)
+      }
+    }
+
+    /* === CHECKOUT PRE-RENDER SHELL === */
+    #ck-pre {
+      display: none;
+      max-width: 480px;
+      margin: 0 auto;
+      padding: 1rem;
+      min-height: 100vh;
+      animation: fadeIn .2s ease-out;
+    }
+
+    #ck-pre.ready {
+      animation: fadeIn .15s ease-out
+    }
+
+    .ck-banner {
+      width: 100%;
+      border-radius: 12px;
+      overflow: hidden;
+      background: #1f2937;
+      margin-bottom: 1rem;
+      min-height: 160px;
+    }
+
+    .ck-banner img {
+      width: 100%;
+      display: block;
+      object-fit: cover;
+    }
+
+    .ck-banner-pulse {
+      width: 100%;
+      height: 160px;
+      background: linear-gradient(90deg, #1f2937 25%, #374151 50%, #1f2937 75%);
+      background-size: 200% 100%;
+      animation: shimmer 1.4s infinite;
+    }
+
+    @keyframes shimmer {
+      0% {
+        background-position: 200% 0
+      }
+
+      100% {
+        background-position: -200% 0
+      }
+    }
+
+    .ck-product-row {
+      display: flex;
+      align-items: center;
+      gap: .75rem;
+      background: #111827;
+      border-radius: 12px;
+      padding: .875rem;
+      margin-bottom: 1rem;
+    }
+
+    .ck-product-img {
+      width: 56px;
+      height: 56px;
+      border-radius: 8px;
+      object-fit: cover;
+      background: #1f2937;
+      flex-shrink: 0;
+    }
+
+    .ck-product-name {
+      font-size: .9rem;
+      font-weight: 600;
+      color: #f3f4f6;
+      margin-bottom: .25rem;
+    }
+
+    .ck-product-price {
+      font-size: 1.25rem;
+      font-weight: 700;
+      color: #fff;
+    }
+
+    .ck-pulse-line {
+      height: .875rem;
+      border-radius: 4px;
+      background: linear-gradient(90deg, #1f2937 25%, #374151 50%, #1f2937 75%);
+      background-size: 200% 100%;
+      animation: shimmer 1.4s infinite;
+      margin-bottom: .5rem;
+    }
+
+    .ck-form-skeleton {
+      background: #111827;
+      border-radius: 12px;
+      padding: 1.25rem;
+    }
+
+    .ck-input-skeleton {
+      height: 44px;
+      background: #1f2937;
+      border-radius: 8px;
+      margin-bottom: .75rem;
+      animation: shimmer 1.4s infinite;
+      background-size: 200% 100%;
+      background-image: linear-gradient(90deg, #1f2937 25%, #374151 50%, #1f2937 75%);
+    }
+
+    .ck-btn-skeleton {
+      height: 48px;
+      background: #3b82f6;
+      border-radius: 8px;
+      opacity: .5;
+      margin-top: .5rem;
+    }
+  </style>
 
   <!-- Preconnect para Supabase (reduz latência DNS+TCP+TLS) -->
   <link rel="preconnect" href="https://cgeqtodbisgwvhkaahiy.supabase.co" crossorigin />
@@ -57,8 +244,171 @@
 </head>
 
 <body>
+  <!-- Spinner genérico para rotas não-checkout -->
+  <div id="page-loading" class="page-loading">
+    <div class="spinner"></div>
+  </div>
+
+  <!-- ⚡ PRE-RENDER SHELL: Renderizado com JS puro antes do React carregar.
+       Quando os dados chegam do KV (<5ms cache hit), preenche nome/preço/imagem
+       imediatamente — o usuário vê o checkout real antes do React montar. -->
+  <div id="ck-pre" aria-hidden="true">
+    <!-- Banner -->
+    <div class="ck-banner" id="ck-banner">
+      <div class="ck-banner-pulse" id="ck-banner-pulse"></div>
+    </div>
+
+    <!-- Produto -->
+    <div class="ck-product-row">
+      <img id="ck-product-img" class="ck-product-img" src="" alt="" style="display:none">
+      <div style="flex:1">
+        <div id="ck-product-name-pulse" class="ck-pulse-line" style="width:60%"></div>
+        <div id="ck-product-price-pulse" class="ck-pulse-line" style="width:30%"></div>
+        <div id="ck-product-name" class="ck-product-name" style="display:none"></div>
+        <div id="ck-product-price" class="ck-product-price" style="display:none"></div>
+      </div>
+    </div>
+
+    <!-- Formulário skeleton -->
+    <div class="ck-form-skeleton">
+      <div class="ck-input-skeleton"></div>
+      <div class="ck-input-skeleton"></div>
+      <div class="ck-input-skeleton"></div>
+      <div class="ck-btn-skeleton"></div>
+    </div>
+  </div>
+
   <div id="root"></div>
-  <script type="module" src="/src/main.tsx"></script>
+
+  <script>
+    (function () {
+      // Se __IS_CHECKOUT_ROUTE__ já foi definido pelo edge worker (_worker.js),
+      // aproveitamos os dados injetados no HTML e pulamos o fetch.
+      var edgeInjected = !!window.__IS_CHECKOUT_ROUTE__;
+
+      var path = window.location.pathname;
+      var match = path.match(/^\/c\/([^/]+)/);
+      if (!match && !edgeInjected) return;
+
+      var shortId = window.__CHECKOUT_SHORT_ID__ || (match && match[1]);
+      if (!shortId) return;
+
+      // Garantir que as flags estejam definidas (caso _worker.js não tenha rodado)
+      window.__IS_CHECKOUT_ROUTE__ = true;
+      window.__CHECKOUT_SHORT_ID__ = shortId;
+
+      // Ocultar spinner genérico, mostrar shell de checkout
+      document.getElementById('page-loading').style.display = 'none';
+      document.getElementById('ck-pre').style.display = 'block';
+
+      // ⚡ Se o edge worker já injetou os dados, reutilizamos — ZERO fetch extra
+      var fetchPromise;
+      if (window.__checkoutDataPromise) {
+        // _worker.js já criou a promise (ou resolveu com os dados)
+        fetchPromise = window.__checkoutDataPromise;
+      } else {
+        // Fallback: inicia o fetch agora (antes do bundle JS carregar)
+        fetchPromise = fetch(
+          'https://api.clicknich.com/api/checkout-data/' + shortId,
+          { priority: 'high', cache: 'default' }
+        ).then(function (r) { return r.ok ? r.json() : null; })
+          .catch(function () { return null; });
+
+        // Guardar para o React consumir (sem refetch)
+        window.__checkoutDataPromise = fetchPromise;
+      }
+
+      // Quando os dados chegarem, preencher o shell com dados REAIS
+      // (pode acontecer antes do React terminar de carregar)
+      fetchPromise.then(function (data) {
+        if (!data || data.error) return;
+
+        // Guardar para o React ler diretamente (zero refetch)
+        window.__CHECKOUT_DATA__ = data;
+
+        var prod = data.product;
+        var ck = data.checkout;
+        if (!prod || !ck) return;
+
+        // Banner
+        var bannerPulse = document.getElementById('ck-banner-pulse');
+        var bannerEl = document.getElementById('ck-banner');
+        if (ck.banner_image) {
+          var img = new Image();
+          img.onload = function () {
+            if (bannerPulse) bannerPulse.style.display = 'none';
+            bannerEl.innerHTML = '<img src="' + ck.banner_image + '" alt="" style="width:100%;display:block">';
+          };
+          img.src = ck.banner_image;
+        } else {
+          if (bannerEl) bannerEl.style.display = 'none';
+        }
+
+        // Imagem do produto
+        if (prod.image_url) {
+          var pImg = document.getElementById('ck-product-img');
+          pImg.src = prod.image_url;
+          pImg.style.display = 'block';
+        }
+
+        // Nome
+        document.getElementById('ck-product-name-pulse').style.display = 'none';
+        var nameEl = document.getElementById('ck-product-name');
+        nameEl.textContent = prod.name || '';
+        nameEl.style.display = 'block';
+
+        // Preço
+        document.getElementById('ck-product-price-pulse').style.display = 'none';
+        var price = ck.custom_price || prod.price || 0;
+        var currency = prod.currency || 'BRL';
+        var formatted = new Intl.NumberFormat('pt-BR', {
+          style: 'currency', currency: currency.toUpperCase()
+        }).format(price);
+        var priceEl = document.getElementById('ck-product-price');
+        priceEl.textContent = formatted;
+        priceEl.style.display = 'block';
+
+        // Marcar como pronto (remove animations)
+        document.getElementById('ck-pre').classList.add('ready');
+      });
+
+      // Quando o React montar, ocultar o shell pre-renderizado
+      // MutationObserver detecta quando #root recebe conteúdo
+      var observer = new MutationObserver(function () {
+        var root = document.getElementById('root');
+        if (root && root.children.length > 0) {
+          var pre = document.getElementById('ck-pre');
+          if (pre) pre.style.display = 'none';
+          observer.disconnect();
+        }
+      });
+      observer.observe(document.getElementById('root'), { childList: true });
+
+      // Service Worker
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('/sw.js', { updateViaCache: 'all' })
+          .then(function (reg) {
+            if (reg.active) reg.active.postMessage({ type: 'PRECACHE_CHECKOUT' });
+          }).catch(function () { });
+      }
+    })();
+
+    // Para rotas não-checkout, remover spinner após React montar
+    if (!window.__IS_CHECKOUT_ROUTE__) {
+      setTimeout(function () {
+        var el = document.getElementById('page-loading');
+        if (el) el.style.display = 'none';
+      }, 150);
+
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('/sw.js', { updateViaCache: 'all' })
+          .catch(function () { });
+      }
+    }
+  </script>
+
+  <!-- Main app with defer for non-blocking -->
+  <script type="module" src="/src/main.tsx" defer></script>
 </body>
 
 </html>

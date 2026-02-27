@@ -1,0 +1,24 @@
+# Cloudflare Pages — wrangler.toml
+# Este arquivo configura o projeto Pages para o deploy via wrangler CLI
+# e define os bindings disponíveis no _worker.js
+
+name = "clicknich-app"        # Nome do projeto no Cloudflare Pages Dashboard
+pages_build_output_dir = "dist"
+
+compatibility_date = "2024-01-01"
+compatibility_flags = ["nodejs_compat"]
+
+# ─── KV Namespace ────────────────────────────────────────────────────────────
+# Mesmo namespace do API worker → _worker.js lê o cache diretamente,
+# sem precisar fazer uma chamada extra para api.clicknich.com
+[[kv_namespaces]]
+binding = "CACHE"
+id = "2060c79bb2c742ea8fb264fe87ec14e4"
+
+# ─── Nota ─────────────────────────────────────────────────────────────────────
+# Se o projeto Pages foi criado via Dashboard e não via CLI,
+# configure o binding manualmente em:
+#   Cloudflare Dashboard → Pages → clicknich-app → Settings
+#     → Functions → KV namespace bindings
+#   Variable name: CACHE
+#   KV namespace:  (selecionar o namespace existente)

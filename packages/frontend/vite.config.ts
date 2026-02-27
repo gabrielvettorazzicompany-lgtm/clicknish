@@ -52,7 +52,20 @@ export default defineConfig({
           if (id.includes('@supabase')) return 'vendor-supabase'
           // HeroUI + React Aria em chunk separado (~400KB)
           if (id.includes('@heroui') || id.includes('@react-aria') || id.includes('@react-stately')) return 'vendor-ui'
-          // Resto dos node_modules (inclui React — não separar para evitar erro de ordem de carregamento com createContext)
+          // ⚡ CHECKOUT: chunk dedicado — só carrega para quem abrir o checkout
+          // Isola o código de pagamento do bundle do admin (reduz ~40% do bundle inicial)
+          if (
+            id.includes('pages/checkout/CheckoutPublic') ||
+            id.includes('pages/checkout/CheckoutDigital') ||
+            id.includes('components/checkout/CheckoutDigital') ||
+            id.includes('components/checkout/CheckoutWrapper') ||
+            id.includes('components/checkout/useOrderBumps') ||
+            id.includes('components/checkout/hooks/') ||
+            id.includes('components/checkout/components/')
+          ) return 'checkout'
+          // Stripe — chunk separado, só carrega no checkout
+          if (id.includes('@stripe') || id.includes('stripe-js')) return 'vendor-stripe'
+          // Resto dos node_modules
           if (id.includes('node_modules')) return 'vendor-misc'
         },
       },

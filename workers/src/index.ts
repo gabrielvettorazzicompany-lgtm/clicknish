@@ -34,6 +34,7 @@ import { handleSuperadmin } from './handlers/superadmin'
 import { handleWebhooks, handleStripeWebhook } from './handlers/webhooks'
 import { handleCheckoutSession } from './handlers/checkout-session'
 import { handleCheckoutData } from './handlers/checkout-data'
+import { handleCachePreloader } from './handlers/preloader'
 
 export interface Env {
     // Variáveis públicas
@@ -63,6 +64,13 @@ const corsHeaders = {
 }
 
 export default {
+    // ⚡ CRON TRIGGER: Pré-aquecimento automático de cache a cada 2 minutos
+    async scheduled(_event: ScheduledEvent, env: Env, _ctx: ExecutionContext) {
+        console.log('🔥 Cron: cache preloader starting')
+        const fakeRequest = new Request('https://api.clicknich.com/api/cache-preloader')
+        await handleCachePreloader(fakeRequest, env)
+    },
+
     async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
         const url = new URL(request.url)
         const { pathname } = url
@@ -120,10 +128,15 @@ async function handleApiRoute(
         return handleCheckoutSession(request, env)
     }
 
-    // GET /api/checkout-data/:shortId — RPC com cache edge (3min TTL)
+    // GET /api/checkout-data/:shortId — RPC com cache edge ultra-rápido (5min TTL)
     if (pathname.startsWith('/api/checkout-data/') && request.method === 'GET') {
         const shortId = pathname.split('/api/checkout-data/')[1]
         return handleCheckoutData(request, env, shortId)
+    }
+
+    // GET /api/cache-preloader — Sistema de pré-aquecimento inteligente (cron trigger)
+    if (pathname === '/api/cache-preloader' && request.method === 'GET') {
+        return handleCachePreloader(request, env)
     }
 
     // POST /api/process-payment
