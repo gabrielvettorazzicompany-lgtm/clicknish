@@ -3,6 +3,7 @@ import { Loader2, CheckCircle } from 'lucide-react'
 import { OrderBump, CheckoutImageBlock } from './types'
 import { formatPrice, calculateInstallmentValue } from './utils'
 import CheckoutImageDisplay from './components/CheckoutImageDisplay'
+import ImageDropZone from './components/ImageDropZone'
 
 interface OrderSummaryProps {
   productName: string
@@ -24,6 +25,8 @@ interface OrderSummaryProps {
   t: any // translations object
   buttonColor?: string
   imageBlocks?: CheckoutImageBlock[]
+  isDragging?: boolean
+  draggedComponentType?: string
 }
 
 export const OrderSummary: React.FC<OrderSummaryProps> = ({
@@ -45,7 +48,9 @@ export const OrderSummary: React.FC<OrderSummaryProps> = ({
   isMobile,
   t,
   buttonColor = '#111827',
-  imageBlocks
+  imageBlocks,
+  isDragging,
+  draggedComponentType
 }) => {
   // ═══════════════════════════════════════════════════════════════════
   // OPTIMISTIC UI: Feedback visual instantâneo ao clicar
@@ -145,6 +150,7 @@ export const OrderSummary: React.FC<OrderSummaryProps> = ({
       </div>
 
       {/* Image block: above buy button */}
+      <ImageDropZone slot="above_button" isPreview={isPreview} isDragging={isDragging} draggedComponentType={draggedComponentType} />
       <CheckoutImageDisplay imageBlocks={imageBlocks} slot="above_button" className="px-0" isPreview={isPreview} />
 
       <button
@@ -173,6 +179,7 @@ export const OrderSummary: React.FC<OrderSummaryProps> = ({
       </button>
 
       {/* Image block: below buy button */}
+      <ImageDropZone slot="below_button" isPreview={isPreview} isDragging={isDragging} draggedComponentType={draggedComponentType} />
       <CheckoutImageDisplay imageBlocks={imageBlocks} slot="below_button" className="px-0" isPreview={isPreview} />
 
       {paymentError && (

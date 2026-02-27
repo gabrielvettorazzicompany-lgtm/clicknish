@@ -58,7 +58,6 @@ export default function CheckoutBuilder() {
 
     const availableComponents: ComponentItem[] = [
         { id: 'timer', name: 'Timer', icon: Clock, type: 'timer' },
-        { id: 'seals', name: 'Trust Seals', icon: ShieldCheck, type: 'seals' },
         { id: 'testimonials', name: 'Depoimento', icon: MessageSquare, type: 'testimonials' },
         { id: 'image', name: 'Imagem', icon: ImageIcon, type: 'image' }
     ]
@@ -376,11 +375,11 @@ export default function CheckoutBuilder() {
         setTimeout(() => setEditingElement(null), 300) // Aguarda animação
     }
 
-    const handleAddImageBlock = () => {
+    const handleAddImageBlock = (slot: ImageBlockSlot = 'below_button') => {
         const newBlock: CheckoutImageBlock = {
             id: `img-${Date.now()}`,
             url: '',
-            slot: 'below_button',
+            slot: slot,
             width: 'full'
         }
         setImageBlocks(prev => [...prev, newBlock])
@@ -497,7 +496,22 @@ export default function CheckoutBuilder() {
             } else if (draggedComponent.type === 'testimonials') {
                 handleAddTestimonial()
             } else if (draggedComponent.type === 'image') {
-                handleAddImageBlock()
+                // Mapear drop zones para slots de imagem
+                const validImageSlots: ImageBlockSlot[] = [
+                    'below_payment_methods',
+                    'above_button',
+                    'below_button',
+                    'above_testimonials',
+                    'between_testimonials',
+                    'below_testimonials',
+                    'below_seals'
+                ]
+
+                if (dropZone && validImageSlots.includes(dropZone as ImageBlockSlot)) {
+                    handleAddImageBlock(dropZone as ImageBlockSlot)
+                } else {
+                    handleAddImageBlock('below_button') // slot padrão
+                }
             }
         }
         setDraggedComponent(null)
@@ -913,7 +927,7 @@ export default function CheckoutBuilder() {
                                 <textarea
                                     value={customUtms}
                                     onChange={(e) => setCustomUtms(e.target.value)}
-                                    placeholder={`<!-- UTMs do Facebook -->\n<script>\n  window.customUTMs = {\n    utm_source: 'FB',\n    utm_campaign: '{{campaign.name}}|{{campaign.id}}',\n    utm_medium: '{{adset.name}}|{{adset.id}}',\n    utm_content: '{{ad.name}}|{{ad.id}}',\n    utm_term: '{{placement}}'\n  };\n</script>`}
+                                    placeholder={`<script\n  src="https://cdn.utmify.com.br/scripts/utms/latest.js"\n  data-utmify-prevent-xcod-sck\n  data-utmify-prevent-subids\n  async\n  defer\n></script>`}
                                     rows={4}
                                     className="w-full px-2 py-2 bg-[#0f1117] border border-[#252941] rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-300 text-[11px] font-mono resize-y"
                                 />
@@ -1396,18 +1410,6 @@ export default function CheckoutBuilder() {
                                             <option value="medium">Médio</option>
                                             <option value="small">Pequeno</option>
                                         </select>
-                                    </div>
-
-                                    {/* Link */}
-                                    <div>
-                                        <label className="block text-[10px] font-medium text-gray-400 mb-1">Link (opcional)</label>
-                                        <input
-                                            type="url"
-                                            value={(block as any).link ?? ''}
-                                            onChange={(e) => handleUpdateImageBlock(block.id, { link: e.target.value } as any)}
-                                            placeholder="https://..."
-                                            className="w-full px-2 py-1.5 bg-[#0f1117] border border-[#252941] rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500 text-gray-100 text-xs"
-                                        />
                                     </div>
                                 </div>
                             )

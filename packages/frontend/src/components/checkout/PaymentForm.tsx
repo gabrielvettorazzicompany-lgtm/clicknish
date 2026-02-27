@@ -5,6 +5,7 @@ import { FormData, CheckoutImageBlock } from './types'
 import { stripeElementStyle, isValidEmail } from './utils'
 import { useI18n } from '@/i18n'
 import CheckoutImageDisplay from './components/CheckoutImageDisplay'
+import ImageDropZone from './components/ImageDropZone'
 
 interface PaymentFormProps {
   formData: FormData
@@ -22,6 +23,8 @@ interface PaymentFormProps {
   onLeadCapture?: (data: { email: string; name: string; phone: string }) => void
   t: any // translations object
   imageBlocks?: CheckoutImageBlock[]
+  isDragging?: boolean
+  draggedComponentType?: string
 }
 
 export const PaymentForm: React.FC<PaymentFormProps> = ({
@@ -39,7 +42,9 @@ export const PaymentForm: React.FC<PaymentFormProps> = ({
   isPreview,
   onLeadCapture,
   t,
-  imageBlocks
+  imageBlocks,
+  isDragging,
+  draggedComponentType
 }) => {
   const [expandedPaymentMethod, setExpandedPaymentMethod] = useState<'credit_card' | null>(defaultPaymentMethod)
   const [installments, setInstallments] = useState(1)
@@ -324,6 +329,7 @@ export const PaymentForm: React.FC<PaymentFormProps> = ({
       </div>
 
       {/* Image blocks: below payment methods */}
+      <ImageDropZone slot="below_payment_methods" isPreview={isPreview} isDragging={isDragging} draggedComponentType={draggedComponentType} />
       <CheckoutImageDisplay imageBlocks={imageBlocks} slot="below_payment_methods" isPreview={isPreview} />
 
       {/* Error and Success Messages */}

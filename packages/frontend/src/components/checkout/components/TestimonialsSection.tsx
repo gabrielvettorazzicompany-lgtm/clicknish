@@ -1,6 +1,7 @@
 import React from 'react'
 import type { Testimonial, CheckoutImageBlock } from '../types'
 import CheckoutImageDisplay from './CheckoutImageDisplay'
+import ImageDropZone from './ImageDropZone'
 
 export type { Testimonial }
 
@@ -10,6 +11,8 @@ interface TestimonialsSectionProps {
     onClick?: (id: string) => void
     imageBlocks?: CheckoutImageBlock[]
     onPreviewAdd?: () => void
+    isDragging?: boolean
+    draggedComponentType?: string
 }
 
 function StarRating({ stars, color }: { stars: number; color: string }) {
@@ -98,7 +101,7 @@ function TestimonialCard({ testimonial }: { testimonial: Testimonial }) {
     )
 }
 
-export default function TestimonialsSection({ testimonials, isPreview, onClick, imageBlocks, onPreviewAdd }: TestimonialsSectionProps) {
+export default function TestimonialsSection({ testimonials, isPreview, onClick, imageBlocks, onPreviewAdd, isDragging, draggedComponentType }: TestimonialsSectionProps) {
     if (!testimonials || testimonials.length === 0) return null
 
     const hasHorizontal = testimonials.some(t => t.horizontalMode)
@@ -130,6 +133,7 @@ export default function TestimonialsSection({ testimonials, isPreview, onClick, 
             )}
 
             {/* Image block: between testimonials groups */}
+            <ImageDropZone slot="between_testimonials" isPreview={isPreview} isDragging={isDragging} draggedComponentType={draggedComponentType} />
             <CheckoutImageDisplay imageBlocks={imageBlocks} slot="between_testimonials" isPreview={isPreview} />
 
             {/* Horizontal cards */}

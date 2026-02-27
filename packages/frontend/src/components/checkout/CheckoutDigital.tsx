@@ -30,8 +30,8 @@ import type { CheckoutDigitalProps, PaymentData, CustomBanner } from './types'
 
 // Componentes não-críticos (below the fold) — lazy load
 const TestimonialsSection = React.lazy(() => import('./components/TestimonialsSection'))
-const SecuritySeals = React.lazy(() => import('./components/SecuritySeals'))
 const CheckoutImageDisplay = React.lazy(() => import('./components/CheckoutImageDisplay'))
+const ImageDropZone = React.lazy(() => import('./components/ImageDropZone'))
 const CheckoutFooter = React.lazy(() => import('./components/CheckoutFooter'))
 const Modal = React.lazy(() => import('./components/Modal'))
 const PrivacyPolicyContent = React.lazy(() => import('./components/PrivacyPolicyContent'))
@@ -268,6 +268,8 @@ function CheckoutDigital({
                             onLeadCapture={onLeadCapture}
                             t={t}
                             imageBlocks={imageBlocks}
+                            isDragging={isDragging}
+                            draggedComponentType={draggedComponentType || undefined}
                         />
 
                         <OrderBumpsList
@@ -301,6 +303,8 @@ function CheckoutDigital({
                             t={t}
                             buttonColor={buttonColor}
                             imageBlocks={imageBlocks}
+                            isDragging={isDragging}
+                            draggedComponentType={draggedComponentType || undefined}
                         />
                     </div>
                 </div>
@@ -326,51 +330,47 @@ function CheckoutDigital({
                         t={t}
                         buttonColor={buttonColor}
                         imageBlocks={imageBlocks}
+                        isDragging={isDragging}
+                        draggedComponentType={draggedComponentType || undefined}
                     />
                 </div>
             </div>
 
             {/* Testimonials + Seals + Footer — lazy loaded (below the fold) */}
             <React.Suspense fallback={null}>
-            {/* Testimonials */}
-            <div className="w-full lg:max-w-7xl lg:mx-auto">
-                {/* Image block: above testimonials */}
-                <CheckoutImageDisplay imageBlocks={imageBlocks} slot="above_testimonials" isPreview={isPreview} onPreviewClick={isPreview ? onImageBlockClick : undefined} />
-                <TestimonialsSection
-                    testimonials={testimonials}
-                    isPreview={isPreview}
-                    onClick={isPreview && onTestimonialsClick ? (id) => onTestimonialsClick(id) : undefined}
-                    imageBlocks={imageBlocks}
-                    onPreviewAdd={isPreview && onTestimonialsClick ? () => onTestimonialsClick(undefined) : undefined}
-                />
-                {/* Image block: below testimonials */}
-                <CheckoutImageDisplay imageBlocks={imageBlocks} slot="below_testimonials" isPreview={isPreview} onPreviewClick={isPreview ? onImageBlockClick : undefined} />
-            </div>
-
-            {/* Security Seals */}
-            {(securitySealsEnabled || isPreview) && (
-                <div className={`w-full lg:max-w-7xl lg:mx-auto px-4 ${!securitySealsEnabled && isPreview ? 'opacity-30' : ''}`}>
-                    <SecuritySeals
+                {/* Testimonials */}
+                <div className="w-full lg:max-w-7xl lg:mx-auto">
+                    {/* Image block: above testimonials */}
+                    <ImageDropZone slot="above_testimonials" isPreview={isPreview} isDragging={isDragging} draggedComponentType={draggedComponentType || undefined} />
+                    <CheckoutImageDisplay imageBlocks={imageBlocks} slot="above_testimonials" isPreview={isPreview} onPreviewClick={isPreview ? onImageBlockClick : undefined} />
+                    <TestimonialsSection
+                        testimonials={testimonials}
                         isPreview={isPreview}
-                        onClick={isPreview ? onSecuritySealsClick : undefined}
-                        isDraggingOver={false}
+                        onClick={isPreview && onTestimonialsClick ? (id) => onTestimonialsClick(id) : undefined}
+                        imageBlocks={imageBlocks}
+                        onPreviewAdd={isPreview && onTestimonialsClick ? () => onTestimonialsClick(undefined) : undefined}
+                        isDragging={isDragging}
+                        draggedComponentType={draggedComponentType || undefined}
                     />
+                    {/* Image block: below testimonials */}
+                    <ImageDropZone slot="below_testimonials" isPreview={isPreview} isDragging={isDragging} draggedComponentType={draggedComponentType || undefined} />
+                    <CheckoutImageDisplay imageBlocks={imageBlocks} slot="below_testimonials" isPreview={isPreview} onPreviewClick={isPreview ? onImageBlockClick : undefined} />
                 </div>
-            )}
 
-            {/* Image block: below seals */}
-            <CheckoutImageDisplay imageBlocks={imageBlocks} slot="below_seals" className="w-full lg:max-w-7xl lg:mx-auto" isPreview={isPreview} onPreviewClick={isPreview ? onImageBlockClick : undefined} />
+                {/* Image block: below seals */}
+                <ImageDropZone slot="below_seals" isPreview={isPreview} isDragging={isDragging} draggedComponentType={draggedComponentType || undefined} />
+                <CheckoutImageDisplay imageBlocks={imageBlocks} slot="below_seals" className="w-full lg:max-w-7xl lg:mx-auto" isPreview={isPreview} onPreviewClick={isPreview ? onImageBlockClick : undefined} />
 
-            <CheckoutFooter t={t} onPrivacyClick={handlePrivacyClick} />
+                <CheckoutFooter t={t} onPrivacyClick={handlePrivacyClick} />
 
-            {/* Privacy Policy Modal */}
-            <Modal
-                isOpen={showPrivacyPolicy}
-                onClose={handlePrivacyClose}
-                title={t.privacyPolicy}
-            >
-                <PrivacyPolicyContent t={t} onClose={handlePrivacyClose} />
-            </Modal>
+                {/* Privacy Policy Modal */}
+                <Modal
+                    isOpen={showPrivacyPolicy}
+                    onClose={handlePrivacyClose}
+                    title={t.privacyPolicy}
+                >
+                    <PrivacyPolicyContent t={t} onClose={handlePrivacyClose} />
+                </Modal>
             </React.Suspense>
         </div>
     )
