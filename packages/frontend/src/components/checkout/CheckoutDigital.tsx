@@ -16,27 +16,25 @@ import { getTranslations, CheckoutLanguage } from './translations'
 import { useI18n } from '@/i18n'
 
 // Import optimized components and hooks
-import { useOrderBumps } from './useOrderBumps'
 import { useOrderBumpsOptimized } from './hooks/useOrderBumpsOptimized'
 import { useCheckoutState } from './hooks/useCheckoutState'
-// usePaymentProcessing moved to CheckoutDigitalForm only (needs Stripe context)
+// Componentes críticos (above the fold) — import estático
 import CheckoutHeader from './components/CheckoutHeader'
 import CheckoutTimer from './components/CheckoutTimer'
 import CheckoutBanner from './components/CheckoutBanner'
-import CheckoutMainContent from './components/CheckoutMainContent'
-import CheckoutFooter from './components/CheckoutFooter'
 import ProductInfoHeader from './components/ProductInfoHeader'
 import OrderBumpsList from './components/OrderBumpsList'
-import SecuritySeals from './components/SecuritySeals'
-import TestimonialsSection from './components/TestimonialsSection'
-import CheckoutImageDisplay from './components/CheckoutImageDisplay'
 import { PaymentForm } from './PaymentForm'
 import { OrderSummary } from './OrderSummary'
-import Modal from './components/Modal'
-import PrivacyPolicyContent from './components/PrivacyPolicyContent'
-import { ArrowLeft, ShieldCheck } from 'lucide-react'
-import { OrderBumpCard } from './OrderBumpCard'
 import type { CheckoutDigitalProps, PaymentData, CustomBanner } from './types'
+
+// Componentes não-críticos (below the fold) — lazy load
+const TestimonialsSection = React.lazy(() => import('./components/TestimonialsSection'))
+const SecuritySeals = React.lazy(() => import('./components/SecuritySeals'))
+const CheckoutImageDisplay = React.lazy(() => import('./components/CheckoutImageDisplay'))
+const CheckoutFooter = React.lazy(() => import('./components/CheckoutFooter'))
+const Modal = React.lazy(() => import('./components/Modal'))
+const PrivacyPolicyContent = React.lazy(() => import('./components/PrivacyPolicyContent'))
 
 function CheckoutDigital({
     productId,
@@ -332,6 +330,8 @@ function CheckoutDigital({
                 </div>
             </div>
 
+            {/* Testimonials + Seals + Footer — lazy loaded (below the fold) */}
+            <React.Suspense fallback={null}>
             {/* Testimonials */}
             <div className="w-full lg:max-w-7xl lg:mx-auto">
                 {/* Image block: above testimonials */}
@@ -371,6 +371,7 @@ function CheckoutDigital({
             >
                 <PrivacyPolicyContent t={t} onClose={handlePrivacyClose} />
             </Modal>
+            </React.Suspense>
         </div>
     )
 }
