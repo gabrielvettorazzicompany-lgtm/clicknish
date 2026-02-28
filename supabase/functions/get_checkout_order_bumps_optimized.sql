@@ -80,7 +80,7 @@ BEGIN
             a.name,
             p.name,
             'Produto'
-        ) as product_name,
+        )::TEXT as product_name,
         -- Usar preço da oferta ou preço original do produto  
         COALESCE(
             o.offer_price,
@@ -93,15 +93,15 @@ BEGIN
             mp.image_url,
             a.logo_url,
             p.cover_url
-        ) as product_image,
+        )::TEXT as product_image,
         o.offer_price,
-        o.offer_image,
-        o.button_text,
-        o.offer_text,
-        o.product_description,
+        o.offer_image::TEXT as offer_image,
+        o.button_text::TEXT as button_text,
+        o.offer_text::TEXT as offer_text,
+        o.product_description::TEXT as product_description,
         o.show_product_image,
         o.discount_percentage,
-        COALESCE(o.currency, mp.currency, 'USD') as currency,
+        COALESCE(o.currency, mp.currency, 'USD')::TEXT as currency,
         o.offer_position
     FROM offers o
     -- LEFT JOIN com todas as tabelas de produtos de uma vez

@@ -2,7 +2,6 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { ArrowLeft, Save, Eye, Upload, X, Monitor, Smartphone, Edit3, Clock, Link as LinkIcon, Check, RotateCw, Menu, ShoppingCart, Tag, Key, Code, Target, Tags, ShieldCheck, MessageSquare, Plus, Trash2, Star, Image as ImageIcon } from 'lucide-react'
 import Sidebar from '@/components/Sidebar'
-import Header from '@/components/Header'
 import CheckoutDigital from '@/components/checkout/CheckoutDigital'
 import type { CheckoutLanguage } from '@/components/checkout/translations'
 import type { Testimonial, CheckoutImageBlock, ImageBlockSlot } from '@/components/checkout/types'
@@ -587,8 +586,7 @@ export default function CheckoutBuilder() {
             <div className="min-h-screen bg-gray-50 dark:bg-gray-950 flex transition-colors duration-200">
                 <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
                 <div className="flex-1 flex flex-col min-w-0">
-                    <Header onMenuClick={() => setSidebarOpen(true)} />
-                    <div className="flex-1 flex items-center justify-center pt-20">
+                    <div className="flex-1 flex items-center justify-center">
                         <div className="text-center">
                             <div className="animate-spin rounded-full h-8 w-8 border-2 border-gray-700 border-t-blue-600 mx-auto"></div>
                             <p className="mt-3 text-sm text-gray-600">{t('common.loading')}</p>
@@ -614,13 +612,16 @@ export default function CheckoutBuilder() {
             <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
             <div className="flex-1 flex flex-col min-w-0">
-                {/* Header */}
-                <Header onMenuClick={() => setSidebarOpen(true)} />
-
-                {/* Navbar - Fixed below header */}
-                <div className="bg-gray-900 border-b border-gray-800 mt-12 sticky top-12 z-[60]">
+                {/* Navbar - Fixed at top */}
+                <div className="bg-gray-900 border-b border-gray-800 sticky top-0 z-[60]">
                     <div className="flex items-center justify-between px-4 lg:px-6">
                         <div className="flex items-center gap-4">
+                            <button
+                                onClick={() => setSidebarOpen(true)}
+                                className="p-2 hover:bg-gray-800/50 rounded-lg transition-colors duration-200 flex-shrink-0 lg:hidden"
+                            >
+                                <Menu size={14} className="text-blue-400" />
+                            </button>
                             <button
                                 onClick={() => navigate(-1)}
                                 className="p-2 hover:bg-gray-800/50 rounded-lg transition-colors duration-200 flex-shrink-0"
@@ -827,7 +828,7 @@ export default function CheckoutBuilder() {
                     </main>
                     {/* Components Panel - Right Side */}
                     <aside className="hidden lg:block w-56 flex-shrink-0">
-                        <div className="fixed top-[5rem] right-6 w-56 h-[calc(100vh-6rem)]">
+                        <div className="fixed top-[3rem] right-6 w-56 h-[calc(100vh-3rem)]">
                             {/* Components */}
                             <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-xl shadow-xl shadow-black/20 border-2 border-gray-600/30 p-4 h-full overflow-y-auto">
 

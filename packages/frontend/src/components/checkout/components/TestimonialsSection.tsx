@@ -102,7 +102,7 @@ function TestimonialCard({ testimonial }: { testimonial: Testimonial }) {
     )
 }
 
-export default function TestimonialsSection({ testimonials, isPreview, onClick, imageBlocks, onPreviewAdd, isDragging, draggedComponentType }: TestimonialsSectionProps) {
+export default function TestimonialsSection({ testimonials, isPreview, onClick, imageBlocks, onPreviewAdd, isDragging, draggedComponentType, onUpdateImageBlock }: TestimonialsSectionProps) {
     if (!testimonials || testimonials.length === 0) return null
 
     const hasHorizontal = testimonials.some(t => t.horizontalMode)

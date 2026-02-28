@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { CardNumberElement, CardExpiryElement, CardCvcElement } from '@stripe/react-stripe-js'
-import { ChevronDown, CreditCard, Loader2, CheckCircle } from 'lucide-react'
+import { ChevronDown, Loader2, CheckCircle } from 'lucide-react'
 import { FormData, CheckoutImageBlock } from './types'
 import { stripeElementStyle, isValidEmail } from './utils'
 import { useI18n } from '@/i18n'
@@ -211,14 +211,11 @@ export const PaymentForm: React.FC<PaymentFormProps> = ({
         </h2>
         <p className="text-[11px] text-gray-400 mb-4">{t.paymentMethodHelper}</p>
 
-        {/* Payment methods as expandable cards */}
+        {/* Payment methods */}
         <div className="space-y-3">
-          {/* Cartão de Crédito Card */}
+          {/* Cartão de Crédito */}
           {selectedPaymentMethods.includes('credit_card') && (
-            <div className={`border rounded-xl transition-all bg-white ${expandedPaymentMethod === 'credit_card'
-              ? 'border-blue-200 ring-1 ring-blue-100'
-              : 'border-gray-200 hover:border-gray-300'
-              }`}>
+            <div className={`border rounded-xl transition-all bg-white ${expandedPaymentMethod === 'credit_card' ? 'border-blue-200 ring-1 ring-blue-100' : 'border-gray-200 hover:border-gray-300'}`}>
               <button
                 type="button"
                 onClick={() => setExpandedPaymentMethod(
@@ -227,15 +224,22 @@ export const PaymentForm: React.FC<PaymentFormProps> = ({
                 className="w-full flex items-center gap-3 p-3.5 min-h-[44px]"
                 style={{ touchAction: 'manipulation' }}
               >
-                <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center transition-colors ${expandedPaymentMethod === 'credit_card' ? 'border-blue-500' : 'border-gray-300'
-                  }`}>
-                  {expandedPaymentMethod === 'credit_card' && (
-                    <div className="w-2 h-2 bg-blue-500 rounded-full" />
-                  )}
-                </div>
                 <div className="flex items-center gap-2 flex-1">
-                  <CreditCard className="text-gray-400" size={18} />
-                  <span className="text-[13px] font-medium text-gray-800">{t.creditCard}</span>
+                  {/* Credit card icons */}
+                  <div className="flex items-center gap-0.5 px-2 py-1 bg-gray-50 border border-gray-200 rounded">
+                    {/* Visa */}
+                    <svg width="24" height="16" viewBox="0 0 24 16" fill="none">
+                      <rect width="24" height="16" rx="2" fill="white" />
+                      <path d="M10.5 11.5l1.2-7h1.9l-1.2 7h-1.9zm6.8-6.8c-.4-.1-.9-.2-1.6-.2-1.8 0-3 .9-3 2.2 0 1 .9 1.5 1.6 1.8.7.3.9.5.9.8 0 .4-.5.6-1 .6-.7 0-1-.1-1.6-.3l-.2-.1-.2 1.3c.4.2 1.1.3 1.9.3 1.9 0 3.1-.9 3.2-2.3 0-.7-.4-1.3-1.4-1.7-.6-.3-.9-.5-.9-.8 0-.3.3-.5.9-.5.5 0 .9.1 1.2.2l.1.1.2-1.4zM21 4.5h-1.5c-.5 0-.8.1-1 .6l-2.9 6.4h1.9l.4-1h2.3l.2 1h1.7L21 4.5zm-2.2 4.6c.1-.4.7-1.8.7-1.8l.4 1.8h-1.1zM8.5 4.5L6.7 9.7l-.2-.9c-.3-1-.9-2.1-1.7-2.6L6.4 11.5h1.9l2.8-7h-1.9" fill="#1434CB" />
+                    </svg>
+                    {/* Mastercard */}
+                    <svg width="24" height="16" viewBox="0 0 24 16" fill="none">
+                      <rect width="24" height="16" rx="2" fill="white" />
+                      <circle cx="9" cy="8" r="4" fill="#EB001B" />
+                      <circle cx="15" cy="8" r="4" fill="#F79E1B" />
+                      <path d="M12 4.8c.8.7 1.3 1.8 1.3 3s-.5 2.3-1.3 3c-.8-.7-1.3-1.8-1.3-3s.5-2.3 1.3-3z" fill="#FF5F00" />
+                    </svg>
+                  </div>
                 </div>
                 <ChevronDown
                   className={`w-4 h-4 text-gray-400 transition-transform ${expandedPaymentMethod === 'credit_card' ? 'rotate-180' : ''
@@ -327,6 +331,7 @@ export const PaymentForm: React.FC<PaymentFormProps> = ({
               )}
             </div>
           )}
+
         </div>
       </div>
 
