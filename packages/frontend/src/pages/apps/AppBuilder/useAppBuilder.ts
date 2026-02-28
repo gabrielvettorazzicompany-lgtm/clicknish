@@ -97,6 +97,10 @@ export function useAppBuilder() {
                     currency: 'BRL',
                 })
 
+                // Carregar métodos de pagamento salvos
+                setSelectedPaymentMethods(data.payment_methods || ['credit_card'])
+                setDefaultPaymentMethod(data.default_payment_method || 'credit_card')
+
                 const { data: defaultCheckout } = await supabase
                     .from('checkouts')
                     .select('custom_price')
@@ -178,6 +182,8 @@ export function useAppBuilder() {
                 primary_color: appData.primaryColor,
                 secondary_color: appData.secondaryColor,
                 banners: appData.banners,
+                payment_methods: selectedPaymentMethods,
+                default_payment_method: defaultPaymentMethod,
             }
 
             const response = await fetch(url, {

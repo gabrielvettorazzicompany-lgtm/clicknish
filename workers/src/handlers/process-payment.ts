@@ -29,6 +29,7 @@ export async function handleProcessPayment(
         customerName,
         customerPhone,
         paymentMethodId,
+        paymentProvider = 'stripe', // 'stripe' ou 'paypal'
         trackingParameters,
         selectedOrderBumps = [],
         installments = 1,
@@ -48,10 +49,18 @@ export async function handleProcessPayment(
             customerEmail,
             customerName,
             customerPhone,
+            paymentProvider,
             paymentMethodId: paymentMethodId ? 'present' : 'missing'
         })
 
-        // Inicializar clientes
+        // Verificar se é PayPal e redirecionar para handler específico
+        if (paymentProvider === 'paypal') {
+            // Importar dinamicamente para não carregar quando não necessário
+            const { handlePayPalPayment } = await import('./process-paypal-payment')
+            return handlePayPalPayment(rawBody, env, ctx)
+        }
+
+        // Continuar com Stripe (método padrão)
         const supabase = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY)
         const stripe = createStripeClient(env.STRIPE_SECRET_KEY)
 

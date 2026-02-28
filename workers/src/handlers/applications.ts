@@ -450,7 +450,9 @@ export async function handleApplications(
                 support_icon_url: body.support_icon_url || null,
                 app_type: body.app_type || 'login-complete',
                 language: body.language || 'pt-br',
-                theme: body.theme || 'light'
+                theme: body.theme || 'light',
+                payment_methods: body.payment_methods || ['credit_card'],
+                default_payment_method: body.default_payment_method || 'credit_card'
             }
 
             const { data, error } = await supabase

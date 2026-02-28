@@ -94,7 +94,7 @@ export default function ProductEdit() {
     const [currentUploadTarget, setCurrentUploadTarget] = useState<'module' | 'product'>('module')
 
     // Payment methods
-    const togglePaymentMethod = async (method: 'credit_card') => {
+    const togglePaymentMethod = async (method: 'credit_card' | 'paypal') => {
         const current = formData.payment_methods
         const updated = current.includes(method)
             ? current.filter(m => m !== method)
@@ -106,7 +106,7 @@ export default function ProductEdit() {
         }
     }
 
-    const handleSetDefaultPaymentMethod = async (method: 'credit_card') => {
+    const handleSetDefaultPaymentMethod = async (method: 'credit_card' | 'paypal') => {
         if (!formData.payment_methods.includes(method)) return
         setFormData(f => ({ ...f, default_payment_method: method }))
         if (productId) {
@@ -175,8 +175,8 @@ export default function ProductEdit() {
         payment_type: 'unique',
         sales_page_url: '',
         recurrence_period: 'monthly',
-        payment_methods: ['credit_card'] as ('credit_card')[],
-        default_payment_method: 'credit_card' as 'credit_card',
+        payment_methods: ['credit_card'] as ('credit_card' | 'paypal')[],
+        default_payment_method: 'credit_card' as 'credit_card' | 'paypal',
         show_in_marketplace: false,
         // Member area settings
         support_enabled: true,
@@ -319,8 +319,8 @@ export default function ProductEdit() {
                 payment_type: formData.payment_type,
                 sales_page_url: formData.sales_page_url,
                 recurrence_period: formData.recurrence_period,
-                payment_methods: ['credit_card'],
-                default_payment_method: 'credit_card',
+                payment_methods: formData.payment_methods,
+                default_payment_method: formData.default_payment_method,
                 show_in_marketplace: formData.show_in_marketplace,
                 // Member area settings
                 support_enabled: formData.support_enabled,
@@ -946,6 +946,10 @@ export default function ProductEdit() {
                                         defaultPaymentMethod={formData.default_payment_method}
                                         onTogglePaymentMethod={togglePaymentMethod}
                                         onSetDefaultPaymentMethod={handleSetDefaultPaymentMethod}
+                                        onSave={async () => {
+                                            // Não precisamos fazer nada aqui pois as mudanças já são salvas via callbacks
+                                            console.log('Configurações de pagamento salvas!')
+                                        }}
                                     />
                                 </div>
                             </div>

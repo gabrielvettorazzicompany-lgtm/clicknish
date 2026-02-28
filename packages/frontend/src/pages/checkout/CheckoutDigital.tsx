@@ -12,6 +12,8 @@ interface Product {
     description: string
     image_url?: string
     currency?: string
+    payment_methods?: ('credit_card' | 'paypal')[]
+    default_payment_method?: 'credit_card' | 'paypal'
 }
 
 function CheckoutDigital() {
@@ -75,6 +77,15 @@ function CheckoutDigital() {
         )
     }
 
+    // Garantir que payment_methods seja sempre um array
+    const safePaymentMethods = Array.isArray(product.payment_methods)
+        ? product.payment_methods
+        : product.payment_methods
+            ? [product.payment_methods]
+            : ['credit_card']
+
+    console.log('🔍 Final payment methods being passed:', safePaymentMethods)
+
     return (
         <CheckoutDigitalComponent
             productId={product.id}
@@ -84,6 +95,8 @@ function CheckoutDigital() {
             productCurrency={product.currency || 'USD'}
             productImage={product.image_url}
             productDescription={product.description}
+            selectedPaymentMethods={safePaymentMethods as ('credit_card' | 'paypal')[]}
+            defaultPaymentMethod={product.default_payment_method || 'credit_card'}
             onBack={() => navigate(-1)}
         />
     )

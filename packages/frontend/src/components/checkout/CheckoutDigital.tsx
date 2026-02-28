@@ -123,8 +123,12 @@ function CheckoutDigital({
     }, [productPrice, calculateBumpsTotal])
 
     // Memoized submit handler
-    const handleSubmit = useCallback(async (e?: React.FormEvent) => {
+    const handleSubmit = useCallback(async (e?: React.FormEvent, customFormData?: any) => {
         if (e) e.preventDefault()
+
+        console.log('📝 CheckoutDigital handleSubmit called')
+        console.log('📝 customFormData:', customFormData)
+        console.log('📝 formData from state:', formData)
 
         if (isPreview || !onProcessPayment) return
 
@@ -141,8 +145,13 @@ function CheckoutDigital({
                 ? totalWithBumps * (1 + 0.025 * installments)
                 : totalWithBumps
 
+            // Usar customFormData se fornecido, caso contrário usar formData do estado
+            const finalFormData = customFormData || formData
+
+            console.log('📝 Final formData to be used:', finalFormData)
+
             const paymentData = {
-                formData,
+                formData: finalFormData,
                 selectedOrderBumps,
                 totalAmount: parseFloat(totalWithInterest.toFixed(2)),
                 installments,
@@ -413,31 +422,54 @@ function CheckoutDigitalForm(props: CheckoutDigitalProps) {
     const handlePayment = useCallback(async (paymentData: PaymentData) => {
         const { formData } = paymentData
 
-        if (!stripe || !elements || props.isPreview) {
+        console.log('🔍 handlePayment called with formData:', formData)
+        console.log('🔍 Payment method:', formData.paymentMethod)
+
+        if (props.isPreview) {
             return { success: false }
         }
 
         try {
-            const cardElement = elements.getElement(CardNumberElement)
-            if (!cardElement) {
-                console.error('❌ Card element not found')
-                throw new Error('Card element not found')
+            let paymentMethodId: string | undefined
+            let paymentMethod: string = formData.paymentMethod || 'credit_card'
+
+            console.log('🔍 Final payment method:', paymentMethod)
+
+            // Processar apenas se for cartão de crédito
+            if (paymentMethod === 'credit_card') {
+                console.log('🔍 Processing credit card payment...')
+                if (!stripe || !elements) {
+                    throw new Error('Stripe not initialized')
+                }
+
+                const cardElement = elements.getElement(CardNumberElement)
+                if (!cardElement) {
+                    console.error('❌ Card element not found')
+                    throw new Error('Card element not found')
+                }
+
+                const { error: pmError, paymentMethod: stripePaymentMethod } = await stripe.createPaymentMethod({
+                    type: 'card',
+                    card: cardElement,
+                    billing_details: {
+                        name: formData.name,
+                        email: formData.email,
+                        phone: formData.phone,
+                    },
+                })
+
+                if (pmError) {
+                    console.error('❌ Payment method error:', pmError.message)
+                    throw new Error(pmError.message)
+                }
+
+                paymentMethodId = stripePaymentMethod.id
+            } else {
+                console.log('🔍 Processing PayPal payment...')
             }
 
-            const { error: pmError, paymentMethod } = await stripe.createPaymentMethod({
-                type: 'card',
-                card: cardElement,
-                billing_details: {
-                    name: formData.name,
-                    email: formData.email,
-                    phone: formData.phone,
-                },
-            })
-
-            if (pmError) {
-                console.error('❌ Payment method error:', pmError.message)
-                throw new Error(pmError.message)
-            }
+            // Mapear paymentMethod para paymentProvider que o backend espera
+            const paymentProvider = paymentMethod === 'credit_card' ? 'stripe' : 'paypal'
 
             const requestBody = {
                 productId: props.productId,
@@ -447,7 +479,8 @@ function CheckoutDigitalForm(props: CheckoutDigitalProps) {
                 customerEmail: formData.email,
                 customerName: formData.name,
                 customerPhone: formData.phone,
-                paymentMethodId: paymentMethod.id,
+                paymentMethodId: paymentMethodId,
+                paymentProvider: paymentProvider, // 'stripe' ou 'paypal'
                 selectedOrderBumps: paymentData.selectedOrderBumps,
                 totalAmount: paymentData.totalAmount,
                 installments: paymentData.installments ?? 1,

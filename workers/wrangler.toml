@@ -9,10 +9,13 @@ workers_dev = false
 SUPABASE_URL = "https://cgeqtodbisgwvhkaahiy.supabase.co"
 FRONTEND_URL = "https://app.clicknich.com"
 RESEND_FROM = "noreply@clicknich.com"
+PAYPAL_ENVIRONMENT = "sandbox"  # ou "live" para produção
 
 # Secrets (configurar via: wrangler secret put NOME_DA_SECRET)
 # - SUPABASE_SERVICE_ROLE_KEY
 # - STRIPE_SECRET_KEY
+# - PAYPAL_CLIENT_ID
+# - PAYPAL_CLIENT_SECRET
 # - RESEND_API_KEY
 
 # Rota customizada no domínio clicknich.com

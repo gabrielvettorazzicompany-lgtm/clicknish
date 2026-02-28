@@ -121,6 +121,10 @@ export default function AppBuilder() {
                       defaultPaymentMethod={defaultPaymentMethod}
                       onTogglePaymentMethod={togglePaymentMethod}
                       onSetDefaultPaymentMethod={setDefaultPaymentMethod}
+                      onSave={async () => {
+                        // Chama a função de salvar do app builder
+                        await handleSaveApp()
+                      }}
                     />
                   ) : (
                     <AppPreviewPanel appData={appData} />

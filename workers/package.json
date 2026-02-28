@@ -10,6 +10,7 @@
         "tail": "wrangler tail"
     },
     "dependencies": {
+        "@paypal/paypal-server-sdk": "^2.2.0",
         "stripe": "^14.11.0"
     },
     "devDependencies": {

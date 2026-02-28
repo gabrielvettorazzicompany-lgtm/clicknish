@@ -763,8 +763,8 @@ export default function CheckoutBuilder() {
                                             productName={product.name}
                                             productPrice={checkoutPrice !== '' ? parseFloat(checkoutPrice) || product.price : (checkout.custom_price || product.price)}
                                             productCurrency={product.currency}
-                                            selectedPaymentMethods={product.payment_methods as ('credit_card')[]}
-                                            defaultPaymentMethod={product.default_payment_method as 'credit_card'}
+                                            selectedPaymentMethods={product.payment_methods as ('credit_card' | 'paypal')[]}
+                                            defaultPaymentMethod={product.default_payment_method as 'credit_card' | 'paypal'}
                                             productImage={product.image_url}
                                             productDescription={product.description}
                                             language={checkoutLanguage}

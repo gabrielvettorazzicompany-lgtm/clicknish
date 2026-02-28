@@ -44,6 +44,9 @@ export interface Env {
     // Secrets (configurar via wrangler secret put)
     SUPABASE_SERVICE_ROLE_KEY: string
     STRIPE_SECRET_KEY: string
+    PAYPAL_CLIENT_ID: string
+    PAYPAL_CLIENT_SECRET: string
+    PAYPAL_ENVIRONMENT: 'sandbox' | 'live'
 
     // KV Storage — cache de sessões de checkout e dados gerais
     CACHE?: KVNamespace

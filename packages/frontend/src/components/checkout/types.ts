@@ -67,6 +67,7 @@ export interface FormData {
     name: string
     email: string
     phone: string
+    paymentMethod?: 'credit_card' | 'paypal'
 }
 
 export interface PaymentData {
@@ -100,8 +101,8 @@ export interface CheckoutDigitalProps {
     timerConfig?: TimerConfig
     onTimerClick?: () => void
     draggedComponentType?: 'image' | 'timer' | 'seals' | 'testimonials' | null
-    selectedPaymentMethods?: ('credit_card')[]
-    defaultPaymentMethod?: 'credit_card'
+    selectedPaymentMethods?: ('credit_card' | 'paypal')[]
+    defaultPaymentMethod?: 'credit_card' | 'paypal'
     productType?: 'app' | 'marketplace'
     applicationId?: string
     checkoutId?: string

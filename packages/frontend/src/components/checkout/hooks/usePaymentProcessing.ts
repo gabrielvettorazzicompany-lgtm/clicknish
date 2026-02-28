@@ -71,35 +71,51 @@ export const usePaymentProcessing = ({
             throw new Error(error)
         }
 
-        if (!stripe || !elements || isPreview) {
+        if (isPreview) {
             return { success: false }
         }
 
         try {
             onProcessingChange(true)
             onErrorChange(null)
-            onMessageChange('Validando cartão...')
 
-            const cardElement = elements.getElement(CardNumberElement)
-            if (!cardElement) {
-                throw new Error('Card element not found')
-            }
+            let paymentMethodId: string | undefined
+            let paymentMethod: string = formData.paymentMethod || 'credit_card'
 
-            const { error: pmError, paymentMethod } = await stripe.createPaymentMethod({
-                type: 'card',
-                card: cardElement,
-                billing_details: {
-                    name: formData.name,
-                    email: formData.email,
-                    phone: formData.phone,
-                },
-            })
+            // Processar apenas se for cartão de crédito
+            if (paymentMethod === 'credit_card') {
+                if (!stripe || !elements) {
+                    throw new Error('Stripe not initialized')
+                }
 
-            if (pmError) {
-                throw new Error(pmError.message)
+                onMessageChange('Validando cartão...')
+
+                const cardElement = elements.getElement(CardNumberElement)
+                if (!cardElement) {
+                    throw new Error('Card element not found')
+                }
+
+                const { error: pmError, paymentMethod: stripePaymentMethod } = await stripe.createPaymentMethod({
+                    type: 'card',
+                    card: cardElement,
+                    billing_details: {
+                        name: formData.name,
+                        email: formData.email,
+                        phone: formData.phone,
+                    },
+                })
+
+                if (pmError) {
+                    throw new Error(pmError.message)
+                }
+
+                paymentMethodId = stripePaymentMethod.id
             }
 
             onMessageChange('Processando pagamento...')
+
+            // Mapear paymentMethod para paymentProvider que o backend espera
+            const paymentProvider = paymentMethod === 'credit_card' ? 'stripe' : 'paypal'
 
             const requestBody = {
                 productId,
@@ -109,7 +125,8 @@ export const usePaymentProcessing = ({
                 customerEmail: formData.email,
                 customerName: formData.name,
                 customerPhone: formData.phone,
-                paymentMethodId: paymentMethod.id,
+                paymentMethodId: paymentMethodId,
+                paymentProvider: paymentProvider, // 'stripe' ou 'paypal'
                 selectedOrderBumps: paymentData.selectedOrderBumps,
                 totalAmount: paymentData.totalAmount,
                 installments: paymentData.installments ?? 1,

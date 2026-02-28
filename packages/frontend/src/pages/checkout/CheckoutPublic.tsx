@@ -16,6 +16,8 @@ interface Product {
     price: number
     image_url?: string
     description?: string
+    payment_methods?: ('credit_card' | 'paypal')[]
+    default_payment_method?: 'credit_card' | 'paypal'
     productType?: 'app' | 'marketplace'
     applicationId?: string
 }
@@ -429,7 +431,9 @@ export default function CheckoutPublic() {
                         name: resolvedProductName,
                         price: 0,
                         image_url: resolvedProductImage,
-                        description: resolvedProductDesc
+                        description: resolvedProductDesc,
+                        payment_methods: ['credit_card', 'paypal'],
+                        default_payment_method: 'credit_card'
                     }
                 } else {
                     // App data: already fetched in parallel when knownIsApp, otherwise fetch now
@@ -450,7 +454,9 @@ export default function CheckoutPublic() {
                         name: appData.name,
                         price: 0,
                         image_url: appData.logo,
-                        description: appData.description || ''
+                        description: appData.description || '',
+                        payment_methods: appData.payment_methods,
+                        default_payment_method: appData.default_payment_method
                     }
                 }
             } else {
@@ -465,7 +471,9 @@ export default function CheckoutPublic() {
                     name: productData.name,
                     price: productData.price,
                     image_url: productData.image_url,
-                    description: productData.description
+                    description: productData.description,
+                    payment_methods: productData.payment_methods,
+                    default_payment_method: productData.default_payment_method
                 }
             }
 
@@ -866,6 +874,8 @@ export default function CheckoutPublic() {
             productPrice={checkout.custom_price || product.price}
             productImage={product.image_url}
             productDescription={product.description}
+            selectedPaymentMethods={product.payment_methods || ['credit_card']}
+            defaultPaymentMethod={product.default_payment_method || 'credit_card'}
             productType={product.productType}
             applicationId={product.applicationId}
             checkoutId={checkout.id}
