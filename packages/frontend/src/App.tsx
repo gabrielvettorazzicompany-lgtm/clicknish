@@ -55,6 +55,7 @@ const CheckoutBuilder = lazy(() => import('./pages/checkout/CheckoutBuilder'))
 const CheckoutPublic = lazy(() => import('./pages/checkout/CheckoutPublic'))
 const Success = lazy(() => import('./pages/Success'))
 const OfferPage = lazy(() => import('./pages/checkout/OfferPage'))
+const PayPalReturn = lazy(() => import('./pages/checkout/PayPalReturn'))
 
 // Pages - Community (lazy loaded)
 const ModuleView = lazy(() => import('./pages/community/ModuleView'))
@@ -316,6 +317,13 @@ export default function App() {
           <Route path="/offer" element={
             <Suspense fallback={<PageLoader />}>
               <OfferPage />
+            </Suspense>
+          } />
+
+          {/* PayPal Return Page */}
+          <Route path="/paypal-return" element={
+            <Suspense fallback={<PageLoader />}>
+              <PayPalReturn />
             </Suspense>
           } />
 

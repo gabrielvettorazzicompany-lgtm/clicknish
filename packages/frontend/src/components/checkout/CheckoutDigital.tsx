@@ -529,6 +529,14 @@ function CheckoutDigitalForm(props: CheckoutDigitalProps) {
                 thankyouToken: result.thankyouToken
             }
 
+            // Resposta PayPal que requer redirecionamento para aprovação
+            if (result.requiresApproval && result.approvalUrl) {
+                console.log('🔵 PayPal redirect required:', result.approvalUrl)
+                window.location.href = result.approvalUrl
+                // Retornar pending para não mostrar erro enquanto redireciona
+                return { success: false }
+            }
+
             return {
                 success: true,
                 purchaseId: result.purchaseId,

@@ -57,7 +57,17 @@ export async function handleProcessPayment(
         if (paymentProvider === 'paypal') {
             // Importar dinamicamente para não carregar quando não necessário
             const { handlePayPalPayment } = await import('./process-paypal-payment')
-            return handlePayPalPayment(rawBody, env, ctx)
+            // Passar dados geo do request para o handler PayPal
+            const bodyWithGeo = {
+                ...rawBody,
+                _clientIP: request.headers.get('cf-connecting-ip') || 'unknown',
+                _geoData: {
+                    country: request.headers.get('cf-ipcountry') || null,
+                    region: request.headers.get('cf-region') || null,
+                    city: request.headers.get('cf-ipcity') || null,
+                },
+            }
+            return handlePayPalPayment(bodyWithGeo, env, ctx)
         }
 
         // Continuar com Stripe (método padrão)
