@@ -401,8 +401,29 @@ function CheckoutDigitalWithStripe(props: CheckoutDigitalProps) {
 
     const stripe = getStripePromise()
     if (!stripe) {
+        // Stripe não configurado: renderiza o checkout sem suporte a cartão de crédito
+        // Isso evita tela em branco — o usuário pode pelo menos ver o erro no console
+        console.error('❌ Stripe não inicializado. Verifique a variável VITE_STRIPE_PUBLIC_KEY.')
         const t = getTranslations(props.language || 'en')
-        return <div>{t.paymentSystemNotAvailable}</div>
+        const onlyPaypal = props.selectedPaymentMethods?.includes('paypal') &&
+            !props.selectedPaymentMethods?.includes('credit_card')
+        if (onlyPaypal) {
+            // Se só PayPal, renderiza sem Stripe
+            return <CheckoutDigital {...props} />
+        }
+        return (
+            <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+                <div className="bg-white rounded-xl shadow-sm border border-red-100 p-8 max-w-md w-full text-center">
+                    <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <svg className="w-6 h-6 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.268 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                        </svg>
+                    </div>
+                    <h2 className="text-lg font-semibold text-gray-800 mb-2">{t.paymentSystemNotAvailable}</h2>
+                    <p className="text-sm text-gray-500">Por favor, tente novamente mais tarde ou entre em contato com o suporte.</p>
+                </div>
+            </div>
+        )
     }
 
     return (
