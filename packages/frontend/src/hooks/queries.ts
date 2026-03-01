@@ -175,14 +175,47 @@ export function useDashboardStatsQuery(
                 .sort((a, b) => a.date.localeCompare(b.date))
                 .slice(-7)
 
+            // Agrupar por método de pagamento
+            const normalizeMethod = (m: string | null): string => {
+                if (!m) return 'card'
+                const l = m.toLowerCase()
+                if (l.includes('paypal')) return 'paypal'
+                if (l.includes('pix')) return 'pix'
+                if (l.includes('boleto') || l.includes('bank_slip')) return 'boleto'
+                if (l.includes('transfer')) return 'bank_transfer'
+                return 'card'
+            }
+            const METHOD_NAMES: Record<string, string> = {
+                card: 'Cartão de Crédito', paypal: 'PayPal', pix: 'Pix',
+                boleto: 'Boleto', bank_transfer: 'Transferência',
+            }
+            const methodGroups: Record<string, { value: number; count: number }> = {}
+            allSales.forEach((sale: any) => {
+                const key = normalizeMethod(sale.payment_method)
+                if (!methodGroups[key]) methodGroups[key] = { value: 0, count: 0 }
+                const memberAreaInfo = memberAreaPrices.get(sale.member_area_id)
+                const price = memberAreaInfo?.price || sale.products?.price || sale.purchase_price || 0
+                methodGroups[key].value += price
+                methodGroups[key].count += 1
+            })
+            const paymentMethods = Object.keys(methodGroups).length > 0
+                ? Object.entries(methodGroups).map(([icon, data]) => ({
+                    name: METHOD_NAMES[icon] || icon,
+                    icon,
+                    conversion: salesCount > 0 ? Math.round((data.count / salesCount) * 10000) / 100 : 0,
+                    value: data.value,
+                }))
+                : [
+                    { name: 'Cartão de Crédito', icon: 'card', conversion: 0, value: totalSales },
+                    { name: 'PayPal', icon: 'paypal', conversion: 0, value: 0 },
+                ]
+
             return {
                 totalSales,
                 salesCount,
                 conversionRate: 0,
                 checkouts: 0,
-                paymentMethods: [
-                    { name: 'Cartão de Crédito', icon: 'card', conversion: 0, value: totalSales },
-                ],
+                paymentMethods,
                 abandonedCheckouts: 0,
                 refundRate: 0,
                 chargebackRate: 0,

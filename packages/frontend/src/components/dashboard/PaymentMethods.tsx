@@ -19,6 +19,7 @@ const METHOD_NAME_KEYS: Record<string, string> = {
     card: 'orders.payment_method.credit_card',
     boleto: 'orders.payment_method.boleto',
     pix: 'orders.payment_method.pix',
+    paypal: 'orders.payment_method.paypal',
 }
 
 const METHOD_CONFIG: Record<string, { icon: JSX.Element; bar: string }> = {

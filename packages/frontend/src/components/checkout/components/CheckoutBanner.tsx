@@ -194,14 +194,14 @@ const CheckoutBanner = memo(({
                     <>
                         <div
                             onMouseDown={handleWidthResizeMouseDown}
-                            className={`absolute -right-2 top-1/2 -translate-y-1/2 w-4 h-16 bg-blue-500 rounded cursor-ew-resize opacity-0 group-hover:opacity-100 transition-opacity z-20 ${isResizingWidth ? 'opacity-100' : ''
+                            className={`absolute -right-1 top-1/2 -translate-y-1/2 w-1.5 h-10 bg-blue-500 rounded-full cursor-ew-resize opacity-0 group-hover:opacity-100 transition-opacity z-20 ${isResizingWidth ? 'opacity-100' : ''
                                 }`}
                             title="Arrastar para redimensionar largura"
                             onClick={(e) => e.stopPropagation()}
                         />
                         <div
                             onMouseDown={handleWidthResizeMouseDown}
-                            className={`absolute -left-2 top-1/2 -translate-y-1/2 w-4 h-16 bg-blue-500 rounded cursor-ew-resize opacity-0 group-hover:opacity-100 transition-opacity z-20 ${isResizingWidth ? 'opacity-100' : ''
+                            className={`absolute -left-1 top-1/2 -translate-y-1/2 w-1.5 h-10 bg-blue-500 rounded-full cursor-ew-resize opacity-0 group-hover:opacity-100 transition-opacity z-20 ${isResizingWidth ? 'opacity-100' : ''
                                 }`}
                             title="Arrastar para redimensionar largura"
                             onClick={(e) => e.stopPropagation()}
@@ -214,14 +214,14 @@ const CheckoutBanner = memo(({
                     <>
                         <div
                             onMouseDown={handleHeightResizeMouseDown}
-                            className={`absolute -top-2 left-1/2 -translate-x-1/2 h-4 w-16 bg-blue-500 rounded cursor-ns-resize opacity-0 group-hover:opacity-100 transition-opacity z-20 ${isResizingHeight ? 'opacity-100' : ''
+                            className={`absolute -top-1 left-1/2 -translate-x-1/2 h-1.5 w-10 bg-blue-500 rounded-full cursor-ns-resize opacity-0 group-hover:opacity-100 transition-opacity z-20 ${isResizingHeight ? 'opacity-100' : ''
                                 }`}
                             title="Arrastar para redimensionar altura"
                             onClick={(e) => e.stopPropagation()}
                         />
                         <div
                             onMouseDown={handleHeightResizeMouseDown}
-                            className={`absolute -bottom-2 left-1/2 -translate-x-1/2 h-4 w-16 bg-blue-500 rounded cursor-ns-resize opacity-0 group-hover:opacity-100 transition-opacity z-20 ${isResizingHeight ? 'opacity-100' : ''
+                            className={`absolute -bottom-1 left-1/2 -translate-x-1/2 h-1.5 w-10 bg-blue-500 rounded-full cursor-ns-resize opacity-0 group-hover:opacity-100 transition-opacity z-20 ${isResizingHeight ? 'opacity-100' : ''
                                 }`}
                             title="Arrastar para redimensionar altura"
                             onClick={(e) => e.stopPropagation()}

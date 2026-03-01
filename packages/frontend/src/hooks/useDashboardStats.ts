@@ -39,6 +39,7 @@ const defaultStats: DashboardStats = {
     checkouts: 0,
     paymentMethods: [
         { name: 'Cartão de Crédito', icon: 'card', conversion: 0, value: 0 },
+        { name: 'PayPal', icon: 'paypal', conversion: 0, value: 0 },
     ],
     abandonedCheckouts: 0,
     refundRate: 0,
@@ -89,7 +90,13 @@ export function useDashboardStats(
             }
 
             if (data) {
-                setRawStats(data)
+                // Garantir que PayPal sempre aparece na lista, mesmo sem vendas
+                const methods: typeof data.paymentMethods = data.paymentMethods || []
+                const hasPaypal = methods.some((m: any) => m.icon === 'paypal')
+                if (!hasPaypal) {
+                    methods.push({ name: 'PayPal', icon: 'paypal', conversion: 0, value: 0 })
+                }
+                setRawStats({ ...data, paymentMethods: methods })
             }
         } catch (error) {
             console.error('Error fetching dashboard stats:', error)

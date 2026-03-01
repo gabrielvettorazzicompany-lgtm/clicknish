@@ -105,13 +105,13 @@ const ImageBlock = ({ block, className, isPreview, onUpdateImageBlock }: ImageBl
                         {/* Resize handles */}
                         <div
                             onMouseDown={handleMouseDown}
-                            className={`absolute -right-2 top-1/2 -translate-y-1/2 w-4 h-16 bg-blue-500 rounded cursor-ew-resize opacity-0 group-hover:opacity-100 transition-opacity ${isResizing ? 'opacity-100' : ''
+                            className={`absolute -right-1 top-1/2 -translate-y-1/2 w-1.5 h-10 bg-blue-500 rounded-full cursor-ew-resize opacity-0 group-hover:opacity-100 transition-opacity ${isResizing ? 'opacity-100' : ''
                                 }`}
                             title="Arrastar para redimensionar"
                         />
                         <div
                             onMouseDown={handleMouseDown}
-                            className={`absolute -left-2 top-1/2 -translate-y-1/2 w-4 h-16 bg-blue-500 rounded cursor-ew-resize opacity-0 group-hover:opacity-100 transition-opacity ${isResizing ? 'opacity-100' : ''
+                            className={`absolute -left-1 top-1/2 -translate-y-1/2 w-1.5 h-10 bg-blue-500 rounded-full cursor-ew-resize opacity-0 group-hover:opacity-100 transition-opacity ${isResizing ? 'opacity-100' : ''
                                 }`}
                             title="Arrastar para redimensionar"
                         />

@@ -75,7 +75,8 @@
             "pix": "Pix",
             "boleto": "Boleto",
             "card": "Card",
-            "credit_card": "Credit Card"
+            "credit_card": "Credit Card",
+            "paypal": "PayPal"
         },
         "product_selector": {
             "label": "Select Product",

@@ -79,8 +79,11 @@ export async function handleDashboardStats(
                 throw new Error(rpcError.message)
             }
 
-            // Buscar vendas diárias para o gráfico (query separada)
-            const dailySales = await fetchDailySales(supabase, userId, fromDate, toDate, selectedApp, selectedMarketplace, selectedCurrency)
+            // Buscar vendas diárias e breakdown de métodos em paralelo
+            const [dailySales, paymentMethods] = await Promise.all([
+                fetchDailySales(supabase, userId, fromDate, toDate, selectedApp, selectedMarketplace, selectedCurrency),
+                fetchPaymentMethodBreakdown(supabase, userId, fromDate, toDate, selectedApp, selectedMarketplace),
+            ])
 
             // Calcular taxas
             const salesCount = rpcData?.salesCount || 0
@@ -93,9 +96,7 @@ export async function handleDashboardStats(
                 salesCount: salesCount,
                 conversionRate: Math.round(conversionRate * 100) / 100,
                 checkouts: checkoutsCount,
-                paymentMethods: [
-                    { name: 'Cartão de Crédito', icon: 'card', conversion: conversionRate, value: rpcData?.totalSales || 0 },
-                ],
+                paymentMethods,
                 abandonedCheckouts: Math.max(0, checkoutsCount - salesCount),
                 refundRate: Math.round(refundRate * 100) / 100,
                 chargebackRate: 0,
@@ -220,4 +221,116 @@ async function fetchDailySales(
         }))
         .sort((a, b) => a.date.localeCompare(b.date))
         .slice(-7)
+}
+
+/**
+ * Busca breakdown de métodos de pagamento (card, paypal, pix, boleto...)
+ */
+async function fetchPaymentMethodBreakdown(
+    supabase: any,
+    userId: string,
+    fromDate?: string,
+    toDate?: string,
+    selectedApp?: string,
+    selectedMarketplace?: string
+): Promise<Array<{ name: string; icon: string; conversion: number; value: number }>> {
+    const METHOD_DISPLAY_NAMES: Record<string, string> = {
+        card: 'Cartão de Crédito',
+        paypal: 'PayPal',
+        pix: 'Pix',
+        boleto: 'Boleto',
+        bank_transfer: 'Transferência',
+    }
+
+    const normalizeMethod = (m: string | null): string => {
+        if (!m) return 'card'
+        const l = m.toLowerCase()
+        if (l.includes('paypal')) return 'paypal'
+        if (l.includes('pix')) return 'pix'
+        if (l.includes('boleto') || l.includes('bank_slip')) return 'boleto'
+        if (l.includes('transfer')) return 'bank_transfer'
+        return 'card'
+    }
+
+    try {
+        const queries: Promise<any>[] = []
+
+        // Apps
+        if (!selectedMarketplace) {
+            let appIds: string[] = []
+            if (selectedApp) {
+                appIds = [selectedApp]
+            } else {
+                const { data: apps } = await supabase
+                    .from('applications')
+                    .select('id')
+                    .eq('owner_id', userId)
+                appIds = apps?.map((a: any) => a.id) || []
+            }
+            if (appIds.length > 0) {
+                let q = supabase
+                    .from('user_product_access')
+                    .select('payment_method, purchase_price')
+                    .eq('payment_status', 'completed')
+                    .in('application_id', appIds)
+                if (fromDate) q = q.gte('created_at', fromDate)
+                if (toDate) q = q.lte('created_at', toDate)
+                queries.push(q)
+            }
+        }
+
+        // Marketplace
+        if (!selectedApp) {
+            let memberAreaIds: string[] = []
+            if (selectedMarketplace) {
+                memberAreaIds = [selectedMarketplace]
+            } else {
+                const { data: mas } = await supabase
+                    .from('member_areas')
+                    .select('id')
+                    .eq('owner_id', userId)
+                memberAreaIds = mas?.map((m: any) => m.id) || []
+            }
+            if (memberAreaIds.length > 0) {
+                let q = supabase
+                    .from('user_member_area_access')
+                    .select('payment_method, purchase_price')
+                    .eq('payment_status', 'completed')
+                    .in('member_area_id', memberAreaIds)
+                if (fromDate) q = q.gte('created_at', fromDate)
+                if (toDate) q = q.lte('created_at', toDate)
+                queries.push(q)
+            }
+        }
+
+        const results = await Promise.all(queries)
+        const allRows = results.flatMap(r => r.data || [])
+
+        const groups: Record<string, { value: number; count: number }> = {}
+        let totalCount = 0
+        allRows.forEach((row: any) => {
+            const key = normalizeMethod(row.payment_method)
+            if (!groups[key]) groups[key] = { value: 0, count: 0 }
+            groups[key].value += parseFloat(row.purchase_price || 0)
+            groups[key].count += 1
+            totalCount += 1
+        })
+
+        if (Object.keys(groups).length === 0) {
+            return [
+                { name: 'Cartão de Crédito', icon: 'card', conversion: 0, value: 0 },
+                { name: 'PayPal', icon: 'paypal', conversion: 0, value: 0 },
+            ]
+        }
+
+        return Object.entries(groups).map(([icon, data]) => ({
+            name: METHOD_DISPLAY_NAMES[icon] || icon,
+            icon,
+            conversion: totalCount > 0 ? Math.round((data.count / totalCount) * 10000) / 100 : 0,
+            value: data.value,
+        }))
+    } catch (e) {
+        console.warn('fetchPaymentMethodBreakdown failed:', e)
+        return [{ name: 'Cartão de Crédito', icon: 'card', conversion: 0, value: 0 }]
+    }
 }

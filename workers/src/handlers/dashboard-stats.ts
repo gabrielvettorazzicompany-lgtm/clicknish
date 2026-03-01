@@ -107,7 +107,7 @@ export async function handleDashboardStats(
         if (shouldFetchMarketplace) {
             let q = supabase
                 .from('user_member_area_access')
-                .select('purchase_price, created_at, member_area_id')
+                .select('purchase_price, created_at, member_area_id, payment_method')
                 .eq('payment_status', 'completed')
 
             if (selectedMarketplace) {
@@ -147,7 +147,7 @@ export async function handleDashboardStats(
         if (shouldFetchApps) {
             let q = supabase
                 .from('user_product_access')
-                .select('purchase_price, created_at')
+                .select('purchase_price, created_at, payment_method')
                 .eq('payment_status', 'completed')
                 .in('application_id', appIds)
 
@@ -315,14 +315,48 @@ export async function handleDashboardStats(
         const refundRate = salesCount > 0 ? (refundCount / salesCount) * 100 : 0
         const abandonedCheckouts = checkoutsCount - salesCount
 
+        // Agrupar vendas por método de pagamento
+        const normalizeMethod = (m: string | null): string => {
+            if (!m) return 'card'
+            const l = m.toLowerCase()
+            if (l.includes('paypal')) return 'paypal'
+            if (l.includes('pix')) return 'pix'
+            if (l.includes('boleto') || l.includes('bank_slip')) return 'boleto'
+            if (l.includes('transfer')) return 'bank_transfer'
+            return 'card'
+        }
+        const METHOD_DISPLAY_NAMES: Record<string, string> = {
+            card: 'Cartão de Crédito',
+            paypal: 'PayPal',
+            pix: 'Pix',
+            boleto: 'Boleto',
+            bank_transfer: 'Transferência',
+        }
+        const methodGroups: Record<string, { value: number; count: number }> = {}
+        allSales.forEach((sale: any) => {
+            const key = normalizeMethod(sale.payment_method)
+            if (!methodGroups[key]) methodGroups[key] = { value: 0, count: 0 }
+            methodGroups[key].value += parseFloat(sale.price || sale.purchase_price || 0)
+            methodGroups[key].count += 1
+        })
+        const paymentMethods = Object.keys(methodGroups).length > 0
+            ? Object.entries(methodGroups).map(([icon, data]) => ({
+                name: METHOD_DISPLAY_NAMES[icon] || icon,
+                icon,
+                conversion: checkoutsCount > 0 ? Math.round((data.count / checkoutsCount) * 10000) / 100 : 0,
+                value: data.value,
+            }))
+            : [
+                { name: 'Cartão de Crédito', icon: 'card', conversion: conversionRate, value: totalSales },
+                { name: 'PayPal', icon: 'paypal', conversion: 0, value: 0 },
+            ]
+
         const stats = {
             totalSales,
             salesCount,
             conversionRate: Math.round(conversionRate * 100) / 100,
             checkouts: checkoutsCount,
-            paymentMethods: [
-                { name: 'Cartão de Crédito', icon: 'card', conversion: conversionRate, value: totalSales },
-            ],
+            paymentMethods,
             abandonedCheckouts: Math.max(0, abandonedCheckouts),
             refundRate: Math.round(refundRate * 100) / 100,
             chargebackRate: 0,
