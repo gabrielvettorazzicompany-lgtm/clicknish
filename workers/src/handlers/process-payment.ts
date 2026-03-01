@@ -635,7 +635,7 @@ export async function handleProcessPayment(
                                 created_at: new Date().toISOString(),
                             }, {
                                 onConflict: 'user_id,member_area_id',
-                                i   gnoreDuplicates: false
+                                ignoreDuplicates: false
                             })
                             .select('id')
                             .single()
