@@ -324,6 +324,15 @@ export default function CheckoutBuilder() {
 
             if (error) throw error
 
+            // ⚡ Purge + re-warm do KV cache: garante que o próximo visitante
+            // veja os dados atualizados E não sofra cache miss (~300ms Supabase RPC).
+            // Fire-and-forget — não bloqueia o alert de sucesso.
+            fetch('https://api.clicknich.com/api/cache/purge', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ checkoutId: checkout.id }),
+            }).catch(() => { /* silencioso — purge é best-effort */ })
+
             alert(t('checkout_pages.saved_success'))
         } catch (error) {
             console.error('Error saving:', error)

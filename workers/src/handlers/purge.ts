@@ -83,10 +83,34 @@ export async function handleCachePurge(
         env.CACHE.delete(`micro:${shortId}`),
     ])
 
-    if (ctx) {
-        ctx.waitUntil(purgeAll)
-    } else {
+    // ⚡ RE-WARM: Após purgar, recarrega dados do Supabase e re-popula o KV
+    // imediatamente. Próximo visitante baterá cache hit (~5ms) em vez de Supabase RPC (~300ms).
+    const rewarm = async () => {
         await purgeAll
+        try {
+            const supabase = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY)
+            const { data: rpcResult, error } = await supabase.rpc('get_checkout_data_v2', {
+                p_short_id: shortId
+            })
+            if (error || !rpcResult) {
+                console.warn(`[purge] Re-warm RPC failed for ${shortId}:`, error)
+                return
+            }
+            const serialized = JSON.stringify(rpcResult)
+            await Promise.allSettled([
+                env.CACHE!.put(`checkout-data:${shortId}`, serialized, { expirationTtl: 86400 }),
+                env.CACHE!.put(`micro:${shortId}`, serialized, { expirationTtl: 120 }),
+            ])
+            console.log(`[purge] ✅ Re-warmed KV for shortId: ${shortId}`)
+        } catch (err) {
+            console.warn(`[purge] Re-warm failed for ${shortId}:`, err)
+        }
+    }
+
+    if (ctx) {
+        ctx.waitUntil(rewarm())
+    } else {
+        await rewarm()
     }
 
     console.log(`[purge] ✅ Cache purged for shortId: ${shortId}`)

@@ -59,10 +59,10 @@ export default defineConfig({
     target: 'es2020',         // Target moderno = bundle menor
     minify: 'terser',
     chunkSizeWarningLimit: 600, // Avisa se chunk > 600KB
-    // Desabilita o __vitePreload helper que o Rollup injeta no maior chunk shared
-    // (que acabava sendo vendor-heroui, forçando o checkout a carregar HeroUI).
-    // Browsers modernos com ES modules não precisam do polyfill de modulepreload.
-    modulePreload: false,
+    // ⚡ modulePreload: polyfill desabilitado (evita que o helper apareça em vendor-heroui)
+    // mas MANTÉM os <link rel="modulepreload"> no checkout.html → browser baixa todos os
+    // chunks JS em paralelo na 1ª request, eliminando o waterfall de 4-5 round trips.
+    modulePreload: { polyfill: false },
     // CSS já está no index-BUn45iAA.css único — desabilitar code split evita que
     // Rollup injete um helper de CSS em vendor-heroui (quebrando a separação do checkout).
     cssCodeSplit: false,
