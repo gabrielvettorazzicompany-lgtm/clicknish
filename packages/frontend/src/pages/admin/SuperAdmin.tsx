@@ -765,11 +765,11 @@ export default function SuperAdmin() {
     }
 
     const PROVIDER_ICONS: Record<string, string> = {
-        stripe: '🔵',
-        stripe_connect: '🔵',
-        mollie: '🟠',
-        paypal: '🟡',
-        custom: '⚙️',
+        stripe: '',
+        stripe_connect: '',
+        mollie: '',
+        paypal: '',
+        custom: '',
     }
 
     const PROVIDER_COLORS: Record<string, { bg: string; text: string; border: string }> = {
@@ -2277,275 +2277,162 @@ export default function SuperAdmin() {
 
                 {/* Reviews Tab (Combined Apps and Products) */}
                 {activeTab === 'reviews' && (
-                    <div className="space-y-6">
-                        {/* Apps Review Section */}
-                        {true && (
-                            <div className="space-y-6">
-                                {loadingApps ? (
-                                    <div className="backdrop-blur-xl bg-white/[0.02] rounded-none border border-white/[0.05] p-16 flex flex-col items-center justify-center">
-                                        <div className="w-12 h-12 border-3 border-blue-500/30 border-t-blue-500 rounded-full animate-spin mb-4"></div>
-                                        <p className="text-gray-400">{t('superadmin.loading_apps')}</p>
-                                    </div>
-                                ) : pendingApps.length === 0 ? (
-                                    <div className="backdrop-blur-xl bg-gradient-to-br from-blue-500/5 via-transparent to-transparent rounded-none border border-blue-500/20 p-12 text-center">
-                                        <div className="w-16 h-16 mx-auto mb-5 bg-gradient-to-br from-blue-500/20 to-blue-600/10 rounded-full flex items-center justify-center border border-blue-500/30">
-                                            <svg className="w-8 h-8 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                                            </svg>
-                                        </div>
-                                        <h4 className="text-xl font-semibold text-blue-400 mb-2">{t('superadmin.all_caught_up')}</h4>
-                                        <p className="text-gray-500 text-sm max-w-sm mx-auto">{t('superadmin.no_apps_review')}</p>
-                                    </div>
-                                ) : (
-                                    <div className="grid gap-4">
-                                        {pendingApps.map((app, index) => (
-                                            <div
-                                                key={app.id}
-                                                className="backdrop-blur-xl bg-white/[0.02] rounded-none border border-white/[0.05] overflow-hidden hover:border-blue-500/30 transition-all duration-300 group"
-                                                style={{ animationDelay: `${index * 50}ms` }}
-                                            >
-                                                <div className="p-6">
-                                                    <div className="flex items-start gap-5">
-                                                        {/* App Logo */}
-                                                        <div className="relative">
-                                                            <div className="w-20 h-20 rounded-xl overflow-hidden bg-gradient-to-br from-white/[0.05] to-white/[0.02] flex-shrink-0 ring-2 ring-white/[0.05] group-hover:ring-blue-500/30 transition-all">
-                                                                {app.logo_url ? (
-                                                                    <img
-                                                                        src={app.logo_url}
-                                                                        alt={app.name}
-                                                                        className="w-full h-full object-cover"
-                                                                    />
-                                                                ) : (
-                                                                    <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-blue-600/20 to-indigo-600/20">
-                                                                        <span className="text-2xl font-bold text-blue-400">{app.name?.charAt(0) || 'A'}</span>
-                                                                    </div>
-                                                                )}
-                                                            </div>
-                                                            <div className="absolute -bottom-2 -right-2 w-6 h-6 bg-blue-500 rounded-lg flex items-center justify-center">
-                                                                <span className="text-xs font-bold text-white">!</span>
-                                                            </div>
-                                                        </div>
-
-                                                        {/* App Info */}
-                                                        <div className="flex-1 min-w-0">
-                                                            <div className="flex items-start justify-between gap-4">
-                                                                <div>
-                                                                    <h4 className="text-xl font-bold text-white group-hover:text-blue-400 transition-colors">{app.name}</h4>
-                                                                    <p className="text-sm text-gray-500 mt-1">/{app.slug}</p>
-                                                                </div>
-                                                            </div>
-
-                                                            {/* Meta Info */}
-                                                            <div className="flex items-center flex-wrap gap-3 mt-4">
-                                                                <div className="flex items-center gap-2 px-3 py-1.5 bg-white/[0.03] rounded-lg text-sm">
-                                                                    <span className="text-gray-500">Owner:</span>
-                                                                    <span className="text-gray-300">{app.owner_email || 'Unknown'}</span>
-                                                                </div>
-                                                                <div className="flex items-center gap-2 px-3 py-1.5 bg-white/[0.03] rounded-lg text-sm">
-                                                                    <span className="text-gray-500">Created:</span>
-                                                                    <span className="text-gray-300">
-                                                                        {new Date(app.created_at).toLocaleDateString('en-US', {
-                                                                            month: 'short',
-                                                                            day: 'numeric',
-                                                                            year: 'numeric'
-                                                                        })}
-                                                                    </span>
-                                                                </div>
-                                                                {app.app_type && (
-                                                                    <span className="px-3 py-1.5 bg-blue-500/10 text-blue-400 border border-blue-500/20 rounded-lg text-sm font-medium">
-                                                                        {app.app_type}
-                                                                    </span>
-                                                                )}
-                                                                {app.language && (
-                                                                    <span className="px-3 py-1.5 bg-purple-500/10 text-purple-400 border border-purple-500/20 rounded-lg text-sm font-medium">
-                                                                        {app.language}
-                                                                    </span>
-                                                                )}
-                                                            </div>
-                                                        </div>
-                                                    </div>
-
-                                                    {/* Actions */}
-                                                    <div className="flex items-center gap-2 mt-5 pt-4 border-t border-white/[0.05]">
-                                                        <button
-                                                            onClick={() => handleApproveApp(app.id)}
-                                                            disabled={processingId === app.id}
-                                                            className="relative flex-1 px-4 py-2 bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] hover:border-blue-500/50 text-gray-300 hover:text-white rounded-lg text-sm font-medium transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-                                                        >
-                                                            <span className="flex items-center justify-center gap-1.5">
-                                                                {processingId === app.id ? (
-                                                                    <>
-                                                                        <svg className="animate-spin h-3.5 w-3.5" fill="none" viewBox="0 0 24 24">
-                                                                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                                                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                                                        </svg>
-                                                                        <span className="text-xs">Processing...</span>
-                                                                    </>
-                                                                ) : (
-                                                                    <>
-                                                                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
-                                                                        </svg>
-                                                                        <span className="text-xs">Approve</span>
-                                                                    </>
-                                                                )}
-                                                            </span>
-                                                        </button>
-                                                        <button
-                                                            onClick={() => openAppRejectModal(app)}
-                                                            disabled={processingId === app.id}
-                                                            className="px-3 py-2 bg-white/[0.02] hover:bg-white/[0.04] border border-white/[0.06] hover:border-white/[0.12] text-gray-500 hover:text-gray-300 rounded-lg text-xs font-medium transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-                                                        >
-                                                            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                                                            </svg>
-                                                        </button>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                )}
+                    <div className="space-y-4">
+                        {(loadingApps || loadingProducts) ? (
+                            <div className="backdrop-blur-xl bg-white/[0.02] rounded-none border border-white/[0.05] p-16 flex flex-col items-center justify-center">
+                                <div className="w-12 h-12 border-3 border-blue-500/30 border-t-blue-500 rounded-full animate-spin mb-4"></div>
+                                <p className="text-gray-400">{t('superadmin.loading_apps')}</p>
                             </div>
-                        )}
-
-                        {/* Products Review Section */}
-                        {true && (
-                            <div className="space-y-6">
-                                {loadingProducts ? (
-                                    <div className="backdrop-blur-xl bg-white/[0.02] rounded-none border border-white/[0.05] p-16 flex flex-col items-center justify-center">
-                                        <div className="w-12 h-12 border-3 border-blue-500/30 border-t-blue-500 rounded-full animate-spin mb-4"></div>
-                                        <p className="text-gray-400">{t('superadmin.loading_products')}</p>
-                                    </div>
-                                ) : pendingProducts.length === 0 ? (
-                                    <div className="backdrop-blur-xl bg-gradient-to-br from-blue-500/5 via-transparent to-transparent rounded-none border border-blue-500/20 p-12 text-center">
-                                        <div className="w-16 h-16 mx-auto mb-5 bg-gradient-to-br from-blue-500/20 to-blue-600/10 rounded-full flex items-center justify-center border border-blue-500/30">
-                                            <svg className="w-8 h-8 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                                            </svg>
-                                        </div>
-                                        <h4 className="text-xl font-semibold text-blue-400 mb-2">{t('superadmin.all_caught_up')}</h4>
-                                        <p className="text-gray-500 text-sm max-w-sm mx-auto">{t('superadmin.no_products_review')}</p>
-                                    </div>
-                                ) : (
-                                    <div className="grid gap-4">
-                                        {pendingProducts.map((product, index) => (
-                                            <div
-                                                key={product.id}
-                                                className="backdrop-blur-xl bg-white/[0.02] rounded-none border border-white/[0.05] overflow-hidden hover:border-blue-500/30 transition-all duration-300 group"
-                                                style={{ animationDelay: `${index * 50}ms` }}
-                                            >
-                                                <div className="p-6">
-                                                    <div className="flex items-start gap-5">
-                                                        {/* Product Image */}
-                                                        <div className="relative">
-                                                            <div className="w-24 h-24 rounded-xl overflow-hidden bg-gradient-to-br from-white/[0.05] to-white/[0.02] flex-shrink-0 ring-2 ring-white/[0.05] group-hover:ring-blue-500/30 transition-all">
-                                                                {product.image_url ? (
-                                                                    <img
-                                                                        src={product.image_url}
-                                                                        alt={product.name}
-                                                                        className="w-full h-full object-cover"
-                                                                    />
-                                                                ) : (
-                                                                    <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-blue-600/20 to-indigo-600/20">
-                                                                        <span className="text-2xl font-bold text-blue-400">{product.name?.charAt(0) || 'P'}</span>
-                                                                    </div>
-                                                                )}
+                        ) : (pendingApps.length === 0 && pendingProducts.length === 0) ? (
+                            <div className="backdrop-blur-xl bg-gradient-to-br from-blue-500/5 via-transparent to-transparent rounded-none border border-blue-500/20 p-12 text-center">
+                                <div className="w-16 h-16 mx-auto mb-5 bg-gradient-to-br from-blue-500/20 to-blue-600/10 rounded-full flex items-center justify-center border border-blue-500/30">
+                                    <svg className="w-8 h-8 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                    </svg>
+                                </div>
+                                <h4 className="text-xl font-semibold text-blue-400 mb-2">{t('superadmin.all_caught_up')}</h4>
+                                <p className="text-gray-500 text-sm max-w-sm mx-auto">{t('superadmin.no_apps_review')}</p>
+                            </div>
+                        ) : (
+                            <div className="grid gap-4">
+                                {/* Apps pendentes */}
+                                {pendingApps.map((app, index) => (
+                                    <div
+                                        key={app.id}
+                                        className="backdrop-blur-xl bg-white/[0.02] rounded-none border border-white/[0.05] overflow-hidden hover:border-blue-500/30 transition-all duration-300 group"
+                                        style={{ animationDelay: `${index * 50}ms` }}
+                                    >
+                                        <div className="p-6">
+                                            <div className="flex items-start gap-5">
+                                                <div className="relative">
+                                                    <div className="w-20 h-20 rounded-xl overflow-hidden bg-gradient-to-br from-white/[0.05] to-white/[0.02] flex-shrink-0 ring-2 ring-white/[0.05] group-hover:ring-blue-500/30 transition-all">
+                                                        {app.logo_url ? (
+                                                            <img src={app.logo_url} alt={app.name} className="w-full h-full object-cover" />
+                                                        ) : (
+                                                            <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-blue-600/20 to-indigo-600/20">
+                                                                <span className="text-2xl font-bold text-blue-400">{app.name?.charAt(0) || 'A'}</span>
                                                             </div>
-                                                            <div className="absolute -bottom-2 -right-2 w-6 h-6 bg-blue-500 rounded-lg flex items-center justify-center">
-                                                                <span className="text-xs font-bold text-white">!</span>
+                                                        )}
+                                                    </div>
+                                                    <div className="absolute -bottom-2 -right-2 w-6 h-6 bg-blue-500 rounded-lg flex items-center justify-center">
+                                                        <span className="text-xs font-bold text-white">!</span>
+                                                    </div>
+                                                </div>
+                                                <div className="flex-1 min-w-0">
+                                                    <div className="flex items-start justify-between gap-4">
+                                                        <div>
+                                                            <div className="flex items-center gap-2 mb-1">
+                                                                <h4 className="text-xl font-bold text-white group-hover:text-blue-400 transition-colors">{app.name}</h4>
+                                                                <span className="px-2 py-0.5 bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 rounded text-xs font-medium">App</span>
                                                             </div>
-                                                        </div>
-
-                                                        {/* Product Info */}
-                                                        <div className="flex-1 min-w-0">
-                                                            <div className="flex items-start justify-between gap-4">
-                                                                <div>
-                                                                    <h4 className="text-xl font-bold text-white group-hover:text-blue-400 transition-colors">{product.name}</h4>
-                                                                    <p className="text-sm text-gray-500 mt-1 line-clamp-2">{product.description || 'No description provided'}</p>
-                                                                </div>
-                                                                <div className="text-right flex-shrink-0">
-                                                                    <p className="text-2xl font-bold bg-gradient-to-r from-blue-400 to-blue-500 bg-clip-text text-transparent">
-                                                                        {product.currency || 'USD'} {product.price?.toFixed(2) || '0.00'}
-                                                                    </p>
-                                                                </div>
-                                                            </div>
-
-                                                            {/* Meta Info */}
-                                                            <div className="flex items-center flex-wrap gap-3 mt-4">
-                                                                <div className="flex items-center gap-2 px-3 py-1.5 bg-white/[0.03] rounded-lg text-sm">
-                                                                    <span className="text-gray-500">Owner:</span>
-                                                                    <span className="text-gray-300">{product.owner_email || 'Unknown'}</span>
-                                                                </div>
-                                                                <div className="flex items-center gap-2 px-3 py-1.5 bg-white/[0.03] rounded-lg text-sm">
-                                                                    <span className="text-gray-500">Created:</span>
-                                                                    <span className="text-gray-300">
-                                                                        {new Date(product.created_at).toLocaleDateString('en-US', {
-                                                                            month: 'short',
-                                                                            day: 'numeric',
-                                                                            year: 'numeric'
-                                                                        })}
-                                                                    </span>
-                                                                </div>
-                                                                {product.category && (
-                                                                    <span className="px-3 py-1.5 bg-blue-500/10 text-blue-400 border border-blue-500/20 rounded-lg text-sm font-medium">
-                                                                        {product.category}
-                                                                    </span>
-                                                                )}
-                                                                {product.delivery_type && (
-                                                                    <span className="px-3 py-1.5 bg-blue-500/10 text-blue-400 border border-blue-500/20 rounded-lg text-sm font-medium">
-                                                                        {product.delivery_type}
-                                                                    </span>
-                                                                )}
-                                                            </div>
+                                                            <p className="text-sm text-gray-500">/{app.slug}</p>
                                                         </div>
                                                     </div>
-
-                                                    {/* Actions */}
-                                                    <div className="flex items-center gap-2 mt-5 pt-4 border-t border-white/[0.05]">
-                                                        <button
-                                                            onClick={() => openProductDetailsModal(product)}
-                                                            className="relative flex-1 px-4 py-2 bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/30 hover:border-blue-500/50 text-blue-400 hover:text-blue-300 rounded-lg text-sm font-medium transition-all duration-200"
-                                                        >
-                                                            <span className="flex items-center justify-center gap-1.5">
-                                                                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                                                                </svg>
-                                                                <span className="text-xs">Review</span>
-                                                            </span>
-                                                        </button>
-                                                        <button
-                                                            onClick={() => handleApproveProduct(product.id)}
-                                                            disabled={processingId === product.id}
-                                                            className="px-3 py-2 bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] hover:border-blue-500/50 text-gray-300 hover:text-white rounded-lg text-xs font-medium transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-                                                        >
-                                                            {processingId === product.id ? (
-                                                                <svg className="animate-spin h-3.5 w-3.5" fill="none" viewBox="0 0 24 24">
-                                                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                                                </svg>
-                                                            ) : (
-                                                                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
-                                                                </svg>
-                                                            )}
-                                                        </button>
-                                                        <button
-                                                            onClick={() => openProductRejectModal(product)}
-                                                            disabled={processingId === product.id}
-                                                            className="px-3 py-2 bg-white/[0.02] hover:bg-white/[0.04] border border-white/[0.06] hover:border-white/[0.12] text-gray-500 hover:text-gray-300 rounded-lg text-xs font-medium transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-                                                        >
-                                                            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                                                            </svg>
-                                                        </button>
+                                                    <div className="flex items-center flex-wrap gap-3 mt-4">
+                                                        <div className="flex items-center gap-2 px-3 py-1.5 bg-white/[0.03] rounded-lg text-sm">
+                                                            <span className="text-gray-500">Owner:</span>
+                                                            <span className="text-gray-300">{app.owner_email || 'Unknown'}</span>
+                                                        </div>
+                                                        <div className="flex items-center gap-2 px-3 py-1.5 bg-white/[0.03] rounded-lg text-sm">
+                                                            <span className="text-gray-500">Created:</span>
+                                                            <span className="text-gray-300">{new Date(app.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+                                                        </div>
+                                                        {app.app_type && <span className="px-3 py-1.5 bg-blue-500/10 text-blue-400 border border-blue-500/20 rounded-lg text-sm font-medium">{app.app_type}</span>}
+                                                        {app.language && <span className="px-3 py-1.5 bg-purple-500/10 text-purple-400 border border-purple-500/20 rounded-lg text-sm font-medium">{app.language}</span>}
                                                     </div>
                                                 </div>
                                             </div>
-                                        ))}
+                                            <div className="flex items-center gap-2 mt-5 pt-4 border-t border-white/[0.05]">
+                                                <button onClick={() => handleApproveApp(app.id)} disabled={processingId === app.id} className="relative flex-1 px-4 py-2 bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] hover:border-blue-500/50 text-gray-300 hover:text-white rounded-lg text-sm font-medium transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed">
+                                                    <span className="flex items-center justify-center gap-1.5">
+                                                        {processingId === app.id ? (
+                                                            <><svg className="animate-spin h-3.5 w-3.5" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg><span className="text-xs">Processing...</span></>
+                                                        ) : (
+                                                            <><svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" /></svg><span className="text-xs">Approve</span></>
+                                                        )}
+                                                    </span>
+                                                </button>
+                                                <button onClick={() => openAppRejectModal(app)} disabled={processingId === app.id} className="px-3 py-2 bg-white/[0.02] hover:bg-white/[0.04] border border-white/[0.06] hover:border-white/[0.12] text-gray-500 hover:text-gray-300 rounded-lg text-xs font-medium transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed">
+                                                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                                                </button>
+                                            </div>
+                                        </div>
                                     </div>
-                                )}
+                                ))}
+
+                                {/* Produtos pendentes */}
+                                {pendingProducts.map((product, index) => (
+                                    <div
+                                        key={product.id}
+                                        className="backdrop-blur-xl bg-white/[0.02] rounded-none border border-white/[0.05] overflow-hidden hover:border-blue-500/30 transition-all duration-300 group"
+                                        style={{ animationDelay: `${(pendingApps.length + index) * 50}ms` }}
+                                    >
+                                        <div className="p-6">
+                                            <div className="flex items-start gap-5">
+                                                <div className="relative">
+                                                    <div className="w-24 h-24 rounded-xl overflow-hidden bg-gradient-to-br from-white/[0.05] to-white/[0.02] flex-shrink-0 ring-2 ring-white/[0.05] group-hover:ring-blue-500/30 transition-all">
+                                                        {product.image_url ? (
+                                                            <img src={product.image_url} alt={product.name} className="w-full h-full object-cover" />
+                                                        ) : (
+                                                            <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-blue-600/20 to-indigo-600/20">
+                                                                <span className="text-2xl font-bold text-blue-400">{product.name?.charAt(0) || 'P'}</span>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                    <div className="absolute -bottom-2 -right-2 w-6 h-6 bg-blue-500 rounded-lg flex items-center justify-center">
+                                                        <span className="text-xs font-bold text-white">!</span>
+                                                    </div>
+                                                </div>
+                                                <div className="flex-1 min-w-0">
+                                                    <div className="flex items-start justify-between gap-4">
+                                                        <div>
+                                                            <div className="flex items-center gap-2 mb-1">
+                                                                <h4 className="text-xl font-bold text-white group-hover:text-blue-400 transition-colors">{product.name}</h4>
+                                                                <span className="px-2 py-0.5 bg-violet-500/10 text-violet-400 border border-violet-500/20 rounded text-xs font-medium">Área</span>
+                                                            </div>
+                                                            <p className="text-sm text-gray-500 line-clamp-2">{product.description || 'No description provided'}</p>
+                                                        </div>
+                                                        <div className="text-right flex-shrink-0">
+                                                            <p className="text-2xl font-bold bg-gradient-to-r from-blue-400 to-blue-500 bg-clip-text text-transparent">
+                                                                {product.currency || 'USD'} {product.price?.toFixed(2) || '0.00'}
+                                                            </p>
+                                                        </div>
+                                                    </div>
+                                                    <div className="flex items-center flex-wrap gap-3 mt-4">
+                                                        <div className="flex items-center gap-2 px-3 py-1.5 bg-white/[0.03] rounded-lg text-sm">
+                                                            <span className="text-gray-500">Owner:</span>
+                                                            <span className="text-gray-300">{product.owner_email || 'Unknown'}</span>
+                                                        </div>
+                                                        <div className="flex items-center gap-2 px-3 py-1.5 bg-white/[0.03] rounded-lg text-sm">
+                                                            <span className="text-gray-500">Created:</span>
+                                                            <span className="text-gray-300">{new Date(product.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+                                                        </div>
+                                                        {product.category && <span className="px-3 py-1.5 bg-blue-500/10 text-blue-400 border border-blue-500/20 rounded-lg text-sm font-medium">{product.category}</span>}
+                                                        {product.delivery_type && <span className="px-3 py-1.5 bg-blue-500/10 text-blue-400 border border-blue-500/20 rounded-lg text-sm font-medium">{product.delivery_type}</span>}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div className="flex items-center gap-2 mt-5 pt-4 border-t border-white/[0.05]">
+                                                <button onClick={() => openProductDetailsModal(product)} className="relative flex-1 px-4 py-2 bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/30 hover:border-blue-500/50 text-blue-400 hover:text-blue-300 rounded-lg text-sm font-medium transition-all duration-200">
+                                                    <span className="flex items-center justify-center gap-1.5">
+                                                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
+                                                        <span className="text-xs">Review</span>
+                                                    </span>
+                                                </button>
+                                                <button onClick={() => handleApproveProduct(product.id)} disabled={processingId === product.id} className="px-3 py-2 bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] hover:border-blue-500/50 text-gray-300 hover:text-white rounded-lg text-xs font-medium transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed">
+                                                    {processingId === product.id ? (
+                                                        <svg className="animate-spin h-3.5 w-3.5" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                                                    ) : (
+                                                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" /></svg>
+                                                    )}
+                                                </button>
+                                                <button onClick={() => openProductRejectModal(product)} disabled={processingId === product.id} className="px-3 py-2 bg-white/[0.02] hover:bg-white/[0.04] border border-white/[0.06] hover:border-white/[0.12] text-gray-500 hover:text-gray-300 rounded-lg text-xs font-medium transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed">
+                                                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))}
                             </div>
                         )}
                     </div>
@@ -3205,7 +3092,7 @@ export default function SuperAdmin() {
                                                 onClick={() => handleSetGlobalDefault(p.id)}
                                                 className={`px-5 py-3 rounded-xl font-semibold text-sm transition-all border ${isDefault ? `${c.bg} ${c.text} ${c.border}` : 'bg-white/[0.03] text-gray-400 border-white/[0.08] hover:bg-white/[0.06]'}`}
                                             >
-                                                {PROVIDER_ICONS[p.type]} {p.name}
+                                                {p.name}
                                                 {isDefault && <span className="ml-2 text-xs opacity-70">★ Padrão</span>}
                                             </button>
                                         )
@@ -3298,9 +3185,6 @@ export default function SuperAdmin() {
                                         return (
                                             <div key={provider.id} className={isEditing ? 'bg-white/[0.015]' : ''}>
                                                 <div className="px-6 py-4 flex items-center gap-4">
-                                                    <div className={`w-10 h-10 ${c.bg} rounded-xl flex items-center justify-center text-xl`}>
-                                                        {PROVIDER_ICONS[provider.type]}
-                                                    </div>
                                                     <div className="flex-1">
                                                         <div className="flex items-center gap-2 flex-wrap">
                                                             <p className="text-sm font-semibold text-white">{provider.name}</p>
@@ -3491,7 +3375,7 @@ export default function SuperAdmin() {
                                                         >
                                                             <option value="">↔ Padrão global</option>
                                                             {providers.filter(p => p.is_active).map(p => (
-                                                                <option key={p.id} value={p.id}>{PROVIDER_ICONS[p.type]} {p.name}</option>
+                                                                <option key={p.id} value={p.id}>{p.name}</option>
                                                             ))}
                                                         </select>
                                                         <button
@@ -3535,7 +3419,7 @@ export default function SuperAdmin() {
                                                 </div>
                                                 {assignedProvider ? (
                                                     <span className={`px-2.5 py-1 rounded-lg text-xs font-semibold border ${c.bg} ${c.text} ${c.border}`}>
-                                                        {PROVIDER_ICONS[assignedProvider.type]} {assignedProvider.name}
+                                                        {assignedProvider.name}
                                                     </span>
                                                 ) : (
                                                     <span className="px-2.5 py-1 rounded-lg text-xs font-semibold border bg-gray-500/15 text-gray-400 border-gray-500/20">
@@ -3586,7 +3470,6 @@ export default function SuperAdmin() {
                                             { key: 'max_free_apps', label: 'Máx. apps no plano Free', desc: 'Limite de apps para usuários gratuitos', suffix: 'apps' },
                                             { key: 'min_withdrawal_amount', label: 'Saque mínimo', desc: 'Valor mínimo em USD para solicitar saque', suffix: 'USD' },
                                             { key: 'withdrawal_hold_days', label: 'Prazo de retenção (D+N)', desc: 'Dias antes de liberar saldo para saque', suffix: 'dias' },
-                                            { key: 'affiliate_max_commission', label: 'Comissão máx. afiliados (%)', desc: 'Percentual máximo permitido para afiliados', suffix: '%' },
                                         ].map(({ key, label, desc, suffix }) => (
                                             <div key={key} className="p-4 bg-white/[0.02] rounded-xl border border-white/[0.05]">
                                                 <div className="flex items-start justify-between mb-3">
@@ -3614,32 +3497,7 @@ export default function SuperAdmin() {
                                             </div>
                                         ))}
 
-                                        {/* Modo manutenção */}
-                                        <div className="p-4 bg-white/[0.02] rounded-xl border border-white/[0.05]">
-                                            <div className="flex items-start justify-between mb-3">
-                                                <div>
-                                                    <p className="text-sm font-medium text-white">Modo Manutenção</p>
-                                                    <p className="text-xs text-gray-500 mt-0.5">Exibe página de manutenção para usuários comuns</p>
-                                                </div>
-                                                <span className={`text-xs px-2 py-0.5 rounded font-semibold ${platformConfigEdits['maintenance_mode'] === 'true' || platformConfigEdits['maintenance_mode'] === true ? 'bg-red-500/20 text-red-400' : 'bg-emerald-500/20 text-emerald-400'}`}>
-                                                    {platformConfigEdits['maintenance_mode'] === 'true' || platformConfigEdits['maintenance_mode'] === true ? 'Ativo' : 'Desativado'}
-                                                </span>
-                                            </div>
-                                            <div className="flex gap-2">
-                                                <button
-                                                    onClick={() => { setPlatformConfigEdits(ed => ({ ...ed, maintenance_mode: 'false' })); setTimeout(() => saveSinglePlatformConfig('maintenance_mode'), 0) }}
-                                                    className={`flex-1 py-2 rounded-lg text-sm font-medium border transition-all ${(platformConfigEdits['maintenance_mode'] === 'false' || platformConfigEdits['maintenance_mode'] === false) ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' : 'bg-white/[0.03] text-gray-500 border-white/[0.08] hover:bg-white/[0.06]'}`}
-                                                >
-                                                    ✓ Online
-                                                </button>
-                                                <button
-                                                    onClick={() => { if (!confirm('Colocar plataforma em manutenção? Todos os usuários serão afetados.')) return; setPlatformConfigEdits(ed => ({ ...ed, maintenance_mode: 'true' })); setTimeout(() => saveSinglePlatformConfig('maintenance_mode'), 0) }}
-                                                    className={`flex-1 py-2 rounded-lg text-sm font-medium border transition-all ${(platformConfigEdits['maintenance_mode'] === 'true' || platformConfigEdits['maintenance_mode'] === true) ? 'bg-red-500/20 text-red-300 border-red-500/30' : 'bg-white/[0.03] text-gray-500 border-white/[0.08] hover:bg-white/[0.06]'}`}
-                                                >
-                                                    ⚠ Manutenção
-                                                </button>
-                                            </div>
-                                        </div>
+
                                     </div>
                                 </div>
 
@@ -3689,7 +3547,7 @@ export default function SuperAdmin() {
                                     const c = PROVIDER_COLORS[p.type]
                                     return (
                                         <span className={`px-3 py-1.5 rounded-xl text-xs font-semibold border ${c.bg} ${c.text} ${c.border}`}>
-                                            {PROVIDER_ICONS[p.type]} {p.name}
+                                            {p.name}
                                         </span>
                                     )
                                 })()}
@@ -3709,7 +3567,7 @@ export default function SuperAdmin() {
                                                 onClick={() => handleSetGlobalDefault(p.id)}
                                                 className={`px-5 py-3 rounded-xl font-semibold text-sm transition-all border ${isDefault ? `${c.bg} ${c.text} ${c.border}` : 'bg-white/[0.03] text-gray-400 border-white/[0.08] hover:bg-white/[0.06]'}`}
                                             >
-                                                {PROVIDER_ICONS[p.type]} {p.name}
+                                                {p.name}
                                                 {isDefault && <span className="ml-2 text-xs opacity-70">★ Padrão</span>}
                                             </button>
                                         )
@@ -3776,7 +3634,7 @@ export default function SuperAdmin() {
                                         return (
                                             <div key={provider.id} className={isEditing ? 'bg-white/[0.015]' : ''}>
                                                 <div className="px-6 py-4 flex items-center gap-4">
-                                                    <div className={`w-10 h-10 ${c.bg} rounded-xl flex items-center justify-center text-xl`}>{PROVIDER_ICONS[provider.type]}</div>
+
                                                     <div className="flex-1">
                                                         <div className="flex items-center gap-2 flex-wrap">
                                                             <p className="text-sm font-semibold text-white">{provider.name}</p>
@@ -3853,7 +3711,7 @@ export default function SuperAdmin() {
                                             </div>
                                             <select value={selectedProviderForUser} onChange={e => setSelectedProviderForUser(e.target.value)} className="px-3 py-2 bg-[#0d1117] border border-white/[0.08] rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40">
                                                 <option value="">↔ Padrão global</option>
-                                                {providers.filter(p => p.is_active).map(p => (<option key={p.id} value={p.id}>{PROVIDER_ICONS[p.type]} {p.name}</option>))}
+                                                {providers.filter(p => p.is_active).map(p => (<option key={p.id} value={p.id}>{p.name}</option>))}
                                             </select>
                                             <button onClick={handleAssignProviderToUser} disabled={assigningProvider} className="px-4 py-2 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-400 hover:to-blue-500 disabled:opacity-50 text-white rounded-lg text-sm font-semibold transition-all">
                                                 {assigningProvider ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin mx-auto" /> : 'Atribuir'}
@@ -3882,7 +3740,7 @@ export default function SuperAdmin() {
                                                     <p className="text-xs text-gray-500">{cfg.user_id}</p>
                                                 </div>
                                                 {assignedProvider ? (
-                                                    <span className={`px-2.5 py-1 rounded-lg text-xs font-semibold border ${c.bg} ${c.text} ${c.border}`}>{PROVIDER_ICONS[assignedProvider.type]} {assignedProvider.name}</span>
+                                                    <span className={`px-2.5 py-1 rounded-lg text-xs font-semibold border ${c.bg} ${c.text} ${c.border}`}>{assignedProvider.name}</span>
                                                 ) : (
                                                     <span className="px-2.5 py-1 rounded-lg text-xs font-semibold border bg-gray-500/15 text-gray-400 border-gray-500/20">{cfg.payment_provider || 'Padrão global'}</span>
                                                 )}
