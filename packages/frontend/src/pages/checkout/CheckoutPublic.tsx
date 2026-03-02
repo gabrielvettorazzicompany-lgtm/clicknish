@@ -36,6 +36,7 @@ interface Checkout {
     banner_image?: string
     banner_title?: string
     custom_height?: number
+    custom_width?: number
     language?: CheckoutLanguage
     created_at: string
 }
@@ -83,6 +84,7 @@ function buildInitialState(raw: any) {
         banner_image: ck.banner_image,
         banner_title: ck.banner_title,
         custom_height: ck.custom_height,
+        custom_width: ck.custom_width,
         language: lang,
         created_at: ck.created_at,
     }
@@ -262,6 +264,7 @@ export default function CheckoutPublic() {
                         banner_image: ck.banner_image,
                         banner_title: ck.banner_title,
                         custom_height: ck.custom_height,
+                        custom_width: ck.custom_width,
                         language: ck.language || 'en',
                         created_at: ck.created_at
                     }
@@ -497,6 +500,7 @@ export default function CheckoutPublic() {
                 banner_image: checkoutData.banner_image,
                 banner_title: checkoutData.banner_title,
                 custom_height: checkoutData.custom_height,
+                custom_width: checkoutData.custom_width,
                 language: checkoutData.language || 'en',
                 created_at: checkoutData.created_at
             }
@@ -903,7 +907,8 @@ export default function CheckoutPublic() {
                 customBanner={{
                     image: checkout.banner_image,
                     title: checkout.banner_title,
-                    customHeight: checkout.custom_height
+                    customHeight: checkout.custom_height,
+                    customWidth: checkout.custom_width
                 }}
                 timerConfig={timerConfig}
                 isPreview={false}
