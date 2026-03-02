@@ -326,18 +326,33 @@ export default function CheckoutBuilder() {
         }
     }
 
-    const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    // ── Upload de imagem para o Supabase Storage ──────────────────────────────
+    const uploadCheckoutImage = async (file: File, folder: string): Promise<string> => {
+        const ext = file.name.split('.').pop()?.toLowerCase() || 'jpg'
+        const path = `${folder}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`
+        const { data, error } = await supabase.storage
+            .from('checkout-banners')
+            .upload(path, file, { cacheControl: '31536000', upsert: false })
+        if (error) throw error
+        return supabase.storage.from('checkout-banners').getPublicUrl(data.path).data.publicUrl
+    }
+
+    const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0]
-        if (file) {
-            const reader = new FileReader()
-            reader.onload = (event) => {
-                const imageUrl = event.target?.result as string
-                setBannerForm(prev => ({ ...prev, banner_image: imageUrl }))
-                // Resetar controles de imagem para valores padrão
-                setBannerImageScale(1)
-                setBannerImagePosition({ x: 50, y: 50 })
-            }
-            reader.readAsDataURL(file)
+        if (!file) return
+
+        // Preview local imediato enquanto faz upload
+        const previewUrl = URL.createObjectURL(file)
+        setBannerForm(prev => ({ ...prev, banner_image: previewUrl }))
+        setBannerImageScale(1)
+        setBannerImagePosition({ x: 50, y: 50 })
+
+        try {
+            const url = await uploadCheckoutImage(file, 'banners')
+            setBannerForm(prev => ({ ...prev, banner_image: url }))
+            URL.revokeObjectURL(previewUrl)
+        } catch (err) {
+            console.error('Erro ao fazer upload do banner:', err)
         }
     }
 
@@ -376,6 +391,24 @@ export default function CheckoutBuilder() {
         setEditingElement('banner')
     }
 
+    // Chamado pelo CheckoutBanner quando o usuário escolhe um arquivo via drag-drop/clique
+    const handleBannerFileUpload = async (file: File) => {
+        // Preview local imediato
+        const previewUrl = URL.createObjectURL(file)
+        setBannerForm(prev => ({ ...prev, banner_image: previewUrl }))
+        setBannerImageScale(1)
+        setBannerImagePosition({ x: 50, y: 50 })
+        setEditingElement('banner')
+
+        try {
+            const url = await uploadCheckoutImage(file, 'banners')
+            setBannerForm(prev => ({ ...prev, banner_image: url }))
+            URL.revokeObjectURL(previewUrl)
+        } catch (err) {
+            console.error('Erro ao fazer upload do banner:', err)
+        }
+    }
+
     const handleCloseEditPanel = () => {
         setEditPanelOpen(false)
         setTimeout(() => setEditingElement(null), 300) // Aguarda animação
@@ -405,19 +438,25 @@ export default function CheckoutBuilder() {
         }
     }
 
-    const handleImageBlockUpload = (e: React.ChangeEvent<HTMLInputElement>, id: string) => {
+    const handleImageBlockUpload = async (e: React.ChangeEvent<HTMLInputElement>, id: string) => {
         const file = e.target.files?.[0]
-        if (file) {
-            if (file.size > 10 * 1024 * 1024) {
-                alert('Imagem muito grande. Máximo: 10MB')
-                return
-            }
-            const reader = new FileReader()
-            reader.onload = (event) => {
-                const imageUrl = event.target?.result as string
-                handleUpdateImageBlock(id, { url: imageUrl })
-            }
-            reader.readAsDataURL(file)
+        if (!file) return
+
+        if (file.size > 10 * 1024 * 1024) {
+            alert('Imagem muito grande. Máximo: 10MB')
+            return
+        }
+
+        // Preview local imediato
+        const previewUrl = URL.createObjectURL(file)
+        handleUpdateImageBlock(id, { url: previewUrl })
+
+        try {
+            const url = await uploadCheckoutImage(file, 'image-blocks')
+            handleUpdateImageBlock(id, { url })
+            URL.revokeObjectURL(previewUrl)
+        } catch (err) {
+            console.error('Erro ao fazer upload da imagem do bloco:', err)
         }
     }
 
@@ -457,19 +496,25 @@ export default function CheckoutBuilder() {
         }
     }
 
-    const handleTestimonialPhotoUpload = (e: React.ChangeEvent<HTMLInputElement>, id: string) => {
+    const handleTestimonialPhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>, id: string) => {
         const file = e.target.files?.[0]
-        if (file) {
-            if (file.size > 10 * 1024 * 1024) {
-                alert('Imagem muito grande. Máximo: 10MB')
-                return
-            }
-            const reader = new FileReader()
-            reader.onload = (event) => {
-                const imageUrl = event.target?.result as string
-                handleUpdateTestimonial(id, { photo: imageUrl })
-            }
-            reader.readAsDataURL(file)
+        if (!file) return
+
+        if (file.size > 10 * 1024 * 1024) {
+            alert('Imagem muito grande. Máximo: 10MB')
+            return
+        }
+
+        // Preview local imediato
+        const previewUrl = URL.createObjectURL(file)
+        handleUpdateTestimonial(id, { photo: previewUrl })
+
+        try {
+            const url = await uploadCheckoutImage(file, 'testimonials')
+            handleUpdateTestimonial(id, { photo: url })
+            URL.revokeObjectURL(previewUrl)
+        } catch (err) {
+            console.error('Erro ao fazer upload da foto do depoimento:', err)
         }
     }
 
@@ -796,6 +841,7 @@ export default function CheckoutBuilder() {
                                             onBannerResize={handleBannerResize}
                                             onUpdateBannerWidth={handleBannerWidthUpdate}
                                             onBannerUpload={handleBannerUploadFromPreview}
+                                            onBannerFile={handleBannerFileUpload}
                                             onBannerImageScaleChange={(scale) => setBannerImageScale(scale)}
                                             onBannerImagePositionChange={(position) => setBannerImagePosition(position)}
                                             isPreview={true}

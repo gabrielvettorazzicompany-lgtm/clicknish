@@ -91,6 +91,7 @@ export interface CheckoutDigitalProps {
     onBannerAdjust?: () => void
     onBannerRemove?: () => void
     onBannerUpload?: (url: string) => void
+    onBannerFile?: (file: File) => void
     onBannerResize?: (height: number) => void
     onUpdateBannerWidth?: (width: number) => void
     onBannerImageScaleChange?: (scale: number) => void

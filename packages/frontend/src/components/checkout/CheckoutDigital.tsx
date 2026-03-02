@@ -47,6 +47,7 @@ function CheckoutDigital({
     onBannerResize,
     onUpdateBannerWidth,
     onBannerUpload,
+    onBannerFile,
     onBannerImageScaleChange,
     onBannerImagePositionChange,
     isPreview = false,
@@ -239,6 +240,7 @@ function CheckoutDigital({
                 onBannerResize={onBannerResize}
                 onUpdateBannerWidth={onUpdateBannerWidth}
                 onBannerUpload={onBannerUpload}
+                onBannerFile={onBannerFile}
                 onBannerImagePositionChange={onBannerImagePositionChange}
                 onBannerImageScaleChange={onBannerImageScaleChange}
                 isPreview={isPreview}

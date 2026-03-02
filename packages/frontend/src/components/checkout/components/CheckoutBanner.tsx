@@ -9,6 +9,7 @@ interface CheckoutBannerProps {
     onBannerRemove?: () => void
     onBannerResize?: (height: number) => void
     onBannerUpload?: (url: string) => void
+    onBannerFile?: (file: File) => void
     isPreview?: boolean
     // kept for compat but unused in simple mode
     isDragging?: boolean
@@ -27,8 +28,7 @@ const CheckoutBanner = memo(({
     onBannerRemove,
     onBannerAdjust,
     onBannerResize,
-    onBannerUpload,
-    onUpdateBannerWidth,
+    onBannerUpload, onBannerFile, onUpdateBannerWidth,
     isPreview = false,
 }: CheckoutBannerProps) => {
     const fileInputRef = useRef<HTMLInputElement>(null)
@@ -100,10 +100,15 @@ const CheckoutBanner = memo(({
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0]
-        if (!file || !onBannerUpload) return
-        const reader = new FileReader()
-        reader.onload = (ev) => onBannerUpload(ev.target?.result as string)
-        reader.readAsDataURL(file)
+        if (!file) return
+        if (onBannerFile) {
+            // Pai faz upload para o Storage e armazena a URL real (não base64)
+            onBannerFile(file)
+        } else if (onBannerUpload) {
+            const reader = new FileReader()
+            reader.onload = (ev) => onBannerUpload(ev.target?.result as string)
+            reader.readAsDataURL(file)
+        }
         e.target.value = ''
     }
 
