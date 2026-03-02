@@ -74,7 +74,8 @@ export default {
 
         // ── CAMADA 2: Streaming response (miss de cache) ────────────────────────
         // Busca o HTML estático e os dados do checkout em PARALELO
-        const htmlPromise = env.ASSETS.fetch(new Request(`${url.origin}/index.html`))
+        // checkout.html usa checkout-main.tsx — bundle mínimo sem HeroUI/QueryClient
+        const htmlPromise = env.ASSETS.fetch(new Request(`${url.origin}/checkout.html`))
         const dataPromise = fetchCheckoutData(shortId, env)
 
         const assetResponse = await htmlPromise

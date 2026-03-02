@@ -41,7 +41,8 @@ export default function ProductCard({
     copiedLinks,
     formatCurrency,
     getStatusColor,
-    getStatusText    onSubmitReview, }: ProductCardProps) {
+    getStatusText,
+    onSubmitReview, }: ProductCardProps) {
     const formatDate = (dateString: string) => {
         return new Date(dateString).toLocaleDateString('pt-BR')
     }

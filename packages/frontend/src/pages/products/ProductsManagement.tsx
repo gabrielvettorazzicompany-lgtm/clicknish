@@ -465,56 +465,6 @@ export default function ProductsManagement({ embedded = false }: { embedded?: bo
         }
     }
 
-    const handleSubmitAppForReview = async (id: string) => {
-        if (!confirm('Enviar este app para verificação? Após enviado, não será possível editar até ser revisado.')) return
-        try {
-            const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/applications/${id}/submit-review`, {
-                method: 'PUT',
-                headers: {
-                    'Authorization': `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNnZXF0b2RiaXNnd3Zoa2FhaGl5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjkxMTk1MDIsImV4cCI6MjA4NDY5NTUwMn0.Ov6_rRlThZUBIoL4oT6BGozEhvTUdFsWB6KylDXpFoY`,
-                    'Content-Type': 'application/json',
-                    'x-user-id': user?.id || ''
-                }
-            })
-            if (response.ok) {
-                alert('App enviado para verificação! Você será notificado quando for revisado.')
-                await fetchApps()
-            } else {
-                const err = await response.json().catch(() => ({}))
-                alert(`Erro: ${err.error || response.status}`)
-            }
-        } catch (error) {
-            console.error('Error submitting app for review:', error)
-            alert('Erro ao enviar para verificação')
-        }
-    }
-
-    const handleSubmitProductForReview = async (id: string) => {
-        if (!confirm('Enviar este produto para verificação?')) return
-        try {
-            const session = await getValidSession()
-            const response = await fetch(`https://api.clicknich.com/api/marketplace-products/${id}`, {
-                method: 'PATCH',
-                headers: {
-                    'Authorization': `Bearer ${session.access_token}`,
-                    'Content-Type': 'application/json',
-                    'x-user-id': user?.id || ''
-                },
-                body: JSON.stringify({ review_status: 'pending_review' })
-            })
-            if (response.ok) {
-                alert('Produto enviado para verificação! Você será notificado quando for revisado.')
-                await fetchProducts()
-            } else {
-                const err = await response.json().catch(() => ({}))
-                alert(`Erro: ${err.error || response.status}`)
-            }
-        } catch (error) {
-            console.error('Error submitting product for review:', error)
-            alert('Erro ao enviar para verificação')
-        }
-    }
-
     const handleDeleteApp = async (id: string) => {
         if (confirm('Are you sure you want to delete this app?')) {
             try {

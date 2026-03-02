@@ -301,11 +301,11 @@ export const PaymentForm: React.FC<PaymentFormProps> = ({
                   <label className="block text-[11px] font-medium text-gray-700 mb-1 uppercase tracking-wider">
                     {t.cardNumber}
                   </label>
-                  <div className="w-full px-3.5 py-3 border border-gray-200 rounded-lg bg-white min-h-[44px] flex items-center">
+                  <div className="w-full px-3.5 py-3 border border-gray-200 rounded-lg bg-white min-h-[44px]">
                     {isPreview ? (
                       <span className="text-gray-400 text-sm">1234 5678 9012 3456</span>
                     ) : (
-                      <CardNumberElement options={{ style: stripeElementStyle }} />
+                      <CardNumberElement className="w-full" options={{ style: stripeElementStyle }} />
                     )}
                   </div>
                 </div>
@@ -316,11 +316,11 @@ export const PaymentForm: React.FC<PaymentFormProps> = ({
                     <label className="block text-[11px] font-medium text-gray-700 mb-1 uppercase tracking-wider">
                       {t.expiryDate}
                     </label>
-                    <div className="w-full px-3.5 py-3 border border-gray-200 rounded-lg bg-white min-h-[44px] flex items-center">
+                    <div className="w-full px-3.5 py-3 border border-gray-200 rounded-lg bg-white min-h-[44px]">
                       {isPreview ? (
                         <span className="text-gray-400 text-sm">12 / 28</span>
                       ) : (
-                        <CardExpiryElement options={{ style: stripeElementStyle }} />
+                        <CardExpiryElement className="w-full" options={{ style: stripeElementStyle }} />
                       )}
                     </div>
                   </div>
@@ -328,11 +328,11 @@ export const PaymentForm: React.FC<PaymentFormProps> = ({
                     <label className="block text-[11px] font-medium text-gray-700 mb-1 uppercase tracking-wider">
                       {t.cvv}
                     </label>
-                    <div className="w-full px-3.5 py-3 border border-gray-200 rounded-lg bg-white min-h-[44px] flex items-center">
+                    <div className="w-full px-3.5 py-3 border border-gray-200 rounded-lg bg-white min-h-[44px]">
                       {isPreview ? (
                         <span className="text-gray-400 text-sm">123</span>
                       ) : (
-                        <CardCvcElement options={{ style: stripeElementStyle }} />
+                        <CardCvcElement className="w-full" options={{ style: stripeElementStyle }} />
                       )}
                     </div>
                   </div>
