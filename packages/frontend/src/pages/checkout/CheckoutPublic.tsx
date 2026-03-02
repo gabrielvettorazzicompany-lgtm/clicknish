@@ -211,7 +211,6 @@ export default function CheckoutPublic() {
 
     const fetchData = useCallback(async () => {
         try {
-            setLoading(true)
             const urlParams = new URLSearchParams(window.location.search)
             const isUpsellCheckout = urlParams.get('nobumps') === '1'
 
@@ -318,6 +317,10 @@ export default function CheckoutPublic() {
 
                     // Criar sessão KV em background: pré-carrega todos os dados para o processo
                     // de pagamento, eliminando as 8 queries do worker na hora do clique em "Pagar".
+                    // ⚡ setLoading(false) junto com os outros setState — batched pelo React 18
+                    // Faz skeleton → checkout em 1 render só, ao invés de 2
+                    setLoading(false)
+
                     fetch('https://api.clicknich.com/api/checkout-session', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
