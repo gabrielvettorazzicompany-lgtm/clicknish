@@ -517,6 +517,15 @@ function CheckoutDigitalForm(props: CheckoutDigitalProps) {
 
             const result = await response.json()
 
+            // Checar redirecionamento PayPal ANTES do check de success
+            // (backend retorna success:false + requiresApproval:true para o redirect flow)
+            if (result.requiresApproval && result.approvalUrl) {
+                console.log('🔵 PayPal redirect required:', result.approvalUrl)
+                window.location.href = result.approvalUrl
+                // Retornar pending para não mostrar erro enquanto redireciona
+                return { success: false }
+            }
+
             if (!result.success) {
                 console.error('❌ Payment failed:', result.error)
                 throw new Error(result.error || 'Payment failed')
@@ -525,14 +534,6 @@ function CheckoutDigitalForm(props: CheckoutDigitalProps) {
             paymentResultRef.current = {
                 purchaseId: result.purchaseId,
                 thankyouToken: result.thankyouToken
-            }
-
-            // Resposta PayPal que requer redirecionamento para aprovação
-            if (result.requiresApproval && result.approvalUrl) {
-                console.log('🔵 PayPal redirect required:', result.approvalUrl)
-                window.location.href = result.approvalUrl
-                // Retornar pending para não mostrar erro enquanto redireciona
-                return { success: false }
             }
 
             return {
