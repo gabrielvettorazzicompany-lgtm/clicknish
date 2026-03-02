@@ -1,7 +1,7 @@
 import { useParams, useNavigate } from 'react-router-dom'
 import { useEffect, useState, useCallback, useRef, lazy, Suspense } from 'react'
-import { supabase } from '@/services/supabase'
-import { useCheckoutPageView, trackCheckoutEvent } from '@/services/checkouts'
+// ⚡ Analytics sem supabase — não puxa vendor-supabase (~200KB) no bundle do checkout
+import { useCheckoutPageView, trackCheckoutEvent } from '@/services/checkout-analytics'
 import type { CheckoutLanguage } from '@/components/checkout/translations'
 import { getTranslations } from '@/components/checkout/translations'
 // ⚡ PRELOAD: Stripe começa a carregar imediatamente — importação barata do singleton
@@ -340,6 +340,9 @@ export default function CheckoutPublic() {
             // ═══════════════════════════════════════════
             // LEGACY PATH: Long URL or upsell checkout
             // ═══════════════════════════════════════════
+            // ⚡ Import dinâmico — supabase só carrega aqui (KV miss / URL longa)
+            // No path rápido (KV hit + shortId) este código nunca executa
+            const { supabase } = await import('@/services/supabase')
             let finalProductId = productId
             let finalCheckoutId = checkoutId
             let knownIsApp: boolean | null = null
@@ -583,6 +586,8 @@ export default function CheckoutPublic() {
         isUpsell: boolean
     ) => {
         try {
+            // ⚡ Import dinâmico — só executa no legacy path (nunca no KV hit)
+            const { supabase } = await import('@/services/supabase')
             if (!isUpsell) {
                 // Strategy 1: funnel_page linked directly to checkout
                 let { data: pages } = await supabase
