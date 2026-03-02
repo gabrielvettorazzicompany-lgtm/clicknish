@@ -19,9 +19,8 @@ const CHECKOUT_API = 'https://api.clicknich.com'
 function makeHeaders(shortId) {
     return {
         'Content-Type': 'text/html; charset=utf-8',
-        // 60s de cache na CDN Cloudflare global → 6x mais CDN hits,
-        // a maioria dos usuários nem chega ao Worker
-        'Cache-Control': 'public, max-age=60, stale-while-revalidate=300',
+        // 300s de cache na CDN Cloudflare global (purge ativo garante dados frescos)
+        'Cache-Control': 'public, max-age=300, stale-while-revalidate=3600',
         'X-Edge-Rendered': 'true',
         'X-Checkout-Id': shortId,
         // Early Hints (103): Cloudflare converte automaticamente para push/preload
@@ -30,6 +29,8 @@ function makeHeaders(shortId) {
             '<https://js.stripe.com>; rel=preconnect; crossorigin',
             '<https://api.stripe.com>; rel=preconnect; crossorigin',
             '<https://api.clicknich.com>; rel=preconnect; crossorigin',
+            // Imagens de banner/depoimentos migradas para Supabase Storage CDN
+            '<https://cgeqtodbisgwvhkaahiy.supabase.co>; rel=preconnect; crossorigin',
         ].join(', '),
     }
 }
