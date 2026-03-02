@@ -10,7 +10,8 @@
     "dev": "npm run dev -w packages/frontend",
     "build": "npm run build -w packages/frontend",
     "lint": "eslint . --ext .ts,.tsx",
-    "format": "prettier --write \"**/*.{ts,tsx,json,md}\""
+    "format": "prettier --write \"**/*.{ts,tsx,json,md}\"",
+    "migrate:images": "node scripts/migrate-base64-images.mjs"
   },
   "devDependencies": {
     "@typescript-eslint/eslint-plugin": "^6.0.0",
