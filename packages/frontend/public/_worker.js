@@ -40,7 +40,11 @@ export default {
         const { pathname } = url
 
         // ── Rotas não-checkout ──────────────────────────────────────────────────
-        const checkoutMatch = pathname.match(/^\/c\/([^/?#]+)/)
+        // Detecta /c/:shortId  OU  /checkout/:shortId (segmento único — não é URL longa)
+        const checkoutMatch =
+            pathname.match(/^\/c\/([^/?#]+)/) ||
+            // /checkout/abc — shortId (1 segmento). Exclui /checkout/abc/def (URL longa com productId+checkoutId)
+            pathname.match(/^\/checkout\/([^/?#/]+)(?:[?#]|$)/)
         if (!checkoutMatch) {
             // Tenta servir o asset estático (JS, CSS, imagens, etc.)
             const assetRes = await env.ASSETS.fetch(request)

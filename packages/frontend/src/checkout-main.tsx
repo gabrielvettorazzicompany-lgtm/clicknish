@@ -38,6 +38,8 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
                     <Routes>
                         {/* Short URL (path principal → mais rápido) */}
                         <Route path="/c/:shortId" element={<CheckoutPublic />} />
+                        {/* /checkout/:shortId — segmento único, mesmo comportamento do /c/:shortId */}
+                        <Route path="/checkout/:shortId" element={<CheckoutPublic />} />
                         {/* URL longa (legacy / upsell) */}
                         <Route path="/checkout/:productId/:checkoutId" element={<CheckoutPublic />} />
                         {/* Pós-compra */}
