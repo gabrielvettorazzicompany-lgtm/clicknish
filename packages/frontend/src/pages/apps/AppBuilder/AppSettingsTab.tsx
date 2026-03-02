@@ -119,52 +119,52 @@ export default function AppSettingsTab({
     }
 
     return (
-        <div className="bg-white dark:bg-[#1a1d2e] rounded-lg shadow-xl shadow-black/5 dark:shadow-black/10 border border-gray-200 dark:border-[#1e2139] p-4">
-            <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-3">{t('apps.settings_tab.payment_methods')}</h2>
+        <div className="bg-white dark:bg-[#1a1d2e]/80 rounded-xl border border-gray-200 dark:border-white/5 p-4 space-y-4">
+            <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                {t('apps.settings_tab.payment_methods')}
+            </p>
 
-            <div className="flex flex-col gap-2 mb-3">
-                {METHODS.map(method => (
-                    <div
-                        key={method.id}
-                        className={`flex items-center justify-between gap-3 border-2 rounded-lg px-3 py-2.5 cursor-pointer transition-all ${localSelectedMethods.includes(method.id)
-                            ? 'border-blue-500 bg-blue-500/10'
-                            : 'border-[#1e2139] hover:border-[#252941]'
-                            }`}
-                        onClick={() => handleToggleMethod(method.id)}
-                    >
-                        <div className="flex items-center gap-2 min-w-0">
-                            <div className="w-7 h-7 bg-gray-100 dark:bg-[#252941] rounded flex items-center justify-center flex-shrink-0">
-                                {method.icon}
-                            </div>
-                            <span className="text-xs font-medium text-gray-900 dark:text-gray-100 truncate">
-                                {t(`apps.settings_tab.${method.id}`)}
-                            </span>
-                        </div>
-                        <button
-                            onClick={e => {
-                                e.stopPropagation()
-                                handleSetDefault(method.id)
-                            }}
-                            className={`flex-shrink-0 px-3 py-1 rounded-md text-xs font-medium transition-colors ${localDefaultMethod === method.id
-                                ? 'bg-blue-500 text-white hover:bg-blue-600'
-                                : 'border border-[#252941] text-gray-300 hover:bg-[#0f1117]'
-                                }`}
-                            disabled={!localSelectedMethods.includes(method.id)}
+            <div className="flex flex-col gap-1.5">
+                {METHODS.map(method => {
+                    const active = localSelectedMethods.includes(method.id)
+                    const isDefault = localDefaultMethod === method.id
+                    return (
+                        <div
+                            key={method.id}
+                            className={`flex items-center justify-between gap-3 rounded-lg px-3 py-2 cursor-pointer transition-colors ${active ? 'bg-white/5' : 'opacity-40'}`}
+                            onClick={() => handleToggleMethod(method.id)}
                         >
-                            {t('apps.settings_tab.default_method')}
-                        </button>
-                    </div>
-                ))}
+                            <div className="flex items-center gap-2 min-w-0">
+                                <div className="flex-shrink-0 text-gray-400 dark:text-gray-500">
+                                    {method.icon}
+                                </div>
+                                <span className="text-xs text-gray-700 dark:text-gray-300 truncate">
+                                    {t(`apps.settings_tab.${method.id}`)}
+                                </span>
+                            </div>
+                            <button
+                                onClick={e => { e.stopPropagation(); handleSetDefault(method.id) }}
+                                disabled={!active}
+                                className={`flex-shrink-0 text-xs px-2 py-0.5 rounded-full transition-colors ${isDefault
+                                    ? 'bg-blue-500/20 text-blue-400'
+                                    : 'text-gray-500 dark:text-gray-600 hover:text-gray-400'
+                                    }`}
+                            >
+                                {isDefault ? t('apps.settings_tab.default_method') : t('apps.settings_tab.set_default')}
+                            </button>
+                        </div>
+                    )
+                })}
             </div>
 
-            <div className="mb-4">
-                <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+            <div>
+                <label className="block text-xs text-gray-500 dark:text-gray-500 mb-1">
                     {t('apps.settings_tab.default_checkout_method')}
                 </label>
                 <select
                     value={localDefaultMethod}
                     onChange={e => handleSetDefault(e.target.value as PaymentMethod)}
-                    className="w-full px-3 py-2 text-xs bg-white dark:bg-[#0f1117] text-gray-900 dark:text-gray-200 border border-gray-300 dark:border-[#252941] rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="w-full px-3 py-1.5 text-xs bg-transparent text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-white/10 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500/50"
                     disabled={localSelectedMethods.length === 0}
                 >
                     {METHODS.filter(m => localSelectedMethods.includes(m.id)).map(m => (
@@ -173,31 +173,21 @@ export default function AppSettingsTab({
                 </select>
             </div>
 
-            {/* Indicador de mudanças */}
-            {hasChanges && (
-                <div className="mb-4 text-xs text-yellow-600 dark:text-yellow-400 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-700 rounded-lg p-2">
-                    ⚠️ Você tem alterações não salvas
-                </div>
-            )}
-
-            {/* Botão de Salvar */}
-            <div className="flex justify-end">
+            <div className="flex justify-end pt-1">
                 <button
                     onClick={handleSave}
                     disabled={!hasChanges || saving}
-                    className={`px-4 py-2 rounded-lg text-xs font-medium transition-colors ${hasChanges && !saving
-                        ? 'bg-blue-600 text-white hover:bg-blue-700'
-                        : 'bg-gray-300 dark:bg-gray-700 text-gray-500 dark:text-gray-400 cursor-not-allowed'
+                    className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${hasChanges && !saving
+                        ? 'bg-blue-600/80 hover:bg-blue-600 text-white'
+                        : 'text-gray-500 dark:text-gray-600 cursor-not-allowed'
                         }`}
                 >
                     {saving ? (
-                        <div className="flex items-center space-x-2">
-                            <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                            <span>Salvando...</span>
+                        <div className="flex items-center gap-1.5">
+                            <div className="w-3 h-3 border border-white/40 border-t-white rounded-full animate-spin" />
+                            <span>{t('apps.settings_tab.saving')}</span>
                         </div>
-                    ) : (
-                        'Salvar Alterações'
-                    )}
+                    ) : t('apps.settings_tab.save')}
                 </button>
             </div>
         </div>

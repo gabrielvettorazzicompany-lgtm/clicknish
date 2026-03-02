@@ -34,7 +34,7 @@ export default function AppBuilder() {
 
   if (loading && appId) {
     return (
-      <div className="min-h-screen bg-gray-50 dark:bg-[#0f1117] flex transition-colors duration-200">
+      <div className="min-h-screen bg-gray-50 dark:bg-[#080b14] flex transition-colors duration-200 relative">
         <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
         <div className="flex-1 flex flex-col min-w-0">
           <Header onMenuClick={() => setSidebarOpen(true)} />
@@ -50,7 +50,12 @@ export default function AppBuilder() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-[#0f1117] flex transition-colors duration-200">
+    <div className="min-h-screen bg-gray-50 dark:bg-[#080b14] flex transition-colors duration-200 relative">
+      <div className="pointer-events-none fixed inset-0 overflow-hidden dark:block hidden">
+        <div className="absolute top-[-80px] left-[15%] w-[500px] h-[500px] rounded-full bg-blue-600/20 blur-[120px]" />
+        <div className="absolute top-[30%] right-[-60px] w-[400px] h-[400px] rounded-full bg-indigo-500/15 blur-[100px]" />
+        <div className="absolute bottom-[10%] left-[5%] w-[350px] h-[350px] rounded-full bg-violet-600/10 blur-[100px]" />
+      </div>
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
       <div className="flex-1 flex flex-col min-w-0">
@@ -62,7 +67,7 @@ export default function AppBuilder() {
           onTabChange={setActiveTab}
         />
 
-        <main className="flex-1 overflow-y-auto">
+        <main className="flex-1 overflow-y-auto relative z-10">
           {/* Embedded pages — full width, no padding wrapper */}
           {activeTab === 'products' && <Products embedded />}
           {activeTab === 'feed' && <FeedManagement embedded />}

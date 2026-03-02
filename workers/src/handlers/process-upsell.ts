@@ -7,6 +7,53 @@ import { createClient } from '../lib/supabase'
 import { createStripeClient } from '../lib/stripe'
 import type { Env } from '../index'
 
+/**
+ * Resolve a chave Stripe correta para o vendedor:
+ * 1. Verifica se o vendedor tem provedor individual (override)
+ * 2. Senão, usa o provedor padrão global da plataforma
+ * 3. Fallback final: variável de ambiente STRIPE_SECRET_KEY
+ */
+async function resolveStripeKey(supabase: any, ownerId: string | null, fallbackKey: string): Promise<string> {
+    if (!ownerId) return fallbackKey
+    try {
+        const { data: userConfig } = await supabase
+            .from('user_payment_config')
+            .select('provider_id, override_platform_default')
+            .eq('user_id', ownerId)
+            .eq('override_platform_default', true)
+            .maybeSingle()
+
+        if (userConfig?.provider_id) {
+            const { data: provider } = await supabase
+                .from('payment_providers')
+                .select('credentials, type')
+                .eq('id', userConfig.provider_id)
+                .eq('is_active', true)
+                .maybeSingle()
+            const key = provider?.credentials?.secret_key || provider?.credentials?.api_key
+            if (key) {
+                console.log(`[resolveStripeKey] Using individual provider ${userConfig.provider_id} for owner ${ownerId}`)
+                return key
+            }
+        }
+
+        const { data: globalProvider } = await supabase
+            .from('payment_providers')
+            .select('credentials, type')
+            .eq('is_global_default', true)
+            .eq('is_active', true)
+            .maybeSingle()
+        const globalKey = globalProvider?.credentials?.secret_key || globalProvider?.credentials?.api_key
+        if (globalKey) {
+            console.log(`[resolveStripeKey] Using global default provider for owner ${ownerId}`)
+            return globalKey
+        }
+    } catch (e) {
+        console.warn('[resolveStripeKey] Error resolving provider, using fallback env key:', e)
+    }
+    return fallbackKey
+}
+
 const corsHeaders = {
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
@@ -30,7 +77,8 @@ export async function handleProcessUpsell(
 
         // Inicializar clientes
         const supabase = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY)
-        const stripe = createStripeClient(env.STRIPE_SECRET_KEY)
+        // stripe é substituído após conhecermos o dono do produto
+        let stripe = createStripeClient(env.STRIPE_SECRET_KEY)
 
         // 1. Fetch the offer details
         const { data: offer, error: offerError } = await supabase
@@ -69,7 +117,7 @@ export async function handleProcessUpsell(
         } else {
             const { data: memberProduct } = await supabase
                 .from('marketplace_products')
-                .select('id, name, price, currency')
+                .select('id, name, price, currency, owner_id')
                 .eq('id', offer.product_id)
                 .maybeSingle()
 
@@ -78,7 +126,7 @@ export async function handleProcessUpsell(
             } else {
                 const { data: appProduct } = await supabase
                     .from('applications')
-                    .select('id, name')
+                    .select('id, name, owner_id')
                     .eq('id', offer.product_id)
                     .maybeSingle()
 
@@ -92,6 +140,13 @@ export async function handleProcessUpsell(
         if (!product) {
             throw new Error('Product not found')
         }
+
+        // Resolver Stripe correto para o vendedor deste produto
+        const productOwnerId = product.owner_id ||
+            (parentApplicationId
+                ? (await supabase.from('applications').select('owner_id').eq('id', parentApplicationId).maybeSingle()).data?.owner_id
+                : null)
+        stripe = createStripeClient(await resolveStripeKey(supabase, productOwnerId || null, env.STRIPE_SECRET_KEY))
 
         // 3. Find the original purchase to get stripe customer/payment method
         let stripeCustomerId: string | null = null

@@ -109,7 +109,7 @@ export async function handleMarketplaceProducts(request: Request, env: any, path
                     recurrence_period: body.payment_type === 'recurrent' ? (body.recurrence_period || 'monthly') : null,
                     support_email: body.support_email || null,
                     support_whatsapp: body.support_whatsapp || null,
-                    review_status: 'pending_review',
+                    review_status: 'draft',
                 }
 
                 console.log('Creating member area with data:', JSON.stringify(productData))
