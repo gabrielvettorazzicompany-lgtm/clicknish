@@ -145,9 +145,11 @@ const CheckoutBanner = memo(({
     }
 
     // ── Com imagem ──
-    // Sempre usa customWidth/customHeight se existir
-    const effectiveWidth = customBanner?.customWidth || (isPreview ? currentWidth : undefined)
-    const effectiveHeight = customBanner?.customHeight || height
+    // Em preview, usa sempre o estado local (atualizado em tempo real durante o drag).
+    // O useEffect já sincroniza o estado local quando customBanner muda via props.
+    // No checkout público (não preview), usa os valores salvos do banco.
+    const effectiveWidth = isPreview ? currentWidth : customBanner?.customWidth
+    const effectiveHeight = isPreview ? height : (customBanner?.customHeight || 250)
 
     const bannerStyle = effectiveWidth
         ? { width: `${effectiveWidth}px`, maxWidth: '100%', height: `${effectiveHeight}px` }
