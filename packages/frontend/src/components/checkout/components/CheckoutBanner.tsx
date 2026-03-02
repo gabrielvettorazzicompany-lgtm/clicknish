@@ -41,11 +41,18 @@ const CheckoutBanner = memo(({
     const startY = useRef(0)
     const startWidth = useRef(0)
     const startHeight = useRef(0)
+    // Refs para capturar o valor final correto no mouseUp (evita stale closure)
+    const latestHeight = useRef(customBanner?.customHeight || 250)
+    const latestWidth = useRef(customBanner?.customWidth || 800)
 
     // sync height and width when customBanner changes externally
     useEffect(() => {
-        setHeight(customBanner?.customHeight || 250)
-        setCurrentWidth(customBanner?.customWidth || 800)
+        const h = customBanner?.customHeight || 250
+        const w = customBanner?.customWidth || 800
+        setHeight(h)
+        setCurrentWidth(w)
+        latestHeight.current = h
+        latestWidth.current = w
     }, [customBanner?.customHeight, customBanner?.customWidth])
 
     const handleWidthResizeMouseDown = (e: React.MouseEvent) => {
@@ -59,12 +66,13 @@ const CheckoutBanner = memo(({
         const handleMouseMove = (moveEvent: MouseEvent) => {
             const deltaX = moveEvent.clientX - startX.current
             const newWidth = Math.max(300, Math.min(1200, startWidth.current + deltaX * 2))
+            latestWidth.current = newWidth
             setCurrentWidth(newWidth)
         }
 
         const handleMouseUp = () => {
             setIsResizingWidth(false)
-            onUpdateBannerWidth(currentWidth)
+            onUpdateBannerWidth(latestWidth.current)
             document.removeEventListener('mousemove', handleMouseMove)
             document.removeEventListener('mouseup', handleMouseUp)
         }
@@ -84,12 +92,13 @@ const CheckoutBanner = memo(({
         const handleMouseMove = (moveEvent: MouseEvent) => {
             const deltaY = moveEvent.clientY - startY.current
             const newHeight = Math.max(100, Math.min(600, startHeight.current + deltaY))
+            latestHeight.current = newHeight
             setHeight(newHeight)
         }
 
         const handleMouseUp = () => {
             setIsResizingHeight(false)
-            onBannerResize(height)
+            onBannerResize(latestHeight.current)
             document.removeEventListener('mousemove', handleMouseMove)
             document.removeEventListener('mouseup', handleMouseUp)
         }
