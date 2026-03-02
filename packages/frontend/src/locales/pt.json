@@ -2013,7 +2013,10 @@
             "credit_card": "Cartão de Crédito",
             "paypal": "PayPal",
             "default_method": "Método Padrão",
-            "default_checkout_method": "Método de Pagamento Padrão do Checkout"
+            "default_checkout_method": "Método de Pagamento Padrão do Checkout",
+            "set_default": "Definir padrão",
+            "save": "Salvar",
+            "saving": "Salvando…"
         }
     },
     "superadmin": {
@@ -2065,7 +2068,7 @@
         "unknown": "Desconhecido",
         "view": "Ver",
         "registration": "Cadastro",
-        "marketplace_products": "Produtos do Marketplace",
+        "marketplace_products": "Produtos",
         "product_review_overview": "Visão geral do status de revisão de produtos",
         "total_label": "Total:",
         "live_marketplace": "Disponível no marketplace",
@@ -2135,6 +2138,7 @@
         "change_plan": "Alterar Plano",
         "admin_actions": "Ações de Administração",
         "ban_user": "Banir Usuário",
+        "unban_user": "Desbanir Usuário",
         "delete_user": "Deletar Usuário",
         "permanent_actions": "Estas ações são permanentes e não podem ser desfeitas",
         "reject": "Rejeitar",

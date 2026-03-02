@@ -2013,7 +2013,10 @@
             "credit_card": "Credit Card",
             "paypal": "PayPal",
             "default_method": "Default Method",
-            "default_checkout_method": "Default Checkout Payment Method"
+            "default_checkout_method": "Default Checkout Payment Method",
+            "set_default": "Set as default",
+            "save": "Save",
+            "saving": "Saving…"
         }
     },
     "superadmin": {
@@ -2065,7 +2068,7 @@
         "unknown": "Unknown",
         "view": "View",
         "registration": "Registration",
-        "marketplace_products": "Marketplace Products",
+        "marketplace_products": "Products",
         "product_review_overview": "Product review status overview",
         "total_label": "Total:",
         "live_marketplace": "Live on marketplace",
@@ -2135,6 +2138,7 @@
         "change_plan": "Change Plan",
         "admin_actions": "Administration Actions",
         "ban_user": "Ban User",
+        "unban_user": "Unban User",
         "delete_user": "Delete User",
         "permanent_actions": "These actions are permanent and cannot be undone",
         "reject": "Reject",

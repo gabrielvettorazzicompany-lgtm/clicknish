@@ -7,6 +7,55 @@ import { createClient } from '../lib/supabase'
 import { createStripeClient } from '../lib/stripe'
 import type { Env } from '../index'
 
+/**
+ * Resolve a chave Stripe correta para o vendedor:
+ * 1. Verifica se o vendedor tem provedor individual (override)
+ * 2. Senão, usa o provedor padrão global da plataforma
+ * 3. Fallback final: variável de ambiente STRIPE_SECRET_KEY
+ */
+async function resolveStripeKey(supabase: any, ownerId: string | null, fallbackKey: string): Promise<string> {
+    if (!ownerId) return fallbackKey
+    try {
+        // 1. Provedor individual do vendedor
+        const { data: userConfig } = await supabase
+            .from('user_payment_config')
+            .select('provider_id, override_platform_default')
+            .eq('user_id', ownerId)
+            .eq('override_platform_default', true)
+            .maybeSingle()
+
+        if (userConfig?.provider_id) {
+            const { data: provider } = await supabase
+                .from('payment_providers')
+                .select('credentials, type')
+                .eq('id', userConfig.provider_id)
+                .eq('is_active', true)
+                .maybeSingle()
+            const key = provider?.credentials?.secret_key || provider?.credentials?.api_key
+            if (key) {
+                console.log(`[resolveStripeKey] Using individual provider ${userConfig.provider_id} for owner ${ownerId}`)
+                return key
+            }
+        }
+
+        // 2. Provedor padrão global da plataforma
+        const { data: globalProvider } = await supabase
+            .from('payment_providers')
+            .select('credentials, type')
+            .eq('is_global_default', true)
+            .eq('is_active', true)
+            .maybeSingle()
+        const globalKey = globalProvider?.credentials?.secret_key || globalProvider?.credentials?.api_key
+        if (globalKey) {
+            console.log(`[resolveStripeKey] Using global default provider for owner ${ownerId}`)
+            return globalKey
+        }
+    } catch (e) {
+        console.warn('[resolveStripeKey] Error resolving provider, using fallback env key:', e)
+    }
+    return fallbackKey
+}
+
 const corsHeaders = {
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
@@ -72,7 +121,8 @@ export async function handleProcessPayment(
 
         // Continuar com Stripe (método padrão)
         const supabase = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY)
-        const stripe = createStripeClient(env.STRIPE_SECRET_KEY)
+        // stripe é inicializado com fallback e substituído após conhecermos o vendedor
+        let stripe = createStripeClient(env.STRIPE_SECRET_KEY)
 
         // ═══════════════════════════════════════════════════════════════════
         // BUSCAR DADOS EM PARALELO
@@ -119,6 +169,8 @@ export async function handleProcessPayment(
             productName = kvSession.productName
             currency = kvSession.currency
             sellerOwnerId = kvSession.sellerOwnerId
+            // Resolve o stripe correto para este vendedor (individual > global > fallback)
+            stripe = createStripeClient(await resolveStripeKey(supabase, sellerOwnerId, env.STRIPE_SECRET_KEY))
 
             // Preços verificados: filtrar apenas os bumps que o cliente selecionou
             for (const offer of kvSession.bumpOffers) {
@@ -162,10 +214,11 @@ export async function handleProcessPayment(
 
         } else {
             // ══ FALLBACK: queries completas ao Supabase ══
+            // Fase 1: buscar produto (necessário para saber o vendedor e resolver o Stripe correto)
+            // + demais queries Supabase em paralelo (não dependem do Stripe)
             const [
                 productResult,
                 checkoutResult,
-                stripeResult,
                 bumpPricesResult,
                 appUserResult,
                 orderBumpsResult,
@@ -179,7 +232,6 @@ export async function handleProcessPayment(
                 checkoutId
                     ? supabase.from('checkouts').select('custom_price').eq('id', checkoutId).single()
                     : Promise.resolve({ data: null, error: null }),
-                stripe.customers.list({ email: customerEmail, limit: 1 }),
                 selectedBumpIds.length > 0
                     ? supabase.from('checkout_offers')
                         .select('id, offer_price, original_price, offer_product_id')
@@ -225,6 +277,10 @@ export async function handleProcessPayment(
                 productName = productData.name
                 currency = productData.currency || 'brl'
             }
+
+            // Fase 2: agora que sabemos o vendedor, resolver o Stripe correto e buscar o customer
+            stripe = createStripeClient(await resolveStripeKey(supabase, sellerOwnerId, env.STRIPE_SECRET_KEY))
+            const stripeResult = await stripe.customers.list({ email: customerEmail, limit: 1 })
 
             stripeCustomersResult = stripeResult
             existingAppUserData = (appUserResult as any).data

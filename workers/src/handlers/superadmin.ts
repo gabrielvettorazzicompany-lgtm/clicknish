@@ -614,6 +614,113 @@ export async function handleSuperadmin(request: Request, env: any, pathSegments:
             return new Response(JSON.stringify({ success: true }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
         }
 
+        // ─── PAYMENT PROVIDERS ──────────────────────────────────────────────────
+
+        // GET /api/superadmin/providers
+        if (request.method === 'GET' && pathSegments.length === 1 && pathSegments[0] === 'providers') {
+            const { data, error } = await supabase
+                .from('payment_providers')
+                .select('id, name, type, is_active, is_global_default, created_at, updated_at')
+                .order('created_at', { ascending: true })
+            if (error) throw error
+            return new Response(JSON.stringify({ providers: data || [] }), {
+                headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+            })
+        }
+
+        // POST /api/superadmin/providers
+        if (request.method === 'POST' && pathSegments.length === 1 && pathSegments[0] === 'providers') {
+            const body = await request.json()
+            const { name, type, credentials = {}, is_active = true } = body
+            if (!name || !type) {
+                return new Response(JSON.stringify({ error: 'name e type são obrigatórios' }), {
+                    status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+                })
+            }
+            const { data: adminData } = await supabase.auth.admin.getUserById(userId)
+            const adminEmail = adminData?.user?.email || ''
+            const { data, error } = await supabase
+                .from('payment_providers')
+                .insert({ name, type, credentials, is_active, created_by: userId })
+                .select('id, name, type, is_active, is_global_default, created_at')
+                .single()
+            if (error) throw error
+            await logAudit(supabase, userId, adminEmail, 'create_payment_provider', 'payment_provider', data.id, { name, type })
+            return new Response(JSON.stringify({ success: true, provider: data }), {
+                headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+            })
+        }
+
+        // PUT /api/superadmin/providers/:id
+        if (request.method === 'PUT' && pathSegments.length === 2 && pathSegments[0] === 'providers') {
+            const providerId = pathSegments[1]
+            const body = await request.json()
+            const { name, credentials, is_active, is_global_default } = body
+            const { data: adminData } = await supabase.auth.admin.getUserById(userId)
+            const adminEmail = adminData?.user?.email || ''
+            const updateData: any = { updated_at: new Date().toISOString() }
+            if (name !== undefined) updateData.name = name
+            if (credentials !== undefined) updateData.credentials = credentials
+            if (is_active !== undefined) updateData.is_active = is_active
+            if (is_global_default !== undefined) {
+                // Garante que só um pode ser global default
+                if (is_global_default) {
+                    await supabase
+                        .from('payment_providers')
+                        .update({ is_global_default: false })
+                        .eq('is_global_default', true)
+                }
+                updateData.is_global_default = is_global_default
+            }
+            const { error } = await supabase
+                .from('payment_providers')
+                .update(updateData)
+                .eq('id', providerId)
+            if (error) throw error
+            await logAudit(supabase, userId, adminEmail, 'update_payment_provider', 'payment_provider', providerId, { is_active, is_global_default })
+            return new Response(JSON.stringify({ success: true }), {
+                headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+            })
+        }
+
+        // DELETE /api/superadmin/providers/:id
+        if (request.method === 'DELETE' && pathSegments.length === 2 && pathSegments[0] === 'providers') {
+            const providerId = pathSegments[1]
+            const { data: adminData } = await supabase.auth.admin.getUserById(userId)
+            const adminEmail = adminData?.user?.email || ''
+            const { error } = await supabase.from('payment_providers').delete().eq('id', providerId)
+            if (error) throw error
+            await logAudit(supabase, userId, adminEmail, 'delete_payment_provider', 'payment_provider', providerId, {})
+            return new Response(JSON.stringify({ success: true }), {
+                headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+            })
+        }
+
+        // POST /api/superadmin/payment-config/search  —  busca usuário por email para criar override
+        if (request.method === 'POST' && pathSegments.length === 2 && pathSegments[0] === 'payment-config' && pathSegments[1] === 'search') {
+            const { email } = await request.json()
+            if (!email) {
+                return new Response(JSON.stringify({ error: 'email é obrigatório' }), {
+                    status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+                })
+            }
+            const { data: usersData } = await supabase.auth.admin.listUsers()
+            const found = (usersData?.users || []).find((u: any) => u.email?.toLowerCase() === email.toLowerCase())
+            if (!found) {
+                return new Response(JSON.stringify({ user: null }), {
+                    headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+                })
+            }
+            const { data: currentCfg } = await supabase
+                .from('user_payment_config')
+                .select('*')
+                .eq('user_id', found.id)
+                .single()
+            return new Response(JSON.stringify({ user: { id: found.id, email: found.email }, config: currentCfg || null }), {
+                headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+            })
+        }
+
         return new Response(JSON.stringify({ error: 'Endpoint não encontrado' }), {
             status: 404,
             headers: { ...corsHeaders, 'Content-Type': 'application/json' }

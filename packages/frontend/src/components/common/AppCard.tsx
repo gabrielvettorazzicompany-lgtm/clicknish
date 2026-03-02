@@ -1,4 +1,4 @@
-import { Edit, Trash2, Link } from 'lucide-react'
+import { Edit, Trash2, Link, Send } from 'lucide-react'
 
 interface Application {
     id?: string
@@ -13,7 +13,7 @@ interface Application {
     language?: string
     theme?: string
     category?: string
-    review_status?: 'pending_review' | 'approved' | 'rejected'
+    review_status?: 'draft' | 'pending_review' | 'approved' | 'rejected'
 }
 
 interface AppCardProps {
@@ -21,6 +21,7 @@ interface AppCardProps {
     onEdit: (id: string) => void
     onDelete: (id: string) => void
     onOpenAccess: (slug: string) => void
+    onSubmitReview?: (id: string) => void
 }
 
 export default function AppCard({
@@ -28,12 +29,14 @@ export default function AppCard({
     onEdit,
     onDelete,
     onOpenAccess,
+    onSubmitReview,
 }: AppCardProps) {
     const formatDate = (dateString: string) => {
         return new Date(dateString).toLocaleDateString('pt-BR')
     }
 
     const isPending = app.review_status === 'pending_review'
+    const isDraft = app.review_status === 'draft' || !app.review_status
 
     return (
         <div className="bg-white dark:bg-white/5 dark:backdrop-blur-xl rounded-2xl shadow-xl shadow-black/5 dark:shadow-black/10 border border-gray-200 dark:border-white/10 overflow-hidden hover:shadow-2xl hover:shadow-blue-500/10 transition-all duration-300">
@@ -102,19 +105,34 @@ export default function AppCard({
                 {/* Review Status Badge */}
                 {app.review_status && app.review_status !== 'approved' && (
                     <div className="mt-2">
+                        {isDraft && (
+                            <div className="flex items-center gap-1.5 px-2 py-1 bg-gray-500/10 border border-gray-500/20 rounded-lg">
+                                <div className="w-1.5 h-1.5 bg-gray-400 rounded-full"></div>
+                                <span className="text-xs text-gray-400 font-medium">Rascunho</span>
+                            </div>
+                        )}
                         {app.review_status === 'pending_review' && (
                             <div className="flex items-center gap-1.5 px-2 py-1 bg-yellow-500/10 border border-yellow-500/20 rounded-lg">
                                 <div className="w-1.5 h-1.5 bg-yellow-500 rounded-full animate-pulse"></div>
-                                <span className="text-xs text-yellow-500 font-medium">Pending Review</span>
+                                <span className="text-xs text-yellow-500 font-medium">Em Verificação</span>
                             </div>
                         )}
                         {app.review_status === 'rejected' && (
                             <div className="flex items-center gap-1.5 px-2 py-1 bg-red-500/10 border border-red-500/20 rounded-lg">
                                 <div className="w-1.5 h-1.5 bg-red-500 rounded-full"></div>
-                                <span className="text-xs text-red-500 font-medium">Rejected</span>
+                                <span className="text-xs text-red-500 font-medium">Rejeitado</span>
                             </div>
                         )}
                     </div>
+                )}
+                {(isDraft || app.review_status === 'rejected') && onSubmitReview && app.id && (
+                    <button
+                        onClick={() => onSubmitReview(app.id!)}
+                        className="mt-2 w-full flex items-center justify-center gap-1.5 px-3 py-1.5 bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/25 text-blue-400 rounded-lg text-xs font-medium transition-colors"
+                    >
+                        <Send size={11} />
+                        Enviar para Verificação
+                    </button>
                 )}
             </div>
         </div>

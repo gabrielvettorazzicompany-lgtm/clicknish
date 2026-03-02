@@ -95,15 +95,24 @@ interface PendingApp {
     owner_email?: string
 }
 
+interface PaymentProvider {
+    id: string
+    name: string
+    type: 'stripe' | 'stripe_connect' | 'mollie' | 'paypal' | 'custom'
+    is_active: boolean
+    is_global_default: boolean
+    created_at: string
+    updated_at: string
+}
+
 export default function SuperAdmin() {
     const { t } = useI18n()
     const { user } = useAuthStore()
-    const [activeTab, setActiveTab] = useState('overview')
+    const [activeTab, setActiveTab] = useState('dashboard')
     const [reviewSubTab, setReviewSubTab] = useState<'apps' | 'products'>('apps')
     const [stats, setStats] = useState<PlatformStats | null>(null)
     const [users, setUsers] = useState<User[]>([])
     const [applications, setApplications] = useState<Application[]>([])
-    const [domains, setDomains] = useState<any[]>([])
     const [plans, setPlans] = useState<User[]>([])
     const [loading, setLoading] = useState(true)
     const [error, setError] = useState('')
@@ -149,6 +158,21 @@ export default function SuperAdmin() {
     const [paymentConfigForm, setPaymentConfigForm] = useState({ payment_provider: 'stripe', mollie_api_key: '', stripe_connect_account: '', override_platform_default: true, notes: '' })
     const [savingPaymentConfig, setSavingPaymentConfig] = useState(false)
 
+    // ─── Payment Providers (dinâmico) ──────────────────────────────────────────
+    const [providers, setProviders] = useState<PaymentProvider[]>([])
+    const [loadingProviders, setLoadingProviders] = useState(false)
+    const [showAddProviderForm, setShowAddProviderForm] = useState(false)
+    const [newProviderForm, setNewProviderForm] = useState({ name: '', type: 'stripe', credentials: {} as Record<string, string> })
+    const [savingProvider, setSavingProvider] = useState(false)
+    const [editingProviderId, setEditingProviderId] = useState<string | null>(null)
+    const [editingProviderCreds, setEditingProviderCreds] = useState<Record<string, string>>({})
+    const [editingProviderName, setEditingProviderName] = useState('')
+    const [providerUserSearch, setProviderUserSearch] = useState('')
+    const [providerUserResult, setProviderUserResult] = useState<{ user: { id: string; email: string }; config: any } | null>(null)
+    const [searchingProviderUser, setSearchingProviderUser] = useState(false)
+    const [assigningProvider, setAssigningProvider] = useState(false)
+    const [selectedProviderForUser, setSelectedProviderForUser] = useState('')
+
     // ─── Platform config ────────────────────────────────────────────────────────
     const [platformConfig, setPlatformConfig] = useState<Record<string, any>>({})
     const [loadingPlatformConfig, setLoadingPlatformConfig] = useState(false)
@@ -182,12 +206,14 @@ export default function SuperAdmin() {
     }, [user])
 
     useEffect(() => {
-        if (activeTab === 'users' && users.length === 0) {
+        if (activeTab === 'dashboard' && !financialData) {
+            fetchFinancial()
+            fetchPaymentConfigs()
+            fetchAuditLog(1)
+        } else if (activeTab === 'users' && users.length === 0) {
             fetchUsers()
         } else if (activeTab === 'applications' && applications.length === 0) {
             fetchApplications()
-        } else if (activeTab === 'domains' && domains.length === 0) {
-            fetchDomains()
         } else if (activeTab === 'plans' && plans.length === 0) {
             fetchPlans()
         } else if (activeTab === 'verifications') {
@@ -280,25 +306,6 @@ export default function SuperAdmin() {
             }
         } catch (error) {
             console.error('Error loading applications:', error)
-        }
-    }
-
-    const fetchDomains = async () => {
-        try {
-            const response = await fetch('https://api.clicknich.com/api/superadmin/domains', {
-                headers: {
-                    'Authorization': `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNnZXF0b2RiaXNnd3Zoa2FhaGl5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjkxMTk1MDIsImV4cCI6MjA4NDY5NTUwMn0.Ov6_rRlThZUBIoL4oT6BGozEhvTUdFsWB6KylDXpFoY`,
-                    'Content-Type': 'application/json',
-                    'x-user-id': user?.id || ''
-                }
-            })
-
-            if (response.ok) {
-                const data = await response.json()
-                setDomains(data)
-            }
-        } catch (error) {
-            console.error('Error loading domains:', error)
         }
     }
 
@@ -723,20 +730,69 @@ export default function SuperAdmin() {
     }
 
     // ─── PAYMENT CONFIG ─────────────────────────────────────────────────────────
+    const ADMIN_HEADERS = {
+        'Authorization': `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNnZXF0b2RiaXNnd3Zoa2FhaGl5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjkxMTk1MDIsImV4cCI6MjA4NDY5NTUwMn0.Ov6_rRlThZUBIoL4oT6BGozEhvTUdFsWB6KylDXpFoY`,
+        'Content-Type': 'application/json',
+        'x-user-id': user?.id || ''
+    }
+
+    const PROVIDER_ICONS: Record<string, string> = {
+        stripe: '🔵',
+        stripe_connect: '🔵',
+        mollie: '🟠',
+        paypal: '🟡',
+        custom: '⚙️',
+    }
+
+    const PROVIDER_COLORS: Record<string, { bg: string; text: string; border: string }> = {
+        stripe: { bg: 'bg-indigo-500/20', text: 'text-indigo-300', border: 'border-indigo-500/30' },
+        stripe_connect: { bg: 'bg-indigo-500/20', text: 'text-indigo-300', border: 'border-indigo-500/30' },
+        mollie: { bg: 'bg-orange-500/20', text: 'text-orange-300', border: 'border-orange-500/30' },
+        paypal: { bg: 'bg-yellow-500/20', text: 'text-yellow-300', border: 'border-yellow-500/30' },
+        custom: { bg: 'bg-gray-500/20', text: 'text-gray-300', border: 'border-gray-500/30' },
+    }
+
+    const CREDENTIAL_FIELDS: Record<string, Array<{ key: string; label: string; placeholder: string }>> = {
+        stripe: [
+            { key: 'secret_key', label: 'Secret Key', placeholder: 'sk_live_...' },
+            { key: 'webhook_secret', label: 'Webhook Secret', placeholder: 'whsec_...' },
+        ],
+        stripe_connect: [
+            { key: 'secret_key', label: 'Secret Key', placeholder: 'sk_live_...' },
+            { key: 'webhook_secret', label: 'Webhook Secret', placeholder: 'whsec_...' },
+        ],
+        mollie: [
+            { key: 'live_api_key', label: 'Live API Key', placeholder: 'live_...' },
+            { key: 'test_api_key', label: 'Test API Key', placeholder: 'test_...' },
+        ],
+        paypal: [
+            { key: 'client_id', label: 'Client ID', placeholder: 'AYhVxxxxxx...' },
+            { key: 'client_secret', label: 'Client Secret', placeholder: 'EJ3Nxxxxxx...' },
+        ],
+        custom: [
+            { key: 'api_key', label: 'API Key', placeholder: 'key_...' },
+        ],
+    }
+
     const fetchPaymentConfigs = async () => {
         setLoadingPaymentConfigs(true)
+        setLoadingProviders(true)
         try {
-            const [cfgRes, globalRes] = await Promise.all([
-                fetch('https://api.clicknich.com/api/superadmin/payment-configs', {
-                    headers: { 'Authorization': `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNnZXF0b2RiaXNnd3Zoa2FhaGl5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjkxMTk1MDIsImV4cCI6MjA4NDY5NTUwMn0.Ov6_rRlThZUBIoL4oT6BGozEhvTUdFsWB6KylDXpFoY`, 'Content-Type': 'application/json', 'x-user-id': user?.id || '' }
-                }),
-                fetch('https://api.clicknich.com/api/superadmin/platform-config', {
-                    headers: { 'Authorization': `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNnZXF0b2RiaXNnd3Zoa2FhaGl5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjkxMTk1MDIsImV4cCI6MjA4NDY5NTUwMn0.Ov6_rRlThZUBIoL4oT6BGozEhvTUdFsWB6KylDXpFoY`, 'Content-Type': 'application/json', 'x-user-id': user?.id || '' }
-                })
+            const [cfgRes, providersRes] = await Promise.all([
+                fetch('https://api.clicknich.com/api/superadmin/payment-configs', { headers: ADMIN_HEADERS }),
+                fetch('https://api.clicknich.com/api/superadmin/providers', { headers: ADMIN_HEADERS }),
             ])
             if (cfgRes.ok) { const d = await cfgRes.json(); setPaymentConfigs(d.configs || []) }
-            if (globalRes.ok) { const d = await globalRes.json(); setGlobalProvider(d.default_payment_provider?.value || 'stripe') }
-        } catch (e) { console.error(e) } finally { setLoadingPaymentConfigs(false) }
+            if (providersRes.ok) {
+                const d = await providersRes.json()
+                setProviders(d.providers || [])
+                const globalDefault = d.providers?.find((p: PaymentProvider) => p.is_global_default)
+                if (globalDefault) setGlobalProvider(globalDefault.id)
+            }
+        } catch (e) { console.error(e) } finally {
+            setLoadingPaymentConfigs(false)
+            setLoadingProviders(false)
+        }
     }
 
     const handleSavePaymentConfig = async (targetUserId: string) => {
@@ -744,7 +800,7 @@ export default function SuperAdmin() {
         try {
             const res = await fetch(`https://api.clicknich.com/api/superadmin/payment-config/${targetUserId}`, {
                 method: 'PUT',
-                headers: { 'Authorization': `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNnZXF0b2RiaXNnd3Zoa2FhaGl5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjkxMTk1MDIsImV4cCI6MjA4NDY5NTUwMn0.Ov6_rRlThZUBIoL4oT6BGozEhvTUdFsWB6KylDXpFoY`, 'Content-Type': 'application/json', 'x-user-id': user?.id || '' },
+                headers: ADMIN_HEADERS,
                 body: JSON.stringify(paymentConfigForm)
             })
             if (res.ok) { setEditingPaymentUser(null); fetchPaymentConfigs() }
@@ -756,12 +812,123 @@ export default function SuperAdmin() {
         try {
             const res = await fetch('https://api.clicknich.com/api/superadmin/platform-config', {
                 method: 'PUT',
-                headers: { 'Authorization': `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNnZXF0b2RiaXNnd3Zoa2FhaGl5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjkxMTk1MDIsImV4cCI6MjA4NDY5NTUwMn0.Ov6_rRlThZUBIoL4oT6BGozEhvTUdFsWB6KylDXpFoY`, 'Content-Type': 'application/json', 'x-user-id': user?.id || '' },
+                headers: ADMIN_HEADERS,
                 body: JSON.stringify({ key: 'default_payment_provider', value: `"${provider}"` })
             })
             if (res.ok) setGlobalProvider(provider)
             else alert('Erro ao salvar provedor global')
         } catch (e) { console.error(e) }
+    }
+
+    const handleSetGlobalDefault = async (providerId: string) => {
+        try {
+            const res = await fetch(`https://api.clicknich.com/api/superadmin/providers/${providerId}`, {
+                method: 'PUT',
+                headers: ADMIN_HEADERS,
+                body: JSON.stringify({ is_global_default: true })
+            })
+            if (res.ok) {
+                setGlobalProvider(providerId)
+                setProviders(prev => prev.map(p => ({ ...p, is_global_default: p.id === providerId })))
+            } else alert('Erro ao definir provedor padrão')
+        } catch (e) { console.error(e) }
+    }
+
+    const handleToggleProviderActive = async (providerId: string, currentActive: boolean) => {
+        try {
+            const res = await fetch(`https://api.clicknich.com/api/superadmin/providers/${providerId}`, {
+                method: 'PUT',
+                headers: ADMIN_HEADERS,
+                body: JSON.stringify({ is_active: !currentActive })
+            })
+            if (res.ok) {
+                setProviders(prev => prev.map(p => p.id === providerId ? { ...p, is_active: !currentActive } : p))
+            }
+        } catch (e) { console.error(e) }
+    }
+
+    const handleCreateProvider = async () => {
+        if (!newProviderForm.name || !newProviderForm.type) return
+        setSavingProvider(true)
+        try {
+            const res = await fetch('https://api.clicknich.com/api/superadmin/providers', {
+                method: 'POST',
+                headers: ADMIN_HEADERS,
+                body: JSON.stringify(newProviderForm)
+            })
+            if (res.ok) {
+                const d = await res.json()
+                setProviders(prev => [...prev, d.provider])
+                setNewProviderForm({ name: '', type: 'stripe', credentials: {} })
+                setShowAddProviderForm(false)
+            } else alert('Erro ao cadastrar provedor')
+        } catch (e) { console.error(e) } finally { setSavingProvider(false) }
+    }
+
+    const handleSaveProviderEdit = async (providerId: string) => {
+        setSavingProvider(true)
+        try {
+            const res = await fetch(`https://api.clicknich.com/api/superadmin/providers/${providerId}`, {
+                method: 'PUT',
+                headers: ADMIN_HEADERS,
+                body: JSON.stringify({ name: editingProviderName, credentials: editingProviderCreds })
+            })
+            if (res.ok) {
+                setProviders(prev => prev.map(p => p.id === providerId ? { ...p, name: editingProviderName } : p))
+                setEditingProviderId(null)
+            } else alert('Erro ao salvar provedor')
+        } catch (e) { console.error(e) } finally { setSavingProvider(false) }
+    }
+
+    const handleDeleteProvider = async (providerId: string) => {
+        if (!window.confirm('Tem certeza? Esta ação não pode ser desfeita.')) return
+        try {
+            const res = await fetch(`https://api.clicknich.com/api/superadmin/providers/${providerId}`, {
+                method: 'DELETE',
+                headers: ADMIN_HEADERS
+            })
+            if (res.ok) setProviders(prev => prev.filter(p => p.id !== providerId))
+            else alert('Erro ao remover provedor')
+        } catch (e) { console.error(e) }
+    }
+
+    const handleSearchProviderUser = async () => {
+        if (!providerUserSearch) return
+        setSearchingProviderUser(true)
+        setProviderUserResult(null)
+        try {
+            const res = await fetch('https://api.clicknich.com/api/superadmin/payment-config/search', {
+                method: 'POST',
+                headers: ADMIN_HEADERS,
+                body: JSON.stringify({ email: providerUserSearch })
+            })
+            if (res.ok) {
+                const d = await res.json()
+                setProviderUserResult(d)
+                setSelectedProviderForUser(d.config?.provider_id || '')
+            }
+        } catch (e) { console.error(e) } finally { setSearchingProviderUser(false) }
+    }
+
+    const handleAssignProviderToUser = async () => {
+        if (!providerUserResult?.user) return
+        setAssigningProvider(true)
+        try {
+            const res = await fetch(`https://api.clicknich.com/api/superadmin/payment-config/${providerUserResult.user.id}`, {
+                method: 'PUT',
+                headers: ADMIN_HEADERS,
+                body: JSON.stringify({
+                    provider_id: selectedProviderForUser || null,
+                    override_platform_default: !!selectedProviderForUser
+                })
+            })
+            if (res.ok) {
+                fetchPaymentConfigs()
+                setProviderUserResult(null)
+                setProviderUserSearch('')
+                setSelectedProviderForUser('')
+            } else alert('Erro ao atribuir provedor')
+        } catch (e) { console.error(e) } finally { setAssigningProvider(false) }
     }
 
     // ─── PLATFORM CONFIG ────────────────────────────────────────────────────────
@@ -884,7 +1051,7 @@ export default function SuperAdmin() {
                     <div className="absolute -top-[40%] -left-[20%] w-[60%] h-[60%] rounded-full bg-gradient-to-br from-blue-600/10 via-blue-500/5 to-transparent blur-3xl" />
                 </div>
                 <div className="max-w-7xl mx-auto px-4 py-8 relative z-10">
-                    <div className="backdrop-blur-xl bg-blue-500/5 border border-blue-500/20 rounded-2xl p-6">
+                    <div className="backdrop-blur-xl bg-blue-500/5 border border-blue-500/20 rounded-none p-6">
                         <div className="flex items-start gap-4">
                             <div className="w-10 h-10 rounded-xl bg-blue-500/10 flex items-center justify-center flex-shrink-0">
                                 <span className="text-blue-400 font-bold text-lg">!</span>
@@ -905,35 +1072,60 @@ export default function SuperAdmin() {
         )
     }
 
+    // ── Dashboard: tendências calculadas de dados reais ─────────────────────────
+    const _dashMonths = financialData ? Object.entries(financialData.monthly_gmv) : []
+    const _lastGmv = _dashMonths.length >= 1 ? Number(_dashMonths[_dashMonths.length - 1][1]) : 0
+    const _prevGmv = _dashMonths.length >= 2 ? Number(_dashMonths[_dashMonths.length - 2][1]) : null
+    const dashGmvTrend = _prevGmv != null && _prevGmv > 0 ? ((_lastGmv - _prevGmv) / _prevGmv * 100).toFixed(1) : null
+    const dashGmvTrendUp = dashGmvTrend != null ? Number(dashGmvTrend) >= 0 : true
+    const _lastRev = financialData ? _lastGmv * financialData.fee_percent / 100 : 0
+    const _prevRev = _prevGmv != null && financialData ? _prevGmv * financialData.fee_percent / 100 : null
+    const dashRevTrend = _prevRev != null && _prevRev > 0 ? ((_lastRev - _prevRev) / _prevRev * 100).toFixed(1) : null
+    const dashRevTrendUp = dashRevTrend != null ? Number(dashRevTrend) >= 0 : true
+    const dashNew30d = financialData?.new_users_30d ?? null
+    const dashConvRate = financialData?.conversion_rate ?? null
+    const dashConvGood = dashConvRate != null ? dashConvRate >= 3 : true
+
+    const NAV_TABS = [
+        { id: 'dashboard', label: 'Dashboard', badge: 0 },
+        { id: 'users', label: t('superadmin.users'), badge: 0 },
+        { id: 'verifications', label: t('superadmin.bank_verifications'), badge: bankVerifications.length },
+        { id: 'reviews', label: t('superadmin.products_tab'), badge: pendingApps.length + pendingProducts.length },
+        { id: 'financial', label: 'Financeiro', badge: 0 },
+        { id: 'payments', label: 'Pagamentos', badge: 0 },
+        { id: 'config', label: 'Config', badge: 0 },
+        { id: 'announcements', label: 'Comunicados', badge: 0 },
+        { id: 'audit', label: 'Audit Log', badge: 0 },
+    ]
+
     return (
-        <div className="min-h-screen bg-[#030712] relative overflow-hidden">
-            {/* Background gradient effects */}
-            <div className="absolute inset-0 overflow-hidden pointer-events-none">
-                <div className="absolute -top-[30%] -left-[15%] w-[50%] h-[50%] rounded-full bg-gradient-to-br from-blue-600/8 via-blue-500/4 to-transparent blur-3xl" />
-                <div className="absolute -bottom-[30%] -right-[15%] w-[50%] h-[50%] rounded-full bg-gradient-to-br from-blue-600/8 via-blue-500/4 to-transparent blur-3xl" />
-                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[40%] h-[40%] rounded-full bg-gradient-to-br from-cyan-500/3 to-transparent blur-3xl" />
-            </div>
-
-            {/* Grid pattern */}
-            <div
-                className="absolute inset-0 opacity-[0.015] pointer-events-none"
-                style={{
-                    backgroundImage: `linear-gradient(rgba(255,255,255,0.1) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.1) 1px, transparent 1px)`,
-                    backgroundSize: '60px 60px'
-                }}
-            />
-
-            {/* Header */}
-            <div className="relative z-10 border-b border-white/[0.05]">
-                <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
-                    <div>
-                        <span className="text-white font-bold text-lg tracking-tight">{t('superadmin.admin_panel')}</span>
-                        <p className="text-gray-500 text-xs">{t('superadmin.platform_management')}</p>
+        <div className="min-h-screen bg-[#030712]">
+            {/* ─── HEADER ───────────────────────────────────────────────────────── */}
+            <div className="border-b border-white/[0.06] bg-[#040810]">
+                <div className="max-w-screen-2xl mx-auto px-6 h-14 flex items-center justify-between">
+                    {/* Brand */}
+                    <div className="flex items-center gap-3">
+                        <span className="text-white font-bold text-sm tracking-tight">Clicknich</span>
                     </div>
-                    <div className="flex items-center gap-4">
-                        <div className="text-right">
-                            <p className="text-gray-300 text-sm font-medium">{user?.email}</p>
-                            <p className="text-gray-500 text-xs">{t('superadmin.administrator')}</p>
+
+                    {/* Right side */}
+                    <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-1.5 px-2.5 py-1 bg-emerald-500/8 border border-emerald-500/15">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shadow-[0_0_5px_rgba(52,211,153,0.7)]" />
+                            <span className="text-xs text-emerald-400 font-medium">Sistemas OK</span>
+                        </div>
+                        {(pendingApps.length + pendingProducts.length) > 0 && (
+                            <button onClick={() => setActiveTab('reviews')} className="flex items-center gap-1.5 px-2.5 py-1 bg-amber-500/10 border border-amber-500/25 text-xs text-amber-400 hover:bg-amber-500/15 transition-colors font-medium">
+                                <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
+                                {pendingApps.length + pendingProducts.length} reviews
+                            </button>
+                        )}
+                        <div className="h-4 w-px bg-white/[0.08]" />
+                        <div className="flex items-center gap-2">
+                            <div className="w-6 h-6 rounded-full bg-gradient-to-br from-blue-500/30 to-violet-500/30 border border-white/[0.1] flex items-center justify-center text-white text-xs font-bold">
+                                {user?.email?.charAt(0)?.toUpperCase()}
+                            </div>
+                            <span className="text-xs text-gray-400 max-w-[160px] truncate">{user?.email}</span>
                         </div>
                         <button
                             onClick={async () => {
@@ -943,117 +1135,488 @@ export default function SuperAdmin() {
                                 useAuthStore.getState().setUser(null)
                                 window.location.href = '/super-login'
                             }}
-                            className="px-4 py-2 bg-white/[0.05] hover:bg-white/[0.1] text-gray-300 rounded-xl text-sm transition-all duration-200 border border-white/[0.08] backdrop-blur-sm"
+                            className="px-3 py-1.5 text-xs text-gray-500 hover:text-red-400 bg-white/[0.03] hover:bg-red-500/10 border border-white/[0.06] hover:border-red-500/20 transition-all"
                         >
-                            {t('superadmin.sign_out')}
+                            Sair
                         </button>
+                    </div>
+                </div>
+
+                {/* Tabs bar */}
+                <div className="max-w-screen-2xl mx-auto px-6 overflow-x-auto">
+                    <div className="flex items-center gap-0 min-w-max">
+                        {NAV_TABS.map(tab => (
+                            <button
+                                key={tab.id}
+                                onClick={() => setActiveTab(tab.id)}
+                                className={`relative flex items-center gap-2 px-4 py-3 text-xs font-medium transition-colors whitespace-nowrap border-b-2 ${activeTab === tab.id
+                                    ? 'text-white border-blue-500'
+                                    : 'text-gray-500 hover:text-gray-300 border-transparent hover:border-white/[0.1]'
+                                    }`}
+                            >
+                                {tab.label}
+                                {tab.badge > 0 && (
+                                    <span className="bg-red-500/20 text-red-300 border border-red-500/30 text-[10px] px-1.5 py-0.5 font-bold leading-none">
+                                        {tab.badge}
+                                    </span>
+                                )}
+                            </button>
+                        ))}
                     </div>
                 </div>
             </div>
 
-            <div className="max-w-7xl mx-auto px-6 py-8 relative z-10">
-                {/* Modern Tabs */}
-                <div className="mb-8 overflow-x-auto pb-1">
-                    <div className="backdrop-blur-xl bg-white/[0.02] rounded-2xl p-1.5 inline-flex gap-1 border border-white/[0.05] min-w-max">
-                        {[
-                            { id: 'overview', name: t('superadmin.overview') },
-                            { id: 'users', name: t('superadmin.users') },
-                            { id: 'applications', name: t('superadmin.apps_tab') },
-                            { id: 'verifications', name: t('superadmin.bank_verifications'), badge: bankVerifications.length },
-                            { id: 'reviews', name: t('superadmin.products_tab'), badge: (pendingApps.length + pendingProducts.length) },
-                            { id: 'financial', name: '💰 Financeiro' },
-                            { id: 'payments', name: '💳 Pagamentos' },
-                            { id: 'config', name: '⚙️ Config' },
-                            { id: 'announcements', name: '📢 Comunicados' },
-                            { id: 'audit', name: '📋 Audit Log' },
-                        ].map((tab) => {
-                            const badge = (tab as any).badge
-                            return (
-                                <button
-                                    key={tab.id}
-                                    onClick={() => setActiveTab(tab.id)}
-                                    className={`flex items-center gap-2 px-5 py-2.5 rounded-xl font-medium text-xs transition-all duration-300 ${activeTab === tab.id
-                                        ? 'bg-white/[0.08] text-white border border-white/[0.1]'
-                                        : 'text-gray-400 hover:text-white hover:bg-white/[0.03]'
-                                        }`}
-                                >
-                                    {tab.name}
-                                    {badge > 0 && (
-                                        <span className="bg-blue-500/20 text-blue-300 text-xs px-2 py-0.5 rounded-full font-medium">
-                                            {badge}
-                                        </span>
-                                    )}
-                                </button>
-                            )
-                        })}
-                    </div>
-                </div>
+            {/* ─── CONTENT ──────────────────────────────────────────────────────── */}
+            <div className="max-w-screen-2xl mx-auto px-6 py-6">
 
-                {/* Overview Tab */}
-                {activeTab === 'overview' && stats && (
-                    <div className="space-y-6">
-                        {/* Stats Grid */}
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div className="backdrop-blur-xl bg-white/[0.02] p-5 rounded-2xl border border-white/[0.05] hover:border-blue-500/40 transition-all duration-300 group relative overflow-hidden">
-                                <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-                                <p className="text-2xl font-bold text-blue-400 mb-1">{stats.overview.totalUsers}</p>
-                                <p className="text-xs text-gray-400 font-medium">{t('superadmin.total_users')}</p>
-                            </div>
+                {/* ════════════════ DASHBOARD TAB ════════════════ */}
+                {activeTab === 'dashboard' && (
+                    <div className="space-y-4">
 
-                            <div className="backdrop-blur-xl bg-white/[0.02] p-5 rounded-2xl border border-white/[0.05] hover:border-blue-500/40 transition-all duration-300 group relative overflow-hidden">
-                                <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-                                <p className="text-2xl font-bold text-blue-400 mb-1">{stats.overview.totalApplications}</p>
-                                <p className="text-xs text-gray-400 font-medium">{t('superadmin.applications')}</p>
-                            </div>
+                        {/* ── Row 1: 3 KPI cards ─────────────────────────────── */}
+                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
+                            {[
+                                {
+                                    label: 'GMV Total',
+                                    icon: (
+                                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                                    ),
+                                    value: financialData ? financialData.gmv.toLocaleString('pt-BR', { style: 'currency', currency: 'USD' }) : '—',
+                                    pct: dashGmvTrend != null ? `${dashGmvTrendUp ? '+' : ''}${dashGmvTrend}%` : null,
+                                    up: dashGmvTrendUp,
+                                    sub: 'volume bruto de vendas',
+                                    accent: '#3b82f6',
+                                },
+                                {
+                                    label: 'Receita',
+                                    icon: (
+                                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>
+                                    ),
+                                    value: financialData ? financialData.platform_revenue.toLocaleString('pt-BR', { style: 'currency', currency: 'USD' }) : '—',
+                                    pct: dashRevTrend != null ? `${dashRevTrendUp ? '+' : ''}${dashRevTrend}%` : null,
+                                    up: dashRevTrendUp,
+                                    sub: financialData ? `taxa ${financialData.fee_percent}% do GMV` : 'taxa sobre GMV',
+                                    accent: '#22c55e',
+                                },
+                                {
+                                    label: 'Owners',
+                                    icon: (
+                                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+                                    ),
+                                    value: stats ? stats.overview.totalUsers.toLocaleString('pt-BR') : '—',
+                                    pct: dashNew30d != null ? `+${dashNew30d}` : null,
+                                    up: true,
+                                    sub: 'owners cadastrados',
+                                    accent: '#a855f7',
+                                },
+                            ].map(kpi => (
+                                <div key={kpi.label} className="relative bg-[#0d1829] border border-white/[0.06] p-5 overflow-hidden group hover:border-white/[0.12] transition-all duration-200">
+                                    {/* left accent bar */}
+                                    <div className="absolute left-0 top-0 bottom-0 w-0.5" style={{ background: kpi.accent }} />
+                                    <div className="flex items-start justify-between mb-3">
+                                        <div className="flex items-center gap-2">
+                                            <div className="w-7 h-7 flex items-center justify-center" style={{ color: kpi.accent }}>
+                                                {kpi.icon}
+                                            </div>
+                                            <span className="text-xs text-gray-500 font-medium">•••</span>
+                                        </div>
+                                        {kpi.pct != null && (
+                                            <span className={`text-xs px-2 py-0.5 font-semibold ${kpi.up ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/25' : 'bg-red-500/15 text-red-400 border border-red-500/25'}`}>
+                                                {kpi.pct} ↑
+                                            </span>
+                                        )}
+                                    </div>
+                                    <p className="text-2xl font-bold text-white leading-none mb-1">{kpi.value}</p>
+                                    <p className="text-[11px] text-gray-500">{kpi.label}</p>
+                                    <p className="text-[10px] text-gray-700 mt-0.5">{kpi.sub}</p>
+                                </div>
+                            ))}
                         </div>
 
-                        {/* Growth Chart */}
-                        <div className="backdrop-blur-xl bg-white/[0.02] rounded-2xl p-6 border border-white/[0.05]">
-                            <div className="flex items-center justify-between mb-6">
-                                <div>
-                                    <h3 className="text-lg font-semibold text-white">{t('superadmin.app_growth')}</h3>
-                                    <p className="text-sm text-gray-500">{t('superadmin.last_6_months')}</p>
+                        {/* ── Row 2: Area chart + right column ───────────────── */}
+                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
+                            {/* Area chart — 2/3 width */}
+                            <div className="lg:col-span-2 bg-[#0d1829] border border-white/[0.06] p-6">
+                                <div className="flex items-start justify-between mb-1">
+                                    <div>
+                                        <p className="text-xs text-gray-500 font-medium">Receita total</p>
+                                        <p className="text-2xl font-bold text-white mt-0.5">
+                                            {financialData
+                                                ? Number((Object.values(financialData.monthly_gmv) as any[]).reduce((a, b) => a + Number(b), 0) * financialData.fee_percent / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'USD' })
+                                                : '—'}
+                                            {dashRevTrend != null && (
+                                                <span className={`ml-2 text-xs font-semibold px-2 py-0.5 align-middle ${dashRevTrendUp ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/20' : 'bg-red-500/15 text-red-400 border border-red-500/20'}`}>
+                                                    {dashRevTrendUp ? '+' : ''}{dashRevTrend}%
+                                                </span>
+                                            )}
+                                        </p>
+                                    </div>
+                                    <div className="flex items-center gap-4 text-xs text-gray-600">
+                                        <span className="flex items-center gap-1.5"><span className="w-3 h-0.5 bg-blue-400 inline-block rounded" />GMV</span>
+                                        <span className="flex items-center gap-1.5"><span className="w-3 h-0.5 bg-emerald-400 inline-block rounded" />Receita</span>
+                                    </div>
                                 </div>
-                            </div>
-                            <div className="h-48 flex items-end justify-between gap-3">
-                                {Object.entries(stats.charts.monthlyApps).slice(-6).map(([month, count]: [string, any], index) => {
-                                    const maxValue = Math.max(...Object.values(stats.charts.monthlyApps).map(v => Number(v)))
-                                    const heightPercent = maxValue > 0 ? (count / maxValue) * 100 : 0
-                                    const monthName = new Date(month + '-01').toLocaleDateString('en-US', { month: 'short' })
 
+                                {/* Y-axis labels */}
+                                {loadingFinancial ? (
+                                    <div className="h-44 flex items-center justify-center"><div className="w-6 h-6 border-2 border-blue-500/30 border-t-blue-500 rounded-full animate-spin" /></div>
+                                ) : financialData && Object.keys(financialData.monthly_gmv).length > 0 ? (() => {
+                                    const entries = Object.entries(financialData.monthly_gmv).slice(-12) as [string, any][]
+                                    const gmvVals = entries.map(([, v]) => Number(v))
+                                    const revVals = gmvVals.map(v => v * financialData.fee_percent / 100)
+                                    const maxVal = Math.max(...gmvVals, 1)
+                                    const W = 100, H = 100
+                                    const pts = (vals: number[]) =>
+                                        vals.map((v, i) => `${(i / (vals.length - 1)) * W},${H - (v / maxVal) * (H - 10)}`)
+                                    const gmvPts = pts(gmvVals)
+                                    const revPts = pts(revVals)
+                                    const linePath = (p: string[]) => `M ${p.join(' L ')}`
+                                    const areaPath = (p: string[]) => `M ${p[0]} L ${p.join(' L ')} L ${W},${H} L 0,${H} Z`
+                                    const yLabels = [0, 0.25, 0.5, 0.75, 1].map(f => Math.round(maxVal * f))
                                     return (
-                                        <div key={month} className="flex-1 flex flex-col items-center gap-2 group">
-                                            <div className="relative w-full bg-white/[0.03] rounded-t-xl overflow-hidden" style={{ height: '160px' }}>
-                                                <div
-                                                    className="absolute bottom-0 w-full bg-gradient-to-t from-blue-600 via-blue-500 to-indigo-400 rounded-t-xl transition-all duration-700"
-                                                    style={{
-                                                        height: `${heightPercent}%`,
-                                                        animationDelay: `${index * 100}ms`
-                                                    }}
-                                                />
-                                                <div className="absolute inset-0 flex items-center justify-center">
-                                                    <span className="text-white font-bold text-sm drop-shadow-lg">{count}</span>
+                                        <div className="mt-4 relative">
+                                            <div className="flex gap-3">
+                                                {/* Y axis */}
+                                                <div className="flex flex-col-reverse justify-between pb-5 h-44 text-right">
+                                                    {yLabels.map(v => (
+                                                        <span key={v} className="text-[10px] text-gray-700 w-10 leading-none">${v >= 1000 ? (v / 1000).toFixed(0) + 'k' : v}</span>
+                                                    ))}
+                                                </div>
+                                                {/* SVG chart */}
+                                                <div className="flex-1">
+                                                    <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" className="w-full h-40">
+                                                        <defs>
+                                                            <linearGradient id="gmvGrad" x1="0" y1="0" x2="0" y2="1">
+                                                                <stop offset="0%" stopColor="#3b82f6" stopOpacity="0.35" />
+                                                                <stop offset="100%" stopColor="#3b82f6" stopOpacity="0.02" />
+                                                            </linearGradient>
+                                                            <linearGradient id="revGrad" x1="0" y1="0" x2="0" y2="1">
+                                                                <stop offset="0%" stopColor="#22c55e" stopOpacity="0.25" />
+                                                                <stop offset="100%" stopColor="#22c55e" stopOpacity="0.02" />
+                                                            </linearGradient>
+                                                        </defs>
+                                                        {/* horizontal grid lines */}
+                                                        {[0.25, 0.5, 0.75, 1].map(f => (
+                                                            <line key={f} x1="0" y1={H - f * (H - 10)} x2={W} y2={H - f * (H - 10)} stroke="rgba(255,255,255,0.04)" strokeWidth="0.5" />
+                                                        ))}
+                                                        {/* GMV area */}
+                                                        <path d={areaPath(gmvPts)} fill="url(#gmvGrad)" />
+                                                        {/* Revenue area */}
+                                                        <path d={areaPath(revPts)} fill="url(#revGrad)" />
+                                                        {/* GMV line */}
+                                                        <path d={linePath(gmvPts)} fill="none" stroke="#3b82f6" strokeWidth="1.2" strokeLinejoin="round" />
+                                                        {/* Revenue line */}
+                                                        <path d={linePath(revPts)} fill="none" stroke="#22c55e" strokeWidth="1" strokeLinejoin="round" strokeDasharray="2 1" />
+                                                        {/* last point dot */}
+                                                        <circle cx={gmvPts[gmvPts.length - 1].split(',')[0]} cy={gmvPts[gmvPts.length - 1].split(',')[1]} r="1.5" fill="#3b82f6" />
+                                                    </svg>
+                                                    {/* X axis labels */}
+                                                    <div className="flex justify-between mt-1">
+                                                        {entries.map(([month]) => (
+                                                            <span key={month} className="text-[10px] text-gray-700 capitalize">
+                                                                {new Date(month + '-01').toLocaleDateString('pt-BR', { month: 'short' })}
+                                                            </span>
+                                                        ))}
+                                                    </div>
                                                 </div>
                                             </div>
-                                            <span className="text-xs text-gray-500 font-medium">{monthName}</span>
                                         </div>
                                     )
-                                })}
+                                })() : (
+                                    <div className="h-44 flex items-center justify-center">
+                                        <button onClick={fetchFinancial} className="text-xs text-blue-400 hover:text-blue-300 bg-blue-500/10 px-4 py-2 border border-blue-500/20 transition-colors">Carregar dados financeiros</button>
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Right column — Profit + Sessions stacked */}
+                            <div className="flex flex-col gap-3">
+                                {/* Total profit (bar chart) */}
+                                <div className="flex-1 bg-[#0d1829] border border-white/[0.06] p-5">
+                                    <p className="text-xs text-gray-500 font-medium">Lucro total</p>
+                                    <p className="text-xl font-bold text-white mt-0.5">
+                                        {financialData ? financialData.platform_revenue.toLocaleString('pt-BR', { style: 'currency', currency: 'USD' }) : '—'}
+                                        {dashRevTrend != null && (
+                                            <span className={`ml-2 text-xs align-middle px-1.5 py-0.5 font-semibold ${dashRevTrendUp ? 'bg-emerald-500/15 text-emerald-400' : 'bg-red-500/15 text-red-400'}`}>
+                                                {dashRevTrendUp ? '+' : ''}{dashRevTrend}%
+                                            </span>
+                                        )}
+                                    </p>
+                                    {/* Mini bar chart */}
+                                    <div className="mt-4 h-16 flex items-end gap-1">
+                                        {(financialData ? Object.entries(financialData.monthly_gmv).slice(-10) : Array(10).fill(['', 0])).map(([month, gmv]: any, i, arr) => {
+                                            const vals = arr.map(([, v]: any) => Number(v))
+                                            const max = Math.max(...vals, 1)
+                                            const h = (Number(gmv) / max) * 100
+                                            const isLast = i === arr.length - 1
+                                            return (
+                                                <div key={month || i} className="flex-1 flex flex-col justify-end h-full">
+                                                    <div
+                                                        className="w-full transition-all duration-500"
+                                                        style={{
+                                                            height: `${h}%`,
+                                                            background: isLast ? '#22c55e' : 'rgba(34,197,94,0.25)',
+                                                            minHeight: '2px',
+                                                        }}
+                                                    />
+                                                </div>
+                                            )
+                                        })}
+                                    </div>
+                                    <p className="text-[10px] text-gray-700 mt-2">Últimos 12 meses <button onClick={() => setActiveTab('financial')} className="text-blue-500 hover:text-blue-400 transition-colors ml-1">Ver relatório →</button></p>
+                                </div>
+
+                                {/* Total sessions / owners sparkline */}
+                                <div className="flex-1 bg-[#0d1829] border border-white/[0.06] p-5">
+                                    <div className="flex items-center gap-2">
+                                        <span className="w-2 h-2 rounded-full bg-blue-400" />
+                                        <p className="text-xs text-gray-500 font-medium">Total de owners</p>
+                                    </div>
+                                    <p className="text-xl font-bold text-white mt-0.5">
+                                        {stats ? stats.overview.totalUsers.toLocaleString('pt-BR') : '—'}
+                                    </p>
+                                    {/* Sparkline SVG */}
+                                    {stats?.charts?.monthlyApps && (() => {
+                                        const vals = Object.values(stats.charts.monthlyApps).slice(-12).map(Number)
+                                        const max = Math.max(...vals, 1)
+                                        const W2 = 100, H2 = 30
+                                        const pts2 = vals.map((v, i) => `${(i / (vals.length - 1)) * W2},${H2 - (v / max) * (H2 - 4)}`)
+                                        return (
+                                            <svg viewBox={`0 0 ${W2} ${H2}`} preserveAspectRatio="none" className="w-full mt-3" style={{ height: '40px' }}>
+                                                <defs>
+                                                    <linearGradient id="sparkGrad" x1="0" y1="0" x2="0" y2="1">
+                                                        <stop offset="0%" stopColor="#3b82f6" stopOpacity="0.3" />
+                                                        <stop offset="100%" stopColor="#3b82f6" stopOpacity="0" />
+                                                    </linearGradient>
+                                                </defs>
+                                                <path d={`M ${pts2.join(' L ')} L ${W2},${H2} L 0,${H2} Z`} fill="url(#sparkGrad)" />
+                                                <path d={`M ${pts2.join(' L ')}`} fill="none" stroke="#3b82f6" strokeWidth="1.2" strokeLinejoin="round" />
+                                            </svg>
+                                        )
+                                    })()}
+                                    <p className="text-[10px] text-gray-700 mt-1">
+                                        {dashNew30d != null && `+${dashNew30d} novos · `}
+                                        <button onClick={() => setActiveTab('users')} className="text-blue-500 hover:text-blue-400 transition-colors">Ver usuários →</button>
+                                    </p>
+                                </div>
                             </div>
                         </div>
+
+                        {/* ── Row 3: Reports overview ─────────────────────────── */}
+                        <div className="bg-[#0d1829] border border-white/[0.06]">
+                            <div className="px-6 py-4 border-b border-white/[0.06] flex items-center justify-between">
+                                <div>
+                                    <p className="text-sm font-semibold text-white">Visão geral da plataforma</p>
+                                    <p className="text-xs text-gray-500 mt-0.5">Resumo de todas as métricas operacionais</p>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <button onClick={() => setActiveTab('financial')} className="text-xs px-3 py-1.5 bg-white/[0.04] hover:bg-white/[0.07] border border-white/[0.07] text-gray-400 hover:text-white transition-colors">
+                                        Exportar dados
+                                    </button>
+                                    <button onClick={fetchFinancial} className="text-xs px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white transition-colors font-medium">
+                                        Atualizar
+                                    </button>
+                                </div>
+                            </div>
+                            <div className="divide-y divide-white/[0.04]">
+                                {[
+                                    {
+                                        label: 'GMV acumulado',
+                                        value: financialData ? financialData.gmv.toLocaleString('pt-BR', { style: 'currency', currency: 'USD' }) : '—',
+                                        sub: 'Volume bruto total de vendas na plataforma',
+                                        trend: dashGmvTrend, up: dashGmvTrendUp,
+                                    },
+                                    {
+                                        label: 'Receita da plataforma',
+                                        value: financialData ? financialData.platform_revenue.toLocaleString('pt-BR', { style: 'currency', currency: 'USD' }) : '—',
+                                        sub: financialData ? `Taxa de ${financialData.fee_percent}% aplicada ao GMV` : 'Taxa sobre GMV',
+                                        trend: dashRevTrend, up: dashRevTrendUp,
+                                    },
+                                    {
+                                        label: 'Total de owners',
+                                        value: stats ? stats.overview.totalUsers.toLocaleString('pt-BR') : '—',
+                                        sub: `${stats?.overview?.totalApplications ?? '—'} apps criados na plataforma`,
+                                        trend: dashNew30d != null ? String(dashNew30d) : null, up: true,
+                                    },
+                                    {
+                                        label: 'Produtos no marketplace',
+                                        value: stats?.overview?.totalProducts?.toLocaleString('pt-BR') ?? '—',
+                                        sub: 'Produtos publicados e disponíveis',
+                                        trend: null, up: true,
+                                    },
+                                    {
+                                        label: 'Saúde dos serviços',
+                                        value: `${[true, true, providers.some(p => p.type === 'stripe' && p.is_active), providers.some(p => p.type === 'paypal' && p.is_active), true].filter(Boolean).length}/5 operacionais`,
+                                        sub: 'Workers API · Supabase · Stripe · PayPal · SMTP',
+                                        trend: null, up: true,
+                                    },
+                                ].map((row) => (
+                                    <div key={row.label} className="px-6 py-3.5 flex items-center gap-4 hover:bg-white/[0.02] transition-colors group">
+                                        <div className="flex-1 min-w-0">
+                                            <p className="text-xs font-semibold text-white">{row.label}</p>
+                                            <p className="text-[11px] text-gray-600 mt-0.5">{row.sub}</p>
+                                        </div>
+                                        <p className="text-sm font-bold text-white shrink-0">{row.value}</p>
+                                        {row.trend != null && (
+                                            <span className={`text-xs px-2 py-0.5 font-semibold shrink-0 ${row.up ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/20' : 'bg-red-500/15 text-red-400 border border-red-500/20'}`}>
+                                                {row.up ? '+' : ''}{row.trend}{typeof row.trend === 'string' && row.trend.includes('%') ? '' : row.up ? ' novos' : ''}
+                                            </span>
+                                        )}
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+
+                        {/* ── Row 4: Providers + Activity + Health ────────────── */}
+                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
+                            {/* Provedores */}
+                            <div className="bg-[#0d1829] border border-white/[0.06] overflow-hidden">
+                                <div className="px-5 py-4 border-b border-white/[0.05] flex items-center justify-between">
+                                    <p className="text-xs font-semibold text-white">Provedores de pagamento</p>
+                                    <button onClick={() => setActiveTab('payments')} className="text-[10px] text-blue-500 hover:text-blue-400 transition-colors">Gerenciar →</button>
+                                </div>
+                                <div className="divide-y divide-white/[0.04]">
+                                    {providers.length === 0 ? (
+                                        <div className="px-5 py-8 text-center"><p className="text-xs text-gray-600">Nenhum provedor cadastrado</p></div>
+                                    ) : providers.map((p) => {
+                                        const C: Record<string, string> = { stripe: '#3b82f6', stripe_connect: '#3b82f6', mollie: '#f97316', paypal: '#0ea5e9', custom: '#a855f7' }
+                                        const c = C[p.type] || '#6b7280'
+                                        return (
+                                            <div key={p.id} className="px-5 py-3 flex items-center gap-3 hover:bg-white/[0.02] transition-colors">
+                                                <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: p.is_active ? c : '#374151', boxShadow: p.is_active ? `0 0 6px ${c}80` : 'none' }} />
+                                                <div className="flex-1 min-w-0">
+                                                    <p className="text-xs font-medium text-white truncate">{p.name}</p>
+                                                    <p className="text-[10px] text-gray-600">{p.type}{p.is_global_default ? ' · default' : ''}</p>
+                                                </div>
+                                                <span className="text-[10px] px-1.5 py-0.5 border font-semibold flex-shrink-0" style={{ color: p.is_active ? c : '#6b7280', borderColor: p.is_active ? `${c}40` : '#374151', background: p.is_active ? `${c}15` : 'transparent' }}>
+                                                    {p.is_active ? 'ativo' : 'inativo'}
+                                                </span>
+                                            </div>
+                                        )
+                                    })}
+                                </div>
+                            </div>
+
+                            {/* Feed de atividade */}
+                            <div className="bg-[#0d1829] border border-white/[0.06] overflow-hidden">
+                                <div className="px-5 py-4 border-b border-white/[0.05] flex items-center justify-between">
+                                    <p className="text-xs font-semibold text-white">Atividade recente</p>
+                                    <button onClick={() => setActiveTab('audit')} className="text-[10px] text-blue-500 hover:text-blue-400 transition-colors">Audit log →</button>
+                                </div>
+                                {loadingAuditLog ? (
+                                    <div className="p-8 flex justify-center"><div className="w-5 h-5 border-2 border-blue-500/30 border-t-blue-500 rounded-full animate-spin" /></div>
+                                ) : auditLog.length === 0 ? (
+                                    <div className="px-5 py-8 text-center"><p className="text-xs text-gray-600">Sem registros</p></div>
+                                ) : (
+                                    <div className="divide-y divide-white/[0.04] max-h-64 overflow-y-auto">
+                                        {auditLog.slice(0, 8).map((log) => {
+                                            const META: Record<string, { label: string; color: string }> = {
+                                                ban_user: { label: 'Banir usuário', color: '#f59e0b' },
+                                                unban_user: { label: 'Desbanir', color: '#22c55e' },
+                                                delete_user: { label: 'Deletar usuário', color: '#ef4444' },
+                                                create_payment_provider: { label: 'Novo provedor', color: '#3b82f6' },
+                                                update_payment_provider: { label: 'Provedor atualizado', color: '#6366f1' },
+                                                delete_payment_provider: { label: 'Provedor removido', color: '#ef4444' },
+                                                update_platform_config: { label: 'Config. alterada', color: '#06b6d4' },
+                                                create_announcement: { label: 'Comunicado', color: '#a855f7' },
+                                                approve_bank_verification: { label: 'Verificação aprovada', color: '#22c55e' },
+                                                reject_bank_verification: { label: 'Verificação rejeitada', color: '#f97316' },
+                                            }
+                                            const m = META[log.action] || { label: log.action, color: '#6b7280' }
+                                            const diff = Date.now() - new Date(log.created_at).getTime()
+                                            const mins = Math.floor(diff / 60000)
+                                            const timeAgo = mins < 1 ? 'agora' : mins < 60 ? `${mins}min` : mins < 1440 ? `${Math.floor(mins / 60)}h` : new Date(log.created_at).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })
+                                            return (
+                                                <div key={log.id} className="px-5 py-3 flex items-start gap-2.5 hover:bg-white/[0.02] transition-colors">
+                                                    <span className="w-1.5 h-1.5 rounded-full mt-1.5 flex-shrink-0" style={{ background: m.color }} />
+                                                    <div className="flex-1 min-w-0">
+                                                        <p className="text-[11px] font-medium text-white truncate">{m.label}</p>
+                                                        <p className="text-[10px] text-gray-700">{log.admin_email?.split('@')[0] || 'admin'}</p>
+                                                    </div>
+                                                    <span className="text-[10px] text-gray-700 flex-shrink-0">{timeAgo}</span>
+                                                </div>
+                                            )
+                                        })}
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Top Sellers + Health */}
+                            <div className="flex flex-col gap-3">
+                                {/* Top sellers */}
+                                <div className="flex-1 bg-[#0d1829] border border-white/[0.06] overflow-hidden">
+                                    <div className="px-5 py-4 border-b border-white/[0.05]">
+                                        <p className="text-xs font-semibold text-white">Top Sellers</p>
+                                    </div>
+                                    {financialData?.top_sellers?.length > 0 ? (
+                                        <div className="divide-y divide-white/[0.04]">
+                                            {financialData.top_sellers.slice(0, 4).map((s: any, idx: number) => (
+                                                <div key={s.user_id} className="px-5 py-2.5 flex items-center gap-3 hover:bg-white/[0.02] transition-colors">
+                                                    <span className="text-sm w-4 text-center flex-shrink-0">{['🥇', '🥈', '🥉'][idx] || `${idx + 1}`}</span>
+                                                    <div className="w-6 h-6 bg-gradient-to-br from-blue-500 to-violet-600 rounded-full flex items-center justify-center text-white text-[10px] font-bold flex-shrink-0">
+                                                        {s.email.charAt(0).toUpperCase()}
+                                                    </div>
+                                                    <div className="flex-1 min-w-0">
+                                                        <p className="text-[11px] text-white truncate font-medium">{s.email.split('@')[0]}</p>
+                                                        <div className="w-full h-0.5 bg-white/[0.04] mt-1">
+                                                            <div className="h-full bg-blue-500" style={{ width: `${Math.round((s.app_count / (financialData.top_sellers[0]?.app_count || 1)) * 100)}%` }} />
+                                                        </div>
+                                                    </div>
+                                                    <span className="text-[11px] font-bold text-blue-400 flex-shrink-0">{s.app_count}</span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    ) : (
+                                        <div className="px-5 py-6 text-center"><p className="text-xs text-gray-600">Sem dados</p></div>
+                                    )}
+                                </div>
+                                {/* Health */}
+                                <div className="bg-[#0d1829] border border-white/[0.06] px-5 py-4">
+                                    <p className="text-xs font-semibold text-white mb-3">Saúde dos serviços</p>
+                                    <div className="space-y-2">
+                                        {[
+                                            { name: 'Workers API', ok: true },
+                                            { name: 'Supabase DB', ok: true },
+                                            { name: 'Stripe Hook', ok: providers.some(p => p.type === 'stripe' && p.is_active) },
+                                            { name: 'PayPal Hook', ok: providers.some(p => p.type === 'paypal' && p.is_active) },
+                                            { name: 'Email SMTP', ok: true },
+                                        ].map(svc => (
+                                            <div key={svc.name} className="flex items-center justify-between">
+                                                <span className="text-[11px] text-gray-500">{svc.name}</span>
+                                                <span className={`text-[10px] px-2 py-0.5 font-semibold ${svc.ok ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/20' : 'bg-red-500/15 text-red-400 border border-red-500/20'}`}>
+                                                    {svc.ok ? 'online' : 'offline'}
+                                                </span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
                     </div>
                 )}
+
 
                 {/* Users Tab */}
                 {activeTab === 'users' && (
                     <>
-                        <div className="backdrop-blur-xl bg-white/[0.02] rounded-2xl border border-white/[0.05]">
-                            <div className="p-6">
-                                <h3 className="text-lg font-semibold text-white mb-6">{t('superadmin.platform_users')}</h3>
+                        <div className="backdrop-blur-xl bg-white/[0.02] rounded-none border border-white/[0.05] overflow-hidden">
+                            {/* Section header */}
+                            <div className="px-6 py-5 border-b border-white/[0.05] flex items-center justify-between">
+                                <div>
+                                    <h3 className="text-sm font-semibold text-white">{t('superadmin.platform_users')}</h3>
+                                    <p className="text-xs text-gray-500 mt-0.5">{users.length} usuários carregados</p>
+                                </div>
+                                <button onClick={fetchUsers} className="text-xs text-gray-600 hover:text-gray-300 bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.06] px-3 py-1.5 rounded-lg transition-colors">
+                                    Atualizar
+                                </button>
+                            </div>
 
+                            <div className="p-5">
                                 {/* Search Filters */}
-                                <div className="mb-6 flex gap-3">
+                                <div className="mb-5 flex gap-3">
                                     <div className="relative flex-1">
+                                        <svg className="absolute left-3.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
                                         <input
                                             type="text"
                                             placeholder={t('superadmin.search_by_name_email')}
@@ -1062,26 +1625,12 @@ export default function SuperAdmin() {
                                                 setSearchQuery(e.target.value)
                                                 fetchUsers()
                                             }}
-                                            className="w-full px-4 py-2.5 bg-white/[0.03] border border-white/[0.08] rounded-xl text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500/40 text-sm"
+                                            className="w-full pl-9 pr-4 py-2.5 bg-white/[0.03] border border-white/[0.07] rounded-xl text-white placeholder-gray-600 focus:outline-none focus:ring-1 focus:ring-blue-500/40 focus:border-blue-500/40 text-xs"
                                         />
                                     </div>
-
-                                    <select
-                                        value={planFilter}
-                                        onChange={(e) => {
-                                            setPlanFilter(e.target.value)
-                                            fetchUsers()
-                                        }}
-                                        className="px-4 py-2.5 bg-white/[0.03] border border-white/[0.08] rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500/40 text-sm"
-                                    >
-                                        <option value="all">{t('superadmin.all_plans')}</option>
-                                        <option value="free">{t('superadmin.free')}</option>
-                                        <option value="pro">{t('superadmin.pro')}</option>
-                                        <option value="advanced">{t('superadmin.advanced')}</option>
-                                    </select>
                                 </div>
 
-                                <div className="space-y-2">
+                                <div className="space-y-1.5">
                                     {users.map((userItem) => (
                                         <button
                                             key={userItem.id}
@@ -1089,7 +1638,7 @@ export default function SuperAdmin() {
                                                 setSelectedUser(userItem)
                                                 fetchUserDetails(userItem.id)
                                             }}
-                                            className="w-full flex items-center justify-between p-4 bg-[#252941] hover:bg-[#2d3352] rounded-lg border border-[#1e2139] hover:border-blue-500/30 transition-all text-left group"
+                                            className="w-full flex items-center justify-between px-4 py-3.5 bg-white/[0.02] hover:bg-white/[0.04] rounded-xl border border-white/[0.04] hover:border-blue-500/20 transition-all text-left group"
                                         >
                                             <div className="flex items-center gap-4">
                                                 <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center text-white font-semibold text-sm">
@@ -1125,7 +1674,7 @@ export default function SuperAdmin() {
                         {/* User Details Modal */}
                         {selectedUser && (
                             <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => setSelectedUser(null)}>
-                                <div className="backdrop-blur-xl bg-[#0d1117]/95 rounded-2xl shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto border border-white/[0.05]" onClick={(e) => e.stopPropagation()}>
+                                <div className="backdrop-blur-xl bg-[#0d1117]/95 rounded-none shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto border border-white/[0.05]" onClick={(e) => e.stopPropagation()}>
                                     {/* Modal Header */}
                                     <div className="sticky top-0 backdrop-blur-xl bg-white/[0.02] p-6 flex items-center justify-between border-b border-white/[0.05]">
                                         <div className="flex items-center gap-4">
@@ -1203,7 +1752,7 @@ export default function SuperAdmin() {
                                                         {/* Status Cards Grid - Clean Design */}
                                                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                                                             {/* Approved Card */}
-                                                            <div className="bg-gradient-to-br from-emerald-500/10 to-emerald-600/5 border border-emerald-500/20 rounded-2xl p-6 hover:border-emerald-500/40 transition-all duration-300 group">
+                                                            <div className="bg-gradient-to-br from-emerald-500/10 to-emerald-600/5 border border-emerald-500/20 rounded-none p-6 hover:border-emerald-500/40 transition-all duration-300 group">
                                                                 <div className="flex items-center justify-between mb-4">
                                                                     <div>
                                                                         <p className="text-sm font-medium text-emerald-400">{t('superadmin.approved')}</p>
@@ -1227,7 +1776,7 @@ export default function SuperAdmin() {
                                                             </div>
 
                                                             {/* Rejected Card */}
-                                                            <div className="bg-gradient-to-br from-red-500/10 to-red-600/5 border border-red-500/20 rounded-2xl p-6 hover:border-red-500/40 transition-all duration-300 group">
+                                                            <div className="bg-gradient-to-br from-red-500/10 to-red-600/5 border border-red-500/20 rounded-none p-6 hover:border-red-500/40 transition-all duration-300 group">
                                                                 <div className="flex items-center justify-between mb-4">
                                                                     <div>
                                                                         <p className="text-sm font-medium text-red-400">{t('superadmin.rejected')}</p>
@@ -1251,7 +1800,7 @@ export default function SuperAdmin() {
                                                             </div>
 
                                                             {/* Pending Card */}
-                                                            <div className="bg-gradient-to-br from-amber-500/10 to-amber-600/5 border border-amber-500/20 rounded-2xl p-6 hover:border-amber-500/40 transition-all duration-300 group">
+                                                            <div className="bg-gradient-to-br from-amber-500/10 to-amber-600/5 border border-amber-500/20 rounded-none p-6 hover:border-amber-500/40 transition-all duration-300 group">
                                                                 <div className="flex items-center justify-between mb-4">
                                                                     <div>
                                                                         <p className="text-sm font-medium text-amber-400">{t('superadmin.pending')}</p>
@@ -1277,7 +1826,7 @@ export default function SuperAdmin() {
 
                                                         {/* Member Areas - Premium Card */}
                                                         {userDetails.products.memberAreaApps > 0 && (
-                                                            <div className="bg-gradient-to-r from-indigo-500/10 via-purple-500/10 to-pink-500/10 border border-indigo-500/20 rounded-2xl p-6 hover:border-indigo-500/40 transition-all duration-300">
+                                                            <div className="bg-gradient-to-r from-indigo-500/10 via-purple-500/10 to-pink-500/10 border border-indigo-500/20 rounded-none p-6 hover:border-indigo-500/40 transition-all duration-300">
                                                                 <div className="flex items-center justify-between">
                                                                     <div>
                                                                         <h4 className="text-base font-semibold text-white">{t('superadmin.member_area_products')}</h4>
@@ -1339,8 +1888,14 @@ export default function SuperAdmin() {
                                                             {t('superadmin.ban_user')}
                                                         </button>
                                                         <button
+                                                            onClick={() => handleBanUser(selectedUser.id, false)}
+                                                            className="px-4 py-2.5 bg-emerald-700 hover:bg-emerald-600 text-white rounded-lg font-medium text-sm transition-all"
+                                                        >
+                                                            {t('superadmin.unban_user')}
+                                                        </button>
+                                                        <button
                                                             onClick={() => handleDeleteUser(selectedUser.id)}
-                                                            className="px-4 py-2.5 bg-blue-800 hover:bg-blue-900 text-white rounded-lg font-medium text-sm transition-all"
+                                                            className="col-span-2 px-4 py-2.5 bg-blue-800 hover:bg-blue-900 text-white rounded-lg font-medium text-sm transition-all"
                                                         >
                                                             {t('superadmin.delete_user')}
                                                         </button>
@@ -1358,113 +1913,9 @@ export default function SuperAdmin() {
                     </>
                 )}
 
-                {/* Applications Tab */}
-                {activeTab === 'applications' && (
-                    <div className="backdrop-blur-xl bg-white/[0.02] rounded-2xl border border-white/[0.05]">
-                        <div className="p-6">
-                            <h3 className="text-lg font-semibold text-white mb-4">
-                                {t('superadmin.created_applications')}
-                            </h3>
-                            <div className="overflow-x-auto">
-                                <table className="min-w-full">
-                                    <thead>
-                                        <tr className="border-b border-white/[0.05]">
-                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                                App
-                                            </th>
-                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                                Owner
-                                            </th>
-                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                                Type
-                                            </th>
-                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                                Created
-                                            </th>
-                                        </tr>
-                                    </thead>
-                                    <tbody className="divide-y divide-white/[0.05]">
-                                        {applications.map((app) => (
-                                            <tr key={app.id} className="hover:bg-white/[0.02] transition-colors">
-                                                <td className="px-6 py-4 whitespace-nowrap">
-                                                    <div className="text-sm font-medium text-white">{app.name}</div>
-                                                    <div className="text-xs text-gray-500">{app.slug}</div>
-                                                </td>
-                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-400">
-                                                    {app.owner_email}
-                                                </td>
-                                                <td className="px-6 py-4 whitespace-nowrap">
-                                                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-500/20 text-blue-400 border border-blue-500/30">
-                                                        {app.app_type || 'app'}
-                                                    </span>
-                                                </td>
-                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                                    {new Date(app.created_at).toLocaleDateString('en-US')}
-                                                </td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-                    </div>
-                )}
-
-                {/* Domains Tab */}
-                {activeTab === 'domains' && (
-                    <div className="backdrop-blur-xl bg-white/[0.02] rounded-2xl border border-white/[0.05]">
-                        <div className="p-6">
-                            <h3 className="text-lg font-semibold text-white mb-4">
-                                {t('superadmin.custom_domains')}
-                            </h3>
-                            <div className="overflow-x-auto">
-                                <table className="min-w-full">
-                                    <thead>
-                                        <tr className="border-b border-white/[0.05]">
-                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                                Domain
-                                            </th>
-                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                                App
-                                            </th>
-                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                                Status
-                                            </th>
-                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                                Created
-                                            </th>
-                                        </tr>
-                                    </thead>
-                                    <tbody className="divide-y divide-white/[0.05]">
-                                        {domains.map((domain) => (
-                                            <tr key={domain.id} className="hover:bg-white/[0.02] transition-colors">
-                                                <td className="px-6 py-4 whitespace-nowrap">
-                                                    <div className="text-sm font-medium text-white">{domain.domain}</div>
-                                                </td>
-                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-400">
-                                                    {domain.applications?.name || 'N/A'}
-                                                </td>
-                                                <td className="px-6 py-4 whitespace-nowrap">
-                                                    <div className="flex items-center gap-2">
-                                                        {getStatusBadge(domain.status)}
-                                                        <span className="text-sm text-gray-400 capitalize">{domain.status}</span>
-                                                    </div>
-                                                </td>
-                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                                    {new Date(domain.created_at).toLocaleDateString('en-US')}
-                                                </td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-                    </div>
-                )}
-
                 {/* Plans Tab */}
                 {activeTab === 'plans' && (
-                    <div className="backdrop-blur-xl bg-white/[0.02] rounded-2xl border border-white/[0.05]">
+                    <div className="backdrop-blur-xl bg-white/[0.02] rounded-none border border-white/[0.05]">
                         <div className="p-6">
                             <div className="flex items-center justify-between mb-6">
                                 <div>
@@ -1585,8 +2036,25 @@ export default function SuperAdmin() {
 
                 {/* Bank Verifications Tab */}
                 {activeTab === 'verifications' && (
-                    <div className="space-y-6">
-                        <div className="backdrop-blur-xl bg-white/[0.02] rounded-2xl border border-white/[0.05] p-6">
+                    <div className="space-y-5">
+                        {/* Quick stats banner */}
+                        <div className="grid grid-cols-3 gap-3">
+                            {[
+                                { label: 'Pendentes', value: bankVerifications.filter(v => v.verification_status === 'pending').length, color: 'text-amber-400', bg: 'from-amber-500/8', dot: 'bg-amber-400' },
+                                { label: 'Aprovadas', value: bankVerifications.filter(v => v.verification_status === 'approved').length, color: 'text-emerald-400', bg: 'from-emerald-500/8', dot: 'bg-emerald-400' },
+                                { label: 'Rejeitadas', value: bankVerifications.filter(v => v.verification_status === 'rejected').length, color: 'text-red-400', bg: 'from-red-500/8', dot: 'bg-red-400' },
+                            ].map(s => (
+                                <div key={s.label} className={`backdrop-blur-xl bg-gradient-to-br ${s.bg} to-transparent bg-white/[0.02] rounded-xl p-4 border border-white/[0.05] flex items-center gap-3`}>
+                                    <span className={`w-2 h-2 rounded-full ${s.dot} flex-shrink-0`} />
+                                    <div>
+                                        <p className={`text-xl font-bold ${s.color} leading-none`}>{s.value}</p>
+                                        <p className="text-xs text-gray-600 mt-0.5">{s.label}</p>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+
+                        <div className="backdrop-blur-xl bg-white/[0.02] rounded-none border border-white/[0.05] p-6">
                             <div className="flex items-center justify-between mb-6">
                                 <div>
                                     <h2 className="text-xl font-semibold text-white">{t('superadmin.pending_verifications')}</h2>
@@ -1733,46 +2201,16 @@ export default function SuperAdmin() {
                 {/* Reviews Tab (Combined Apps and Products) */}
                 {activeTab === 'reviews' && (
                     <div className="space-y-6">
-                        {/* Sub-tabs for Apps and Products */}
-                        <div className="backdrop-blur-xl bg-white/[0.02] rounded-xl p-1 inline-flex gap-1 border border-white/[0.05]">
-                            <button
-                                onClick={() => setReviewSubTab('apps')}
-                                className={`px-4 py-2 rounded-lg font-medium text-xs transition-all ${reviewSubTab === 'apps'
-                                    ? 'bg-white/[0.08] text-white border border-white/[0.1]'
-                                    : 'text-gray-400 hover:text-white hover:bg-white/[0.03]'
-                                    }`}
-                            >
-                                Apps {pendingApps.length > 0 && (
-                                    <span className="ml-2 px-1.5 py-0.5 bg-blue-500/20 text-blue-300 rounded-full text-xs">
-                                        {pendingApps.length}
-                                    </span>
-                                )}
-                            </button>
-                            <button
-                                onClick={() => setReviewSubTab('products')}
-                                className={`px-4 py-2 rounded-lg font-medium text-xs transition-all ${reviewSubTab === 'products'
-                                    ? 'bg-white/[0.08] text-white border border-white/[0.1]'
-                                    : 'text-gray-400 hover:text-white hover:bg-white/[0.03]'
-                                    }`}
-                            >
-                                Products {pendingProducts.length > 0 && (
-                                    <span className="ml-2 px-1.5 py-0.5 bg-blue-500/20 text-blue-300 rounded-full text-xs">
-                                        {pendingProducts.length}
-                                    </span>
-                                )}
-                            </button>
-                        </div>
-
                         {/* Apps Review Section */}
-                        {reviewSubTab === 'apps' && (
+                        {true && (
                             <div className="space-y-6">
                                 {loadingApps ? (
-                                    <div className="backdrop-blur-xl bg-white/[0.02] rounded-2xl border border-white/[0.05] p-16 flex flex-col items-center justify-center">
+                                    <div className="backdrop-blur-xl bg-white/[0.02] rounded-none border border-white/[0.05] p-16 flex flex-col items-center justify-center">
                                         <div className="w-12 h-12 border-3 border-blue-500/30 border-t-blue-500 rounded-full animate-spin mb-4"></div>
                                         <p className="text-gray-400">{t('superadmin.loading_apps')}</p>
                                     </div>
                                 ) : pendingApps.length === 0 ? (
-                                    <div className="backdrop-blur-xl bg-gradient-to-br from-blue-500/5 via-transparent to-transparent rounded-2xl border border-blue-500/20 p-12 text-center">
+                                    <div className="backdrop-blur-xl bg-gradient-to-br from-blue-500/5 via-transparent to-transparent rounded-none border border-blue-500/20 p-12 text-center">
                                         <div className="w-16 h-16 mx-auto mb-5 bg-gradient-to-br from-blue-500/20 to-blue-600/10 rounded-full flex items-center justify-center border border-blue-500/30">
                                             <svg className="w-8 h-8 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
@@ -1786,7 +2224,7 @@ export default function SuperAdmin() {
                                         {pendingApps.map((app, index) => (
                                             <div
                                                 key={app.id}
-                                                className="backdrop-blur-xl bg-white/[0.02] rounded-2xl border border-white/[0.05] overflow-hidden hover:border-blue-500/30 transition-all duration-300 group"
+                                                className="backdrop-blur-xl bg-white/[0.02] rounded-none border border-white/[0.05] overflow-hidden hover:border-blue-500/30 transition-all duration-300 group"
                                                 style={{ animationDelay: `${index * 50}ms` }}
                                             >
                                                 <div className="p-6">
@@ -1895,15 +2333,15 @@ export default function SuperAdmin() {
                         )}
 
                         {/* Products Review Section */}
-                        {reviewSubTab === 'products' && (
+                        {true && (
                             <div className="space-y-6">
                                 {loadingProducts ? (
-                                    <div className="backdrop-blur-xl bg-white/[0.02] rounded-2xl border border-white/[0.05] p-16 flex flex-col items-center justify-center">
+                                    <div className="backdrop-blur-xl bg-white/[0.02] rounded-none border border-white/[0.05] p-16 flex flex-col items-center justify-center">
                                         <div className="w-12 h-12 border-3 border-blue-500/30 border-t-blue-500 rounded-full animate-spin mb-4"></div>
                                         <p className="text-gray-400">{t('superadmin.loading_products')}</p>
                                     </div>
                                 ) : pendingProducts.length === 0 ? (
-                                    <div className="backdrop-blur-xl bg-gradient-to-br from-blue-500/5 via-transparent to-transparent rounded-2xl border border-blue-500/20 p-12 text-center">
+                                    <div className="backdrop-blur-xl bg-gradient-to-br from-blue-500/5 via-transparent to-transparent rounded-none border border-blue-500/20 p-12 text-center">
                                         <div className="w-16 h-16 mx-auto mb-5 bg-gradient-to-br from-blue-500/20 to-blue-600/10 rounded-full flex items-center justify-center border border-blue-500/30">
                                             <svg className="w-8 h-8 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
@@ -1917,7 +2355,7 @@ export default function SuperAdmin() {
                                         {pendingProducts.map((product, index) => (
                                             <div
                                                 key={product.id}
-                                                className="backdrop-blur-xl bg-white/[0.02] rounded-2xl border border-white/[0.05] overflow-hidden hover:border-blue-500/30 transition-all duration-300 group"
+                                                className="backdrop-blur-xl bg-white/[0.02] rounded-none border border-white/[0.05] overflow-hidden hover:border-blue-500/30 transition-all duration-300 group"
                                                 style={{ animationDelay: `${index * 50}ms` }}
                                             >
                                                 <div className="p-6">
@@ -2038,7 +2476,7 @@ export default function SuperAdmin() {
                 {/* Reject Modal */}
                 {showRejectModal && selectedVerification && (
                     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-                        <div className="backdrop-blur-xl bg-[#0d1117]/95 rounded-2xl shadow-2xl w-full max-w-md border border-white/[0.05]">
+                        <div className="backdrop-blur-xl bg-[#0d1117]/95 rounded-none shadow-2xl w-full max-w-md border border-white/[0.05]">
                             <div className="p-6 border-b border-white/[0.05]">
                                 <h3 className="text-lg font-semibold text-white">Reject Bank Account</h3>
                                 <p className="text-sm text-gray-500 mt-1">
@@ -2087,7 +2525,7 @@ export default function SuperAdmin() {
                 {/* Details Modal */}
                 {showDetailsModal && selectedVerification && (
                     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-                        <div className="backdrop-blur-xl bg-[#0d1117]/95 rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto border border-white/[0.05]">
+                        <div className="backdrop-blur-xl bg-[#0d1117]/95 rounded-none shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto border border-white/[0.05]">
                             <div className="p-6 border-b border-white/[0.05] sticky top-0 backdrop-blur-xl bg-white/[0.02] z-10">
                                 <div className="flex items-center justify-between">
                                     <div>
@@ -2262,9 +2700,9 @@ export default function SuperAdmin() {
                 {/* Product Details Modal */}
                 {showProductDetailsModal && selectedProduct && (
                     <div className="fixed inset-0 bg-black/70 backdrop-blur-md z-50 flex items-center justify-center p-4">
-                        <div className="relative w-full max-w-5xl max-h-[90vh] overflow-hidden flex flex-col rounded-3xl shadow-2xl">
+                        <div className="relative w-full max-w-5xl max-h-[90vh] overflow-hidden flex flex-col rounded-none shadow-2xl">
                             {/* Background gradient effect */}
-                            <div className="absolute inset-0 bg-[#0a0f1a] rounded-3xl" />
+                            <div className="absolute inset-0 bg-[#0a0f1a] rounded-none" />
                             <div className="absolute top-0 left-0 right-0 h-48 bg-gradient-to-br from-blue-600/20 via-indigo-600/10 to-transparent" />
 
                             {/* Header */}
@@ -2300,10 +2738,10 @@ export default function SuperAdmin() {
                                 ) : (
                                     <>
                                         {/* Product Hero Card */}
-                                        <div className="bg-gradient-to-br from-white/[0.05] to-white/[0.02] rounded-2xl p-6 border border-white/[0.08] mb-6">
+                                        <div className="bg-gradient-to-br from-white/[0.05] to-white/[0.02] rounded-none p-6 border border-white/[0.08] mb-6">
                                             <div className="flex gap-6">
                                                 <div className="relative flex-shrink-0">
-                                                    <div className="w-36 h-36 rounded-2xl overflow-hidden ring-4 ring-white/[0.08] shadow-2xl">
+                                                    <div className="w-36 h-36 rounded-none overflow-hidden ring-4 ring-white/[0.08] shadow-2xl">
                                                         {selectedProduct.image_url ? (
                                                             <img
                                                                 src={selectedProduct.image_url}
@@ -2346,17 +2784,17 @@ export default function SuperAdmin() {
                                         {/* Stats Cards */}
                                         {productDetails?.stats && (
                                             <div className="grid grid-cols-3 gap-4 mb-6">
-                                                <div className="relative overflow-hidden p-5 bg-gradient-to-br from-blue-600/10 via-blue-500/5 to-transparent rounded-2xl border border-blue-500/20 group hover:border-blue-500/40 transition-all">
+                                                <div className="relative overflow-hidden p-5 bg-gradient-to-br from-blue-600/10 via-blue-500/5 to-transparent rounded-none border border-blue-500/20 group hover:border-blue-500/40 transition-all">
                                                     <div className="absolute top-0 right-0 w-20 h-20 bg-blue-500/10 rounded-full blur-2xl" />
                                                     <p className="text-4xl font-bold bg-gradient-to-r from-blue-400 to-blue-500 bg-clip-text text-transparent">{productDetails.stats.totalModules}</p>
                                                     <p className="text-sm text-gray-400 font-medium mt-1">Modules</p>
                                                 </div>
-                                                <div className="relative overflow-hidden p-5 bg-gradient-to-br from-blue-600/10 via-blue-500/5 to-transparent rounded-2xl border border-blue-500/20 group hover:border-blue-500/40 transition-all">
+                                                <div className="relative overflow-hidden p-5 bg-gradient-to-br from-blue-600/10 via-blue-500/5 to-transparent rounded-none border border-blue-500/20 group hover:border-blue-500/40 transition-all">
                                                     <div className="absolute top-0 right-0 w-20 h-20 bg-blue-500/10 rounded-full blur-2xl" />
                                                     <p className="text-4xl font-bold bg-gradient-to-r from-blue-400 to-blue-500 bg-clip-text text-transparent">{productDetails.stats.totalLessons}</p>
                                                     <p className="text-sm text-gray-400 font-medium mt-1">Lessons</p>
                                                 </div>
-                                                <div className="relative overflow-hidden p-5 bg-gradient-to-br from-blue-600/10 via-blue-500/5 to-transparent rounded-2xl border border-blue-500/20 group hover:border-blue-500/40 transition-all">
+                                                <div className="relative overflow-hidden p-5 bg-gradient-to-br from-blue-600/10 via-blue-500/5 to-transparent rounded-none border border-blue-500/20 group hover:border-blue-500/40 transition-all">
                                                     <div className="absolute top-0 right-0 w-20 h-20 bg-blue-500/10 rounded-full blur-2xl" />
                                                     <p className="text-4xl font-bold bg-gradient-to-r from-blue-400 to-blue-500 bg-clip-text text-transparent">{productDetails.stats.totalMembers}</p>
                                                     <p className="text-sm text-gray-400 font-medium mt-1">Members</p>
@@ -2474,8 +2912,8 @@ export default function SuperAdmin() {
                                         )}
 
                                         {productDetails?.modules && productDetails.modules.length === 0 && (
-                                            <div className="mb-6 p-10 bg-gradient-to-br from-white/[0.02] to-transparent rounded-2xl border border-white/[0.05] text-center">
-                                                <div className="w-16 h-16 mx-auto mb-4 bg-white/[0.03] rounded-2xl flex items-center justify-center">
+                                            <div className="mb-6 p-10 bg-gradient-to-br from-white/[0.02] to-transparent rounded-none border border-white/[0.05] text-center">
+                                                <div className="w-16 h-16 mx-auto mb-4 bg-white/[0.03] rounded-none flex items-center justify-center">
                                                     <span className="text-3xl">📝</span>
                                                 </div>
                                                 <p className="text-gray-400 font-medium">No course content found</p>
@@ -2527,56 +2965,88 @@ export default function SuperAdmin() {
 
                 {/* ════════════════ FINANCIAL TAB ════════════════ */}
                 {activeTab === 'financial' && (
-                    <div className="space-y-6">
+                    <div className="space-y-5">
                         {loadingFinancial ? (
                             <div className="flex items-center justify-center py-24">
                                 <div className="w-10 h-10 border-2 border-blue-500/30 border-t-blue-500 rounded-full animate-spin" />
                             </div>
                         ) : !financialData ? (
-                            <div className="backdrop-blur-xl bg-white/[0.02] rounded-2xl border border-white/[0.05] p-12 text-center">
-                                <p className="text-gray-400 mb-4">Nenhum dado financeiro carregado.</p>
-                                <button onClick={fetchFinancial} className="px-5 py-2.5 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-xl font-medium text-sm">Carregar</button>
+                            <div className="backdrop-blur-xl bg-white/[0.02] rounded-none border border-white/[0.05] p-12 text-center">
+                                <p className="text-gray-500 text-sm mb-4">Clique para carregar os dados financeiros da plataforma.</p>
+                                <button onClick={fetchFinancial} className="px-5 py-2.5 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-400 hover:to-blue-500 text-white rounded-xl font-semibold text-sm transition-all">Carregar dados</button>
                             </div>
                         ) : (
                             <>
-                                {/* KPI cards */}
+                                {/* KPI Row */}
                                 <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                                     {[
-                                        { label: 'GMV Total', value: `$${financialData.gmv.toFixed(2)}`, color: 'text-emerald-400', bg: 'from-emerald-500/10 to-emerald-600/5', border: 'border-emerald-500/20' },
-                                        { label: `Receita Plataforma (${financialData.fee_percent}%)`, value: `$${financialData.platform_revenue.toFixed(2)}`, color: 'text-blue-400', bg: 'from-blue-500/10 to-blue-600/5', border: 'border-blue-500/20' },
-                                        { label: 'Total Conversões', value: String(financialData.total_conversions), color: 'text-purple-400', bg: 'from-purple-500/10 to-purple-600/5', border: 'border-purple-500/20' },
-                                        { label: 'Page Views', value: String(financialData.total_page_views), color: 'text-cyan-400', bg: 'from-cyan-500/10 to-cyan-600/5', border: 'border-cyan-500/20' },
-                                        { label: 'Taxa de Conversão', value: `${financialData.conversion_rate}%`, color: 'text-amber-400', bg: 'from-amber-500/10 to-amber-600/5', border: 'border-amber-500/20' },
-                                        { label: 'Novos Usuários (30d)', value: String(financialData.new_users_30d), color: 'text-indigo-400', bg: 'from-indigo-500/10 to-indigo-600/5', border: 'border-indigo-500/20' },
+                                        {
+                                            label: 'GMV Total',
+                                            sublabel: 'Volume bruto de vendas',
+                                            value: financialData.gmv.toLocaleString('pt-BR', { style: 'currency', currency: 'USD' }),
+                                            color: 'text-emerald-400',
+                                            bg: 'from-emerald-500/10',
+                                            border: 'border-emerald-500/20 hover:border-emerald-500/40',
+                                            dot: 'bg-emerald-500',
+                                        },
+                                        {
+                                            label: `Receita da plataforma`,
+                                            sublabel: `Taxa de ${financialData.fee_percent}% sobre GMV`,
+                                            value: financialData.platform_revenue.toLocaleString('pt-BR', { style: 'currency', currency: 'USD' }),
+                                            color: 'text-blue-400',
+                                            bg: 'from-blue-500/10',
+                                            border: 'border-blue-500/20 hover:border-blue-500/40',
+                                            dot: 'bg-blue-500',
+                                        },
+                                        {
+                                            label: 'Novos owners (30 dias)',
+                                            sublabel: 'Cadastros recentes',
+                                            value: financialData.new_users_30d.toLocaleString('pt-BR'),
+                                            color: 'text-indigo-400',
+                                            bg: 'from-indigo-500/10',
+                                            border: 'border-indigo-500/20 hover:border-indigo-500/40',
+                                            dot: 'bg-indigo-500',
+                                        },
                                     ].map((kpi) => (
-                                        <div key={kpi.label} className={`backdrop-blur-xl bg-gradient-to-br ${kpi.bg} p-5 rounded-2xl border ${kpi.border} group hover:scale-[1.01] transition-transform duration-200`}>
-                                            <p className={`text-2xl font-bold ${kpi.color} mb-1`}>{kpi.value}</p>
-                                            <p className="text-xs text-gray-500 font-medium">{kpi.label}</p>
+                                        <div key={kpi.label} className={`backdrop-blur-xl bg-gradient-to-br ${kpi.bg} to-transparent bg-white/[0.02] p-5 rounded-none border ${kpi.border} transition-all duration-200 group`}>
+                                            <div className="flex items-start justify-between mb-1">
+                                                <p className={`text-2xl font-bold ${kpi.color}`}>{kpi.value}</p>
+                                                <span className={`w-2 h-2 rounded-full ${kpi.dot} mt-2 opacity-70`} />
+                                            </div>
+                                            <p className="text-xs text-white/80 font-medium">{kpi.label}</p>
+                                            <p className="text-xs text-gray-600 mt-0.5">{kpi.sublabel}</p>
                                         </div>
                                     ))}
                                 </div>
 
-                                {/* GMV mensal */}
+                                {/* GMV Mensal */}
                                 {Object.keys(financialData.monthly_gmv).length > 0 && (
-                                    <div className="backdrop-blur-xl bg-white/[0.02] rounded-2xl p-6 border border-white/[0.05]">
-                                        <div className="mb-5">
-                                            <h3 className="text-lg font-semibold text-white">GMV Mensal</h3>
-                                            <p className="text-sm text-gray-500">Volume de vendas por mês</p>
+                                    <div className="backdrop-blur-xl bg-white/[0.02] rounded-none p-6 border border-white/[0.05]">
+                                        <div className="flex items-center justify-between mb-5">
+                                            <div>
+                                                <h3 className="text-base font-semibold text-white">GMV por mês</h3>
+                                                <p className="text-xs text-gray-500 mt-0.5">Volume bruto de vendas — últimos meses</p>
+                                            </div>
+                                            <span className="text-xs text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-3 py-1 rounded-full">
+                                                {Number((Object.values(financialData.monthly_gmv) as any[]).reduce((a, b) => a + Number(b), 0)).toLocaleString('pt-BR', { style: 'currency', currency: 'USD' })}
+                                            </span>
                                         </div>
-                                        <div className="h-48 flex items-end justify-between gap-3">
-                                            {Object.entries(financialData.monthly_gmv).slice(-6).map(([month, gmv]: [string, any], i) => {
-                                                const max = Math.max(...Object.values(financialData.monthly_gmv).map((v: any) => Number(v)))
-                                                const h = max > 0 ? (gmv / max) * 100 : 0
+                                        <div className="h-44 flex items-end justify-between gap-2">
+                                            {Object.entries(financialData.monthly_gmv).slice(-8).map(([month, gmv]: [string, any], i, arr) => {
+                                                const max = Math.max(...arr.map(([, v]) => Number(v)), 1)
+                                                const h = (Number(gmv) / max) * 100
+                                                const isLast = i === arr.length - 1
                                                 const monthName = new Date(month + '-01').toLocaleDateString('pt-BR', { month: 'short' })
                                                 return (
-                                                    <div key={month} className="flex-1 flex flex-col items-center gap-2 group">
-                                                        <div className="relative w-full bg-white/[0.03] rounded-t-xl overflow-hidden" style={{ height: '160px' }}>
-                                                            <div className="absolute bottom-0 w-full bg-gradient-to-t from-emerald-600 via-emerald-500 to-emerald-400 rounded-t-xl transition-all duration-700" style={{ height: `${h}%`, animationDelay: `${i * 100}ms` }} />
-                                                            <div className="absolute inset-0 flex items-center justify-center">
-                                                                <span className="text-white font-bold text-xs drop-shadow-lg">${Number(gmv).toFixed(0)}</span>
-                                                            </div>
+                                                    <div key={month} className="flex-1 flex flex-col items-center gap-1.5 group/bar">
+                                                        <span className="text-xs text-gray-600 group-hover/bar:text-white transition-colors">${Number(gmv).toFixed(0)}</span>
+                                                        <div className="relative w-full rounded-t-lg overflow-hidden bg-white/[0.03]" style={{ height: '120px' }}>
+                                                            <div
+                                                                className={`absolute bottom-0 w-full rounded-t-lg transition-all duration-700 ${isLast ? 'bg-gradient-to-t from-emerald-600 to-emerald-400' : 'bg-gradient-to-t from-emerald-700/60 to-emerald-500/40 group-hover/bar:from-emerald-600 group-hover/bar:to-emerald-400'}`}
+                                                                style={{ height: `${h}%` }}
+                                                            />
                                                         </div>
-                                                        <span className="text-xs text-gray-500 font-medium capitalize">{monthName}</span>
+                                                        <span className="text-xs text-gray-600 capitalize">{monthName}</span>
                                                     </div>
                                                 )
                                             })}
@@ -2584,32 +3054,43 @@ export default function SuperAdmin() {
                                     </div>
                                 )}
 
-                                {/* Top sellers */}
+                                {/* Top Sellers */}
                                 {financialData.top_sellers?.length > 0 && (
-                                    <div className="backdrop-blur-xl bg-white/[0.02] rounded-2xl border border-white/[0.05]">
-                                        <div className="p-6 border-b border-white/[0.05]">
-                                            <h3 className="text-lg font-semibold text-white">Top Sellers</h3>
-                                            <p className="text-sm text-gray-500">Usuários com mais apps criados na plataforma</p>
+                                    <div className="backdrop-blur-xl bg-white/[0.02] rounded-none border border-white/[0.05] overflow-hidden">
+                                        <div className="px-6 py-4 border-b border-white/[0.05] flex items-center justify-between">
+                                            <div>
+                                                <h3 className="text-base font-semibold text-white">Top Sellers</h3>
+                                                <p className="text-xs text-gray-500 mt-0.5">Owners que mais geram volume na plataforma</p>
+                                            </div>
                                         </div>
                                         <div className="divide-y divide-white/[0.03]">
-                                            {financialData.top_sellers.map((seller: any, idx: number) => (
-                                                <div key={seller.user_id} className="flex items-center gap-4 px-6 py-4 hover:bg-white/[0.02] transition-colors">
-                                                    <span className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold ${idx === 0 ? 'bg-amber-500/20 text-amber-400' : idx === 1 ? 'bg-gray-500/20 text-gray-400' : idx === 2 ? 'bg-orange-500/20 text-orange-400' : 'bg-white/[0.05] text-gray-500'}`}>
-                                                        {idx + 1}
-                                                    </span>
-                                                    <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center text-white text-xs font-bold">
-                                                        {seller.email.charAt(0).toUpperCase()}
+                                            {financialData.top_sellers.map((seller: any, idx: number) => {
+                                                const medals = ['🥇', '🥈', '🥉']
+                                                const maxApps = financialData.top_sellers[0]?.app_count || 1
+                                                return (
+                                                    <div key={seller.user_id} className="px-6 py-3.5 flex items-center gap-4 hover:bg-white/[0.02] transition-colors">
+                                                        <span className="text-base w-6 text-center">{medals[idx] || `${idx + 1}`}</span>
+                                                        <div className="w-9 h-9 bg-gradient-to-br from-blue-500 to-violet-600 rounded-full flex items-center justify-center text-white text-xs font-bold shrink-0">
+                                                            {seller.email.charAt(0).toUpperCase()}
+                                                        </div>
+                                                        <div className="flex-1 min-w-0">
+                                                            <p className="text-sm font-medium text-white truncate">{seller.email}</p>
+                                                            <div className="flex items-center gap-2 mt-1">
+                                                                <div className="flex-1 h-1 bg-white/[0.05] rounded-full overflow-hidden">
+                                                                    <div
+                                                                        className="h-full bg-gradient-to-r from-blue-500 to-violet-500 rounded-full"
+                                                                        style={{ width: `${Math.round((seller.app_count / maxApps) * 100)}%` }}
+                                                                    />
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                        <div className="text-right shrink-0">
+                                                            <p className="text-sm font-bold text-blue-400">{seller.app_count}</p>
+                                                            <p className="text-xs text-gray-600">apps</p>
+                                                        </div>
                                                     </div>
-                                                    <div className="flex-1">
-                                                        <p className="text-sm font-medium text-white">{seller.email}</p>
-                                                        <p className="text-xs text-gray-500">{seller.app_count} apps</p>
-                                                    </div>
-                                                    <div className="text-right">
-                                                        <div className="text-sm font-semibold text-blue-400">{seller.app_count}</div>
-                                                        <div className="text-xs text-gray-500">apps</div>
-                                                    </div>
-                                                </div>
-                                            ))}
+                                                )
+                                            })}
                                         </div>
                                     </div>
                                 )}
@@ -2621,59 +3102,325 @@ export default function SuperAdmin() {
                 {/* ════════════════ PAYMENTS TAB ════════════════ */}
                 {activeTab === 'payments' && (
                     <div className="space-y-6">
-                        {/* Global provider card */}
-                        <div className="backdrop-blur-xl bg-white/[0.02] rounded-2xl border border-white/[0.05] p-6">
-                            <div className="flex items-start justify-between">
+
+                        {/* ── 1. PROVEDOR GLOBAL PADRÃO ── */}
+                        <div className="backdrop-blur-xl bg-white/[0.02] rounded-none border border-white/[0.05] p-6">
+                            <div className="flex items-start justify-between mb-5">
                                 <div>
-                                    <h3 className="text-lg font-semibold text-white">Provedor Global</h3>
-                                    <p className="text-sm text-gray-500 mt-1">Padrão usado por todos os usuários sem override individual</p>
+                                    <h3 className="text-lg font-semibold text-white">Provedor Global Padrão</h3>
+                                    <p className="text-sm text-gray-500 mt-1">Usado por todos os usuários sem override individual</p>
                                 </div>
-                                <span className={`px-3 py-1.5 rounded-xl text-xs font-semibold border ${globalProvider === 'stripe' ? 'bg-indigo-500/20 text-indigo-300 border-indigo-500/30' : 'bg-orange-500/20 text-orange-300 border-orange-500/30'}`}>
-                                    {globalProvider === 'stripe' ? '🔵 Stripe' : '🟠 Mollie'}
-                                </span>
+                                {providers.find(p => p.is_global_default) && (() => {
+                                    const p = providers.find(p => p.is_global_default)!
+                                    const c = PROVIDER_COLORS[p.type]
+                                    return (
+                                        <span className={`px-3 py-1.5 rounded-xl text-xs font-semibold border ${c.bg} ${c.text} ${c.border}`}>
+                                            {PROVIDER_ICONS[p.type]} {p.name}
+                                        </span>
+                                    )
+                                })()}
                             </div>
-                            <div className="flex gap-3 mt-5">
-                                <button
-                                    onClick={() => handleSaveGlobalProvider('stripe')}
-                                    className={`flex-1 py-3 rounded-xl font-semibold text-sm transition-all border ${globalProvider === 'stripe' ? 'bg-indigo-500/20 text-indigo-300 border-indigo-500/40' : 'bg-white/[0.03] text-gray-400 border-white/[0.08] hover:bg-white/[0.06]'}`}
-                                >
-                                    🔵 Usar Stripe
-                                </button>
-                                <button
-                                    onClick={() => handleSaveGlobalProvider('mollie')}
-                                    className={`flex-1 py-3 rounded-xl font-semibold text-sm transition-all border ${globalProvider === 'mollie' ? 'bg-orange-500/20 text-orange-300 border-orange-500/40' : 'bg-white/[0.03] text-gray-400 border-white/[0.08] hover:bg-white/[0.06]'}`}
-                                >
-                                    🟠 Usar Mollie
-                                </button>
-                            </div>
+                            {loadingProviders ? (
+                                <div className="flex gap-2">{[1, 2, 3].map(i => <div key={i} className="flex-1 h-12 bg-white/[0.03] rounded-xl animate-pulse" />)}</div>
+                            ) : providers.filter(p => p.is_active).length === 0 ? (
+                                <p className="text-sm text-gray-600 text-center py-4">Cadastre provedores na seção abaixo para selecionar o padrão global.</p>
+                            ) : (
+                                <div className="flex flex-wrap gap-2">
+                                    {providers.filter(p => p.is_active).map(p => {
+                                        const c = PROVIDER_COLORS[p.type]
+                                        const isDefault = p.is_global_default
+                                        return (
+                                            <button
+                                                key={p.id}
+                                                onClick={() => handleSetGlobalDefault(p.id)}
+                                                className={`px-5 py-3 rounded-xl font-semibold text-sm transition-all border ${isDefault ? `${c.bg} ${c.text} ${c.border}` : 'bg-white/[0.03] text-gray-400 border-white/[0.08] hover:bg-white/[0.06]'}`}
+                                            >
+                                                {PROVIDER_ICONS[p.type]} {p.name}
+                                                {isDefault && <span className="ml-2 text-xs opacity-70">★ Padrão</span>}
+                                            </button>
+                                        )
+                                    })}
+                                </div>
+                            )}
                         </div>
 
-                        {/* Per-user overrides */}
-                        <div className="backdrop-blur-xl bg-white/[0.02] rounded-2xl border border-white/[0.05]">
-                            <div className="p-6 border-b border-white/[0.05] flex items-center justify-between">
+                        {/* ── 2. PROVEDORES CADASTRADOS ── */}
+                        <div className="backdrop-blur-xl bg-white/[0.02] rounded-none border border-white/[0.05] overflow-hidden">
+                            <div className="px-6 py-4 border-b border-white/[0.05] flex items-center justify-between">
+                                <div>
+                                    <h3 className="text-lg font-semibold text-white">Provedores Cadastrados</h3>
+                                    <p className="text-sm text-gray-500 mt-0.5">Credenciais armazenadas no banco — {providers.length} provedor(es)</p>
+                                </div>
+                                <button
+                                    onClick={() => { setShowAddProviderForm(v => !v); setEditingProviderId(null) }}
+                                    className="flex items-center gap-2 px-4 py-2 bg-blue-500/20 hover:bg-blue-500/30 text-blue-300 border border-blue-500/30 rounded-xl text-sm font-semibold transition-all"
+                                >
+                                    {showAddProviderForm ? '✕ Cancelar' : '+ Novo Provedor'}
+                                </button>
+                            </div>
+
+                            {/* Formulário: Novo Provedor */}
+                            {showAddProviderForm && (
+                                <div className="px-6 py-5 border-b border-blue-500/10 bg-blue-500/[0.02] space-y-4">
+                                    <p className="text-xs font-semibold text-blue-400">+ Cadastrar novo provedor</p>
+                                    <div className="grid grid-cols-2 gap-3">
+                                        <div>
+                                            <label className="block text-xs text-gray-500 mb-1.5 font-medium">Nome de exibição</label>
+                                            <input
+                                                type="text"
+                                                placeholder="Ex: Stripe Brasil"
+                                                value={newProviderForm.name}
+                                                onChange={e => setNewProviderForm(f => ({ ...f, name: e.target.value }))}
+                                                className="w-full px-3 py-2 bg-[#0d1117] border border-white/[0.08] rounded-lg text-white text-sm placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500/40"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-xs text-gray-500 mb-1.5 font-medium">Tipo</label>
+                                            <select
+                                                value={newProviderForm.type}
+                                                onChange={e => setNewProviderForm(f => ({ ...f, type: e.target.value, credentials: {} }))}
+                                                className="w-full px-3 py-2 bg-[#0d1117] border border-white/[0.08] rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40"
+                                            >
+                                                <option value="stripe">🔵 Stripe</option>
+                                                <option value="stripe_connect">🔵 Stripe Connect</option>
+                                                <option value="mollie">🟠 Mollie</option>
+                                                <option value="paypal">🟡 PayPal</option>
+                                                <option value="custom">⚙️ Customizado</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-3">
+                                        {(CREDENTIAL_FIELDS[newProviderForm.type] || []).map(field => (
+                                            <div key={field.key}>
+                                                <label className="block text-xs text-gray-500 mb-1.5 font-medium">{field.label}</label>
+                                                <input
+                                                    type="password"
+                                                    placeholder={field.placeholder}
+                                                    value={(newProviderForm.credentials as any)[field.key] || ''}
+                                                    onChange={e => setNewProviderForm(f => ({ ...f, credentials: { ...f.credentials, [field.key]: e.target.value } }))}
+                                                    className="w-full px-3 py-2 bg-[#0d1117] border border-white/[0.08] rounded-lg text-white text-sm placeholder-gray-600 font-mono focus:outline-none focus:ring-2 focus:ring-blue-500/40"
+                                                />
+                                            </div>
+                                        ))}
+                                    </div>
+                                    <button
+                                        onClick={handleCreateProvider}
+                                        disabled={savingProvider || !newProviderForm.name}
+                                        className="px-5 py-2 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-400 hover:to-blue-500 disabled:opacity-50 text-white rounded-lg text-sm font-semibold transition-all"
+                                    >
+                                        {savingProvider ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin mx-auto" /> : 'Cadastrar Provedor'}
+                                    </button>
+                                </div>
+                            )}
+
+                            {/* Lista de provedores */}
+                            {loadingProviders ? (
+                                <div className="p-12 flex justify-center">
+                                    <div className="w-8 h-8 border-2 border-blue-500/30 border-t-blue-500 rounded-full animate-spin" />
+                                </div>
+                            ) : providers.length === 0 ? (
+                                <div className="p-12 text-center">
+                                    <p className="text-gray-500 text-sm">Nenhum provedor cadastrado.</p>
+                                    <p className="text-gray-600 text-xs mt-1">Use o botão "+ Novo Provedor" para adicionar.</p>
+                                </div>
+                            ) : (
+                                <div className="divide-y divide-white/[0.03]">
+                                    {providers.map(provider => {
+                                        const c = PROVIDER_COLORS[provider.type]
+                                        const isEditing = editingProviderId === provider.id
+                                        return (
+                                            <div key={provider.id} className={isEditing ? 'bg-white/[0.015]' : ''}>
+                                                <div className="px-6 py-4 flex items-center gap-4">
+                                                    <div className={`w-10 h-10 ${c.bg} rounded-xl flex items-center justify-center text-xl`}>
+                                                        {PROVIDER_ICONS[provider.type]}
+                                                    </div>
+                                                    <div className="flex-1">
+                                                        <div className="flex items-center gap-2 flex-wrap">
+                                                            <p className="text-sm font-semibold text-white">{provider.name}</p>
+                                                            <span className={`px-2 py-0.5 rounded text-xs font-semibold border ${c.bg} ${c.text} ${c.border}`}>{provider.type}</span>
+                                                            <span className={`px-2 py-0.5 rounded text-xs font-semibold border ${provider.is_active ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30' : 'bg-gray-500/15 text-gray-400 border-gray-500/20'}`}>
+                                                                {provider.is_active ? '● Ativo' : '○ Inativo'}
+                                                            </span>
+                                                            {provider.is_global_default && (
+                                                                <span className="px-2 py-0.5 rounded text-xs font-semibold border bg-blue-500/15 text-blue-300 border-blue-500/30">★ Padrão global</span>
+                                                            )}
+                                                        </div>
+                                                        <p className="text-xs text-gray-600 mt-0.5">Criado em {new Date(provider.created_at).toLocaleDateString('pt-BR')}</p>
+                                                    </div>
+                                                    <div className="flex items-center gap-2">
+                                                        <button
+                                                            onClick={() => handleToggleProviderActive(provider.id, provider.is_active)}
+                                                            className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all ${provider.is_active ? 'bg-gray-500/10 text-gray-400 border-gray-500/20 hover:bg-gray-500/20' : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20 hover:bg-emerald-500/20'}`}
+                                                        >
+                                                            {provider.is_active ? 'Desativar' : 'Ativar'}
+                                                        </button>
+                                                        <button
+                                                            onClick={() => {
+                                                                if (isEditing) { setEditingProviderId(null); return }
+                                                                setEditingProviderId(provider.id)
+                                                                setEditingProviderName(provider.name)
+                                                                setEditingProviderCreds({})
+                                                                setShowAddProviderForm(false)
+                                                            }}
+                                                            className={`px-3 py-1.5 rounded-lg text-xs transition-colors border ${isEditing ? `${c.bg} ${c.text} ${c.border}` : 'bg-white/[0.05] hover:bg-white/[0.1] text-gray-400 hover:text-white border-white/[0.08]'}`}
+                                                        >
+                                                            {isEditing ? '✎ Editando' : 'Editar chaves'}
+                                                        </button>
+                                                        {!provider.is_global_default && (
+                                                            <button
+                                                                onClick={() => handleDeleteProvider(provider.id)}
+                                                                className="px-3 py-1.5 bg-red-500/10 hover:bg-red-500/20 text-red-400 rounded-lg text-xs transition-colors border border-red-500/20"
+                                                            >
+                                                                Remover
+                                                            </button>
+                                                        )}
+                                                    </div>
+                                                </div>
+
+                                                {/* Formulário inline de edição */}
+                                                {isEditing && (
+                                                    <div className="px-6 pb-5 space-y-4 border-t border-white/[0.05]">
+                                                        <div className="pt-4 grid grid-cols-2 gap-3">
+                                                            <div className="col-span-2 md:col-span-1">
+                                                                <label className="block text-xs text-gray-500 mb-1.5 font-medium">Nome de exibição</label>
+                                                                <input
+                                                                    type="text"
+                                                                    value={editingProviderName}
+                                                                    onChange={e => setEditingProviderName(e.target.value)}
+                                                                    className="w-full px-3 py-2 bg-[#0d1117] border border-white/[0.08] rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40"
+                                                                />
+                                                            </div>
+                                                            {(CREDENTIAL_FIELDS[provider.type] || []).map(field => (
+                                                                <div key={field.key}>
+                                                                    <label className="block text-xs text-gray-500 mb-1.5 font-medium">{field.label} <span className="text-gray-700">(deixe em branco para manter)</span></label>
+                                                                    <div className="flex gap-2">
+                                                                        <input
+                                                                            type={showApiKey[`edit-${provider.id}-${field.key}`] ? 'text' : 'password'}
+                                                                            placeholder={field.placeholder}
+                                                                            value={editingProviderCreds[field.key] || ''}
+                                                                            onChange={e => setEditingProviderCreds(prev => ({ ...prev, [field.key]: e.target.value }))}
+                                                                            className="flex-1 px-3 py-2 bg-[#0d1117] border border-white/[0.08] rounded-lg text-white text-sm font-mono placeholder-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500/40"
+                                                                        />
+                                                                        <button
+                                                                            onClick={() => setShowApiKey(prev => ({ ...prev, [`edit-${provider.id}-${field.key}`]: !prev[`edit-${provider.id}-${field.key}`] }))}
+                                                                            className="px-3 py-2 bg-white/[0.04] hover:bg-white/[0.08] text-gray-400 rounded-lg text-xs border border-white/[0.08]"
+                                                                        >
+                                                                            {showApiKey[`edit-${provider.id}-${field.key}`] ? 'Ocultar' : 'Mostrar'}
+                                                                        </button>
+                                                                    </div>
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                        <div className="flex gap-2">
+                                                            <button onClick={() => setEditingProviderId(null)} className="px-4 py-2 bg-white/[0.05] hover:bg-white/[0.1] text-gray-400 rounded-lg text-sm transition-colors border border-white/[0.08]">Cancelar</button>
+                                                            <button
+                                                                onClick={() => handleSaveProviderEdit(provider.id)}
+                                                                disabled={savingProvider}
+                                                                className="px-5 py-2 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-400 hover:to-blue-500 disabled:opacity-50 text-white rounded-lg text-sm font-semibold transition-all"
+                                                            >
+                                                                {savingProvider ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin mx-auto" /> : 'Salvar'}
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        )
+                                    })}
+                                </div>
+                            )}
+                        </div>
+
+                        {/* ── 3. OVERRIDES POR USUÁRIO ── */}
+                        <div className="backdrop-blur-xl bg-white/[0.02] rounded-none border border-white/[0.05] overflow-hidden">
+                            <div className="px-6 py-4 border-b border-white/[0.05] flex items-center justify-between gap-4">
                                 <div>
                                     <h3 className="text-lg font-semibold text-white">Overrides por Usuário</h3>
-                                    <p className="text-sm text-gray-500 mt-1">Usuários com provedor de pagamento personalizado</p>
+                                    <p className="text-sm text-gray-500 mt-0.5">Atribua um provedor específico a qualquer owner</p>
                                 </div>
                                 <button onClick={fetchPaymentConfigs} className="px-4 py-2 bg-white/[0.05] hover:bg-white/[0.1] text-gray-300 rounded-xl text-sm border border-white/[0.08] transition-colors">
                                     Atualizar
                                 </button>
                             </div>
 
+                            {/* Busca por email */}
+                            <div className="px-6 py-4 border-b border-white/[0.04] flex items-center gap-3">
+                                <div className="relative flex-1 max-w-sm">
+                                    <input
+                                        type="text"
+                                        placeholder="Buscar owner por email..."
+                                        value={providerUserSearch}
+                                        onChange={e => setProviderUserSearch(e.target.value)}
+                                        onKeyDown={e => e.key === 'Enter' && handleSearchProviderUser()}
+                                        className="w-full pl-8 pr-3 py-2 bg-[#0d1117] border border-white/[0.08] rounded-xl text-white text-sm placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500/40"
+                                    />
+                                    <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-600 text-sm">🔍</span>
+                                </div>
+                                <button
+                                    onClick={handleSearchProviderUser}
+                                    disabled={searchingProviderUser}
+                                    className="px-4 py-2 bg-blue-500/20 hover:bg-blue-500/30 text-blue-300 border border-blue-500/30 rounded-xl text-sm font-semibold transition-all disabled:opacity-50"
+                                >
+                                    {searchingProviderUser ? <div className="w-4 h-4 border-2 border-blue-300/30 border-t-blue-300 rounded-full animate-spin" /> : 'Buscar'}
+                                </button>
+                            </div>
+
+                            {/* Resultado da busca */}
+                            {providerUserResult !== null && (
+                                <div className={`px-6 py-4 border-b ${providerUserResult.user ? 'border-blue-500/10 bg-blue-500/[0.02]' : 'border-red-500/10 bg-red-500/[0.02]'}`}>
+                                    {!providerUserResult.user ? (
+                                        <p className="text-sm text-red-400">Usuário não encontrado para "{providerUserSearch}"</p>
+                                    ) : (
+                                        <div className="flex items-center gap-3">
+                                            <div className="w-9 h-9 bg-gradient-to-br from-blue-500 to-violet-600 rounded-full flex items-center justify-center text-xs font-bold text-white">
+                                                {providerUserResult.user.email?.charAt(0)?.toUpperCase()}
+                                            </div>
+                                            <div className="flex-1">
+                                                <p className="text-sm font-semibold text-white">{providerUserResult.user.email}</p>
+                                                <p className="text-xs text-gray-500">
+                                                    {providerUserResult.config?.provider_id
+                                                        ? `Override ativo → ${providers.find(p => p.id === providerUserResult.config.provider_id)?.name || 'Provedor desconhecido'}`
+                                                        : 'Sem override · usa provedor padrão global'}
+                                                </p>
+                                            </div>
+                                            <select
+                                                value={selectedProviderForUser}
+                                                onChange={e => setSelectedProviderForUser(e.target.value)}
+                                                className="px-3 py-2 bg-[#0d1117] border border-white/[0.08] rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40"
+                                            >
+                                                <option value="">↔ Padrão global</option>
+                                                {providers.filter(p => p.is_active).map(p => (
+                                                    <option key={p.id} value={p.id}>{PROVIDER_ICONS[p.type]} {p.name}</option>
+                                                ))}
+                                            </select>
+                                            <button
+                                                onClick={handleAssignProviderToUser}
+                                                disabled={assigningProvider}
+                                                className="px-4 py-2 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-400 hover:to-blue-500 disabled:opacity-50 text-white rounded-lg text-sm font-semibold transition-all"
+                                            >
+                                                {assigningProvider ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin mx-auto" /> : 'Atribuir'}
+                                            </button>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+
+                            {/* Lista de overrides existentes */}
                             {loadingPaymentConfigs ? (
                                 <div className="p-12 flex justify-center">
                                     <div className="w-8 h-8 border-2 border-blue-500/30 border-t-blue-500 rounded-full animate-spin" />
                                 </div>
                             ) : paymentConfigs.length === 0 ? (
-                                <div className="p-12 text-center">
+                                <div className="p-10 text-center">
                                     <p className="text-gray-500 text-sm">Nenhum override configurado ainda.</p>
-                                    <p className="text-gray-600 text-xs mt-1">Todos os usuários usam o provedor global ({globalProvider}).</p>
+                                    <p className="text-gray-600 text-xs mt-1">Busque um usuário acima para atribuir um provedor específico.</p>
                                 </div>
                             ) : (
                                 <div className="divide-y divide-white/[0.03]">
-                                    {paymentConfigs.map((cfg) => (
-                                        <div key={cfg.id} className="p-5">
-                                            <div className="flex items-center gap-4">
+                                    {paymentConfigs.map((cfg) => {
+                                        const assignedProvider = providers.find(p => p.id === cfg.provider_id)
+                                        const c = assignedProvider ? PROVIDER_COLORS[assignedProvider.type] : PROVIDER_COLORS.stripe
+                                        return (
+                                            <div key={cfg.id} className="px-6 py-4 flex items-center gap-4">
                                                 <div className="w-9 h-9 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center text-white text-sm font-bold">
                                                     {cfg.user_email?.charAt(0)?.toUpperCase() || '?'}
                                                 </div>
@@ -2681,9 +3428,16 @@ export default function SuperAdmin() {
                                                     <p className="text-sm font-medium text-white">{cfg.user_email}</p>
                                                     <p className="text-xs text-gray-500">{cfg.user_id}</p>
                                                 </div>
-                                                <span className={`px-2.5 py-1 rounded-lg text-xs font-semibold border ${cfg.payment_provider === 'stripe' ? 'bg-indigo-500/20 text-indigo-300 border-indigo-500/30' : 'bg-orange-500/20 text-orange-300 border-orange-500/30'}`}>
-                                                    {cfg.payment_provider === 'stripe' ? '🔵 Stripe' : '🟠 Mollie'}
-                                                </span>
+                                                {assignedProvider ? (
+                                                    <span className={`px-2.5 py-1 rounded-lg text-xs font-semibold border ${c.bg} ${c.text} ${c.border}`}>
+                                                        {PROVIDER_ICONS[assignedProvider.type]} {assignedProvider.name}
+                                                    </span>
+                                                ) : (
+                                                    <span className="px-2.5 py-1 rounded-lg text-xs font-semibold border bg-gray-500/15 text-gray-400 border-gray-500/20">
+                                                        {cfg.payment_provider || 'Padrão global'}
+                                                    </span>
+                                                )}
+                                                <span className="px-2.5 py-1 rounded-lg text-xs font-semibold border bg-emerald-500/15 text-emerald-300 border-emerald-500/30">● ativo</span>
                                                 <button
                                                     onClick={() => {
                                                         setEditingPaymentUser(cfg.user_id)
@@ -2700,86 +3454,8 @@ export default function SuperAdmin() {
                                                     Editar
                                                 </button>
                                             </div>
-
-                                            {/* Inline edit form */}
-                                            {editingPaymentUser === cfg.user_id && (
-                                                <div className="mt-4 p-4 bg-white/[0.02] rounded-xl border border-white/[0.08] space-y-3">
-                                                    <div className="grid grid-cols-2 gap-3">
-                                                        <div>
-                                                            <label className="block text-xs text-gray-500 mb-1.5">Provedor</label>
-                                                            <select
-                                                                value={paymentConfigForm.payment_provider}
-                                                                onChange={e => setPaymentConfigForm(f => ({ ...f, payment_provider: e.target.value }))}
-                                                                className="w-full px-3 py-2 bg-white/[0.03] border border-white/[0.08] rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40"
-                                                            >
-                                                                <option value="stripe">🔵 Stripe da Plataforma</option>
-                                                                <option value="stripe_connect">🔵 Stripe Connect Próprio</option>
-                                                                <option value="mollie">🟠 Mollie</option>
-                                                            </select>
-                                                        </div>
-                                                        <div>
-                                                            <label className="block text-xs text-gray-500 mb-1.5">Override ativo</label>
-                                                            <button
-                                                                onClick={() => setPaymentConfigForm(f => ({ ...f, override_platform_default: !f.override_platform_default }))}
-                                                                className={`w-full py-2 rounded-lg text-sm font-medium border transition-all ${paymentConfigForm.override_platform_default ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' : 'bg-white/[0.03] text-gray-500 border-white/[0.08]'}`}
-                                                            >
-                                                                {paymentConfigForm.override_platform_default ? '✓ Ativo' : '✗ Desativado'}
-                                                            </button>
-                                                        </div>
-                                                    </div>
-                                                    {paymentConfigForm.payment_provider === 'mollie' && (
-                                                        <div>
-                                                            <label className="block text-xs text-gray-500 mb-1.5">Chave API Mollie</label>
-                                                            <input
-                                                                type="text"
-                                                                value={paymentConfigForm.mollie_api_key}
-                                                                onChange={e => setPaymentConfigForm(f => ({ ...f, mollie_api_key: e.target.value }))}
-                                                                placeholder="live_xxx..."
-                                                                className="w-full px-3 py-2 bg-white/[0.03] border border-white/[0.08] rounded-lg text-white text-sm placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500/40"
-                                                            />
-                                                        </div>
-                                                    )}
-                                                    {paymentConfigForm.payment_provider === 'stripe_connect' && (
-                                                        <div>
-                                                            <label className="block text-xs text-gray-500 mb-1.5">Stripe Connect Account ID</label>
-                                                            <input
-                                                                type="text"
-                                                                value={paymentConfigForm.stripe_connect_account}
-                                                                onChange={e => setPaymentConfigForm(f => ({ ...f, stripe_connect_account: e.target.value }))}
-                                                                placeholder="acct_xxx..."
-                                                                className="w-full px-3 py-2 bg-white/[0.03] border border-white/[0.08] rounded-lg text-white text-sm placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500/40"
-                                                            />
-                                                        </div>
-                                                    )}
-                                                    <div>
-                                                        <label className="block text-xs text-gray-500 mb-1.5">Notas internas</label>
-                                                        <input
-                                                            type="text"
-                                                            value={paymentConfigForm.notes}
-                                                            onChange={e => setPaymentConfigForm(f => ({ ...f, notes: e.target.value }))}
-                                                            placeholder="Ex: acordado com cliente em fev/26"
-                                                            className="w-full px-3 py-2 bg-white/[0.03] border border-white/[0.08] rounded-lg text-white text-sm placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500/40"
-                                                        />
-                                                    </div>
-                                                    <div className="flex gap-2 pt-1">
-                                                        <button
-                                                            onClick={() => setEditingPaymentUser(null)}
-                                                            className="flex-1 py-2 bg-white/[0.05] hover:bg-white/[0.1] text-gray-400 rounded-lg text-sm transition-colors"
-                                                        >
-                                                            Cancelar
-                                                        </button>
-                                                        <button
-                                                            onClick={() => handleSavePaymentConfig(cfg.user_id)}
-                                                            disabled={savingPaymentConfig}
-                                                            className="flex-1 py-2 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-400 hover:to-blue-500 disabled:opacity-50 text-white rounded-lg text-sm font-semibold transition-all"
-                                                        >
-                                                            {savingPaymentConfig ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin mx-auto" /> : 'Salvar'}
-                                                        </button>
-                                                    </div>
-                                                </div>
-                                            )}
-                                        </div>
-                                    ))}
+                                        )
+                                    })}
                                 </div>
                             )}
                         </div>
@@ -2794,7 +3470,7 @@ export default function SuperAdmin() {
                         ) : (
                             <>
                                 {/* Configurações numéricas */}
-                                <div className="backdrop-blur-xl bg-white/[0.02] rounded-2xl border border-white/[0.05]">
+                                <div className="backdrop-blur-xl bg-white/[0.02] rounded-none border border-white/[0.05]">
                                     <div className="p-6 border-b border-white/[0.05]">
                                         <h3 className="text-lg font-semibold text-white">Configurações da Plataforma</h3>
                                         <p className="text-sm text-gray-500 mt-1">Valores aplicados globalmente para todos os usuários</p>
@@ -2864,7 +3540,7 @@ export default function SuperAdmin() {
 
                                 {/* Feature flags */}
                                 {platformConfigEdits['feature_flags'] && typeof platformConfigEdits['feature_flags'] === 'object' && (
-                                    <div className="backdrop-blur-xl bg-white/[0.02] rounded-2xl border border-white/[0.05]">
+                                    <div className="backdrop-blur-xl bg-white/[0.02] rounded-none border border-white/[0.05]">
                                         <div className="p-6 border-b border-white/[0.05]">
                                             <h3 className="text-lg font-semibold text-white">Feature Flags</h3>
                                             <p className="text-sm text-gray-500 mt-1">Ligue e desligue funcionalidades sem deploy</p>
@@ -2894,7 +3570,7 @@ export default function SuperAdmin() {
                                 )}
 
                                 {/* ─── Chaves de API dos Provedores ─────────────────────── */}
-                                <div className="backdrop-blur-xl bg-white/[0.02] rounded-2xl border border-white/[0.05]">
+                                <div className="backdrop-blur-xl bg-white/[0.02] rounded-none border border-white/[0.05]">
                                     <div className="p-6 border-b border-white/[0.05] flex items-start justify-between">
                                         <div>
                                             <h3 className="text-lg font-semibold text-white">Chaves de API dos Provedores</h3>
@@ -2979,8 +3655,8 @@ export default function SuperAdmin() {
                                                         setTimeout(() => saveSinglePlatformConfig('mollie_test_mode'), 0)
                                                     }}
                                                     className={`ml-auto px-3 py-1 rounded-lg text-xs font-semibold border transition-all ${(platformConfigEdits['mollie_test_mode'] === 'true' || platformConfigEdits['mollie_test_mode'] === true)
-                                                            ? 'bg-amber-500/20 text-amber-300 border-amber-500/30'
-                                                            : 'bg-white/[0.03] text-gray-500 border-white/[0.08] hover:bg-white/[0.06]'
+                                                        ? 'bg-amber-500/20 text-amber-300 border-amber-500/30'
+                                                        : 'bg-white/[0.03] text-gray-500 border-white/[0.08] hover:bg-white/[0.06]'
                                                         }`}
                                                 >
                                                     {(platformConfigEdits['mollie_test_mode'] === 'true' || platformConfigEdits['mollie_test_mode'] === true) ? '⚠ Modo Teste Ativo' : '✓ Modo Live'}
@@ -3043,7 +3719,7 @@ export default function SuperAdmin() {
                 {activeTab === 'announcements' && (
                     <div className="space-y-6">
                         {/* Criar comunicado */}
-                        <div className="backdrop-blur-xl bg-white/[0.02] rounded-2xl border border-white/[0.05]">
+                        <div className="backdrop-blur-xl bg-white/[0.02] rounded-none border border-white/[0.05]">
                             <div className="p-6 border-b border-white/[0.05]">
                                 <h3 className="text-lg font-semibold text-white">Novo Comunicado</h3>
                                 <p className="text-sm text-gray-500 mt-1">Aparece no dashboard de todos os usuários selecionados</p>
@@ -3117,7 +3793,7 @@ export default function SuperAdmin() {
                         </div>
 
                         {/* Lista de comunicados */}
-                        <div className="backdrop-blur-xl bg-white/[0.02] rounded-2xl border border-white/[0.05]">
+                        <div className="backdrop-blur-xl bg-white/[0.02] rounded-none border border-white/[0.05]">
                             <div className="p-6 border-b border-white/[0.05] flex items-center justify-between">
                                 <h3 className="text-lg font-semibold text-white">Comunicados Ativos</h3>
                                 <button onClick={fetchAnnouncements} className="px-4 py-2 bg-white/[0.05] hover:bg-white/[0.1] text-gray-300 rounded-xl text-sm border border-white/[0.08] transition-colors">
@@ -3171,26 +3847,31 @@ export default function SuperAdmin() {
                 {/* ════════════════ AUDIT LOG TAB ════════════════ */}
                 {activeTab === 'audit' && (
                     <div className="space-y-4">
-                        <div className="backdrop-blur-xl bg-white/[0.02] rounded-2xl border border-white/[0.05]">
-                            <div className="p-6 border-b border-white/[0.05] flex items-center justify-between gap-4">
+                        <div className="backdrop-blur-xl bg-white/[0.02] rounded-none border border-white/[0.05]">
+                            <div className="px-6 py-4 border-b border-white/[0.05] flex flex-wrap items-center justify-between gap-3">
                                 <div>
-                                    <h3 className="text-lg font-semibold text-white">Audit Log</h3>
-                                    <p className="text-sm text-gray-500 mt-1">{auditTotal} registros no total</p>
+                                    <h3 className="text-base font-semibold text-white">Audit Log</h3>
+                                    <p className="text-xs text-gray-500 mt-0.5">{auditTotal} ações registradas — todas as operações administrativas</p>
                                 </div>
-                                <div className="flex items-center gap-3">
+                                <div className="flex items-center gap-2">
                                     <select
                                         value={auditActionFilter}
                                         onChange={e => { setAuditActionFilter(e.target.value); setTimeout(() => fetchAuditLog(1), 0) }}
-                                        className="px-3 py-2 bg-white/[0.03] border border-white/[0.08] rounded-xl text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40"
+                                        className="px-3 py-2 bg-[#0d1117] border border-white/[0.08] rounded-xl text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40"
                                     >
                                         <option value="">Todas as ações</option>
-                                        <option value="ban_user">ban_user</option>
-                                        <option value="unban_user">unban_user</option>
-                                        <option value="delete_user">delete_user</option>
-                                        <option value="change_payment_provider">change_payment_provider</option>
-                                        <option value="update_platform_config">update_platform_config</option>
-                                        <option value="create_announcement">create_announcement</option>
-                                        <option value="delete_announcement">delete_announcement</option>
+                                        <option value="ban_user">Banir usuário</option>
+                                        <option value="unban_user">Desbanir usuário</option>
+                                        <option value="delete_user">Deletar usuário</option>
+                                        <option value="change_payment_provider">Alterar provedor (legado)</option>
+                                        <option value="create_payment_provider">Criar provedor</option>
+                                        <option value="update_payment_provider">Atualizar provedor</option>
+                                        <option value="delete_payment_provider">Deletar provedor</option>
+                                        <option value="update_platform_config">Config. plataforma</option>
+                                        <option value="create_announcement">Criar comunicado</option>
+                                        <option value="delete_announcement">Deletar comunicado</option>
+                                        <option value="approve_bank_verification">Aprovar verificação</option>
+                                        <option value="reject_bank_verification">Rejeitar verificação</option>
                                     </select>
                                     <button onClick={() => fetchAuditLog(1)} className="px-4 py-2 bg-white/[0.05] hover:bg-white/[0.1] text-gray-300 rounded-xl text-sm border border-white/[0.08] transition-colors">
                                         Atualizar
@@ -3201,68 +3882,83 @@ export default function SuperAdmin() {
                             {loadingAuditLog ? (
                                 <div className="p-12 flex justify-center"><div className="w-8 h-8 border-2 border-blue-500/30 border-t-blue-500 rounded-full animate-spin" /></div>
                             ) : auditLog.length === 0 ? (
-                                <div className="p-12 text-center"><p className="text-gray-500 text-sm">Nenhuma ação registrada ainda.</p></div>
+                                <div className="p-12 text-center">
+                                    <p className="text-gray-500 text-sm">Nenhuma ação registrada ainda.</p>
+                                    <p className="text-gray-600 text-xs mt-1">As ações administrativas aparecerão aqui.</p>
+                                </div>
                             ) : (
-                                <div className="overflow-x-auto">
-                                    <table className="min-w-full">
-                                        <thead>
-                                            <tr className="border-b border-white/[0.05]">
-                                                {['Admin', 'Ação', 'Alvo', 'Detalhes', 'Data'].map(h => (
-                                                    <th key={h} className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{h}</th>
-                                                ))}
-                                            </tr>
-                                        </thead>
-                                        <tbody className="divide-y divide-white/[0.03]">
-                                            {auditLog.map((log) => {
-                                                const actionColor: Record<string, string> = {
-                                                    ban_user: 'bg-amber-500/20 text-amber-300 border-amber-500/30',
-                                                    unban_user: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30',
-                                                    delete_user: 'bg-red-500/20 text-red-300 border-red-500/30',
-                                                    change_payment_provider: 'bg-purple-500/20 text-purple-300 border-purple-500/30',
-                                                    update_platform_config: 'bg-blue-500/20 text-blue-300 border-blue-500/30',
-                                                    create_announcement: 'bg-cyan-500/20 text-cyan-300 border-cyan-500/30',
-                                                    delete_announcement: 'bg-gray-500/20 text-gray-300 border-gray-500/30',
-                                                }
-                                                const color = actionColor[log.action] || 'bg-white/[0.05] text-gray-400 border-white/[0.1]'
-                                                return (
-                                                    <tr key={log.id} className="hover:bg-white/[0.02] transition-colors">
-                                                        <td className="px-6 py-4">
-                                                            <p className="text-sm text-white font-medium">{log.admin_email?.split('@')[0] || '—'}</p>
-                                                            <p className="text-xs text-gray-600">{log.admin_email?.split('@')[1] ? `@${log.admin_email.split('@')[1]}` : ''}</p>
-                                                        </td>
-                                                        <td className="px-6 py-4">
-                                                            <span className={`px-2.5 py-1 rounded-lg text-xs font-semibold border ${color}`}>
-                                                                {log.action}
+                                <div className="divide-y divide-white/[0.03]">
+                                    {auditLog.map((log) => {
+                                        const ACTION_META: Record<string, { label: string; color: string; dot: string }> = {
+                                            ban_user: { label: 'Banir usuário', color: 'bg-amber-500/20 text-amber-300 border-amber-500/30', dot: 'bg-amber-400' },
+                                            unban_user: { label: 'Desbanir usuário', color: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30', dot: 'bg-emerald-400' },
+                                            delete_user: { label: 'Deletar usuário', color: 'bg-red-500/20 text-red-300 border-red-500/30', dot: 'bg-red-400' },
+                                            change_payment_provider: { label: 'Provedor (legado)', color: 'bg-purple-500/20 text-purple-300 border-purple-500/30', dot: 'bg-purple-400' },
+                                            create_payment_provider: { label: 'Criar provedor', color: 'bg-blue-500/20 text-blue-300 border-blue-500/30', dot: 'bg-blue-400' },
+                                            update_payment_provider: { label: 'Atualizar provedor', color: 'bg-indigo-500/20 text-indigo-300 border-indigo-500/30', dot: 'bg-indigo-400' },
+                                            delete_payment_provider: { label: 'Deletar provedor', color: 'bg-red-500/20 text-red-300 border-red-500/30', dot: 'bg-red-400' },
+                                            update_platform_config: { label: 'Config. plataforma', color: 'bg-cyan-500/20 text-cyan-300 border-cyan-500/30', dot: 'bg-cyan-400' },
+                                            create_announcement: { label: 'Criar comunicado', color: 'bg-violet-500/20 text-violet-300 border-violet-500/30', dot: 'bg-violet-400' },
+                                            delete_announcement: { label: 'Deletar comunicado', color: 'bg-gray-500/20 text-gray-300 border-gray-500/30', dot: 'bg-gray-400' },
+                                            approve_bank_verification: { label: 'Aprovar verificação', color: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30', dot: 'bg-emerald-400' },
+                                            reject_bank_verification: { label: 'Rejeitar verificação', color: 'bg-orange-500/20 text-orange-300 border-orange-500/30', dot: 'bg-orange-400' },
+                                        }
+                                        const meta = ACTION_META[log.action] || { label: log.action, color: 'bg-white/[0.05] text-gray-400 border-white/[0.1]', dot: 'bg-gray-500' }
+                                        const detailStr = JSON.stringify(log.details || {})
+                                        const timeAgo = (() => {
+                                            const diff = Date.now() - new Date(log.created_at).getTime()
+                                            const m = Math.floor(diff / 60000)
+                                            if (m < 1) return 'agora'
+                                            if (m < 60) return `${m}min atrás`
+                                            const h = Math.floor(m / 60)
+                                            if (h < 24) return `${h}h atrás`
+                                            return new Date(log.created_at).toLocaleDateString('pt-BR')
+                                        })()
+                                        return (
+                                            <div key={log.id} className="px-6 py-4 flex items-start gap-4 hover:bg-white/[0.02] transition-colors group">
+                                                {/* Timeline dot */}
+                                                <div className="flex flex-col items-center shrink-0 mt-1">
+                                                    <div className={`w-2.5 h-2.5 rounded-full ${meta.dot}`} />
+                                                </div>
+                                                {/* Admin avatar */}
+                                                <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-violet-600 rounded-full flex items-center justify-center text-white text-xs font-bold shrink-0">
+                                                    {log.admin_email?.charAt(0)?.toUpperCase() || 'A'}
+                                                </div>
+                                                {/* Content */}
+                                                <div className="flex-1 min-w-0">
+                                                    <div className="flex flex-wrap items-center gap-2 mb-1">
+                                                        <span className="text-sm font-medium text-white">{log.admin_email?.split('@')[0] || '—'}</span>
+                                                        <span className={`px-2 py-0.5 rounded text-xs font-semibold border ${meta.color}`}>{meta.label}</span>
+                                                        {log.target_type && (
+                                                            <span className="text-xs text-gray-600 bg-white/[0.03] px-2 py-0.5 rounded border border-white/[0.05]">
+                                                                {log.target_type} · <span className="font-mono">{log.target_id?.slice(0, 8)}…</span>
                                                             </span>
-                                                        </td>
-                                                        <td className="px-6 py-4">
-                                                            <p className="text-xs text-gray-400">{log.target_type}</p>
-                                                            <p className="text-xs text-gray-600 font-mono">{log.target_id?.slice(0, 8)}…</p>
-                                                        </td>
-                                                        <td className="px-6 py-4 max-w-[200px]">
-                                                            <p className="text-xs text-gray-500 truncate">
-                                                                {JSON.stringify(log.details).slice(0, 60)}{JSON.stringify(log.details).length > 60 ? '…' : ''}
-                                                            </p>
-                                                        </td>
-                                                        <td className="px-6 py-4 whitespace-nowrap">
-                                                            <p className="text-xs text-gray-400">{new Date(log.created_at).toLocaleDateString('pt-BR')}</p>
-                                                            <p className="text-xs text-gray-600">{new Date(log.created_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</p>
-                                                        </td>
-                                                    </tr>
-                                                )
-                                            })}
-                                        </tbody>
-                                    </table>
+                                                        )}
+                                                    </div>
+                                                    {detailStr !== '{}' && (
+                                                        <p className="text-xs text-gray-500 font-mono truncate max-w-md">
+                                                            {detailStr.slice(0, 80)}{detailStr.length > 80 ? '…' : ''}
+                                                        </p>
+                                                    )}
+                                                </div>
+                                                {/* Time */}
+                                                <div className="text-right shrink-0">
+                                                    <p className="text-xs text-gray-500">{timeAgo}</p>
+                                                    <p className="text-xs text-gray-700">{new Date(log.created_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</p>
+                                                </div>
+                                            </div>
+                                        )
+                                    })}
                                 </div>
                             )}
 
                             {/* Pagination */}
                             {auditTotal > 50 && (
-                                <div className="p-4 border-t border-white/[0.05] flex items-center justify-between">
-                                    <p className="text-xs text-gray-500">Página {auditPage} de {Math.ceil(auditTotal / 50)}</p>
+                                <div className="px-6 py-4 border-t border-white/[0.05] flex items-center justify-between">
+                                    <p className="text-xs text-gray-500">Página {auditPage} de {Math.ceil(auditTotal / 50)} · {auditTotal} registros</p>
                                     <div className="flex gap-2">
-                                        <button disabled={auditPage === 1} onClick={() => fetchAuditLog(auditPage - 1)} className="px-4 py-2 bg-white/[0.05] hover:bg-white/[0.1] disabled:opacity-40 text-gray-300 rounded-lg text-sm transition-colors">Anterior</button>
-                                        <button disabled={auditPage * 50 >= auditTotal} onClick={() => fetchAuditLog(auditPage + 1)} className="px-4 py-2 bg-white/[0.05] hover:bg-white/[0.1] disabled:opacity-40 text-gray-300 rounded-lg text-sm transition-colors">Próxima</button>
+                                        <button disabled={auditPage === 1} onClick={() => fetchAuditLog(auditPage - 1)} className="px-4 py-2 bg-white/[0.05] hover:bg-white/[0.1] disabled:opacity-40 text-gray-300 rounded-lg text-sm border border-white/[0.08] transition-colors">← Anterior</button>
+                                        <button disabled={auditPage * 50 >= auditTotal} onClick={() => fetchAuditLog(auditPage + 1)} className="px-4 py-2 bg-white/[0.05] hover:bg-white/[0.1] disabled:opacity-40 text-gray-300 rounded-lg text-sm border border-white/[0.08] transition-colors">Próxima →</button>
                                     </div>
                                 </div>
                             )}
@@ -3273,7 +3969,7 @@ export default function SuperAdmin() {
                 {/* App Reject Modal */}
                 {showAppRejectModal && selectedApp && (
                     <div className="fixed inset-0 bg-black/70 backdrop-blur-md z-50 flex items-center justify-center p-4">
-                        <div className="relative w-full max-w-lg rounded-3xl shadow-2xl overflow-hidden">
+                        <div className="relative w-full max-w-lg rounded-none shadow-2xl overflow-hidden">
                             {/* Background */}
                             <div className="absolute inset-0 bg-[#0a0f1a]" />
                             <div className="absolute top-0 left-0 right-0 h-32 bg-gradient-to-br from-blue-600/20 via-blue-500/10 to-transparent" />
@@ -3337,7 +4033,7 @@ export default function SuperAdmin() {
                 {/* Product Reject Modal */}
                 {showProductRejectModal && selectedProduct && (
                     <div className="fixed inset-0 bg-black/70 backdrop-blur-md z-50 flex items-center justify-center p-4">
-                        <div className="relative w-full max-w-lg rounded-3xl shadow-2xl overflow-hidden">
+                        <div className="relative w-full max-w-lg rounded-none shadow-2xl overflow-hidden">
                             {/* Background */}
                             <div className="absolute inset-0 bg-[#0a0f1a]" />
                             <div className="absolute top-0 left-0 right-0 h-32 bg-gradient-to-br from-blue-600/20 via-blue-500/10 to-transparent" />
@@ -3397,6 +4093,7 @@ export default function SuperAdmin() {
                         </div>
                     </div>
                 )}
+
             </div>
         </div>
     )

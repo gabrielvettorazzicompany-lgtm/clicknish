@@ -1,4 +1,4 @@
-import { Edit, Trash2, ExternalLink, Copy, Check, Clock, CheckCircle, XCircle } from 'lucide-react'
+import { Edit, Trash2, ExternalLink, Copy, Check, Clock, CheckCircle, XCircle, Send } from 'lucide-react'
 
 interface Product {
     id: string
@@ -13,7 +13,7 @@ interface Product {
     image_url?: string
     sales_count: number
     delivery_type?: string
-    review_status?: 'pending_review' | 'approved' | 'rejected'
+    review_status?: 'draft' | 'pending_review' | 'approved' | 'rejected'
     review_notes?: string
 }
 
@@ -28,6 +28,7 @@ interface ProductCardProps {
     formatCurrency: (value: number, currency?: string) => string
     getStatusColor: (status: string) => string
     getStatusText: (status: string) => string
+    onSubmitReview?: (id: string) => void
 }
 
 export default function ProductCard({
@@ -40,8 +41,7 @@ export default function ProductCard({
     copiedLinks,
     formatCurrency,
     getStatusColor,
-    getStatusText
-}: ProductCardProps) {
+    getStatusText    onSubmitReview, }: ProductCardProps) {
     const formatDate = (dateString: string) => {
         return new Date(dateString).toLocaleDateString('pt-BR')
     }
@@ -76,16 +76,21 @@ export default function ProductCard({
                 {/* Review Status Badge */}
                 {product.review_status && product.review_status !== 'approved' && (
                     <div className="absolute top-2 left-2">
+                        {product.review_status === 'draft' && (
+                            <div className="flex items-center gap-1 px-2 py-1 bg-gray-700/90 text-gray-300 rounded-md text-xs font-medium backdrop-blur-sm">
+                                Rascunho
+                            </div>
+                        )}
                         {product.review_status === 'pending_review' && (
                             <div className="flex items-center gap-1 px-2 py-1 bg-orange-500/90 text-white rounded-md text-xs font-medium backdrop-blur-sm">
                                 <Clock size={12} />
-                                Under Review
+                                Em Verificação
                             </div>
                         )}
                         {product.review_status === 'rejected' && (
                             <div className="flex items-center gap-1 px-2 py-1 bg-red-500/90 text-white rounded-md text-xs font-medium backdrop-blur-sm" title={product.review_notes || 'Rejected'}>
                                 <XCircle size={12} />
-                                Rejected
+                                Rejeitado
                             </div>
                         )}
                     </div>
@@ -132,6 +137,15 @@ export default function ProductCard({
                         </span>
                     )}
                 </div>
+                {(product.review_status === 'draft' || product.review_status === 'rejected') && onSubmitReview && (
+                    <button
+                        onClick={() => onSubmitReview(product.id)}
+                        className="w-full flex items-center justify-center gap-1.5 px-3 py-1.5 bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/25 text-blue-400 rounded-lg text-xs font-medium transition-colors mt-1"
+                    >
+                        <Send size={11} />
+                        Enviar para Verificação
+                    </button>
+                )}
             </div>
         </div>
     )

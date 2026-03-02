@@ -408,7 +408,7 @@ export async function handleApplications(
                 app_type: body.app_type || body.appType || 'login-complete',
                 language: body.language || 'pt-br',
                 theme: body.theme || 'light',
-                review_status: 'pending_review'
+                review_status: 'draft'
             }
 
             console.log('Creating application with data:', JSON.stringify(newApp))
@@ -481,6 +481,28 @@ export async function handleApplications(
             }
 
             return jsonResponse(data)
+        }
+
+        // PUT /applications/:id/submit-review - Submit app for review
+        if (request.method === 'PUT' && pathSegments.length === 2 && pathSegments[1] === 'submit-review') {
+            const appId = pathSegments[0]
+            const { data: app, error: fetchError } = await supabase
+                .from('applications')
+                .select('id, review_status')
+                .eq('id', appId)
+                .eq('owner_id', userId)
+                .single()
+            if (fetchError || !app) return jsonResponse({ error: 'App not found' }, 404)
+            if (app.review_status !== 'draft' && app.review_status !== 'rejected') {
+                return jsonResponse({ error: 'App is not in draft or rejected status' }, 400)
+            }
+            const { error } = await supabase
+                .from('applications')
+                .update({ review_status: 'pending_review' })
+                .eq('id', appId)
+                .eq('owner_id', userId)
+            if (error) throw error
+            return jsonResponse({ success: true, message: 'App submitted for review' })
         }
 
         // DELETE /applications/:id - Delete application
