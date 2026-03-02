@@ -169,9 +169,12 @@ export default function SuperAdmin() {
     const [editingProviderName, setEditingProviderName] = useState('')
     const [providerUserSearch, setProviderUserSearch] = useState('')
     const [providerUserResult, setProviderUserResult] = useState<{ user: { id: string; email: string }; config: any } | null>(null)
+    const [providerSearchResults, setProviderSearchResults] = useState<Array<{ id: string; email: string; config: any }> | null>(null)
     const [searchingProviderUser, setSearchingProviderUser] = useState(false)
     const [assigningProvider, setAssigningProvider] = useState(false)
     const [selectedProviderForUser, setSelectedProviderForUser] = useState('')
+    const [userModalProviderId, setUserModalProviderId] = useState<string>('')
+    const [savingUserModalProvider, setSavingUserModalProvider] = useState(false)
 
     // ─── Platform config ────────────────────────────────────────────────────────
     const [platformConfig, setPlatformConfig] = useState<Record<string, any>>({})
@@ -205,6 +208,30 @@ export default function SuperAdmin() {
         }
     }, [user])
 
+    // Quando o modal de usuário abre: carrega config de provedor atual + garante que providers estão carregados
+    useEffect(() => {
+        if (!selectedUser) {
+            setUserModalProviderId('')
+            return
+        }
+        // Garante que a lista de providers está disponível
+        if (providers.length === 0) fetchPaymentConfigs()
+            // Busca o provedor atual atribuído a este usuário
+            ; (async () => {
+                try {
+                    const res = await fetch('https://api.clicknich.com/api/superadmin/payment-config/search', {
+                        method: 'POST',
+                        headers: ADMIN_HEADERS,
+                        body: JSON.stringify({ email: selectedUser.email })
+                    })
+                    if (res.ok) {
+                        const d = await res.json()
+                        setUserModalProviderId(d.config?.provider_id || '')
+                    }
+                } catch (e) { console.error(e) }
+            })()
+    }, [selectedUser])
+
     useEffect(() => {
         if (activeTab === 'dashboard' && !financialData) {
             fetchFinancial()
@@ -227,6 +254,7 @@ export default function SuperAdmin() {
             fetchPaymentConfigs()
         } else if (activeTab === 'config' && Object.keys(platformConfig).length === 0) {
             fetchPlatformConfig()
+            fetchPaymentConfigs()
         } else if (activeTab === 'announcements') {
             fetchAnnouncements()
         } else if (activeTab === 'audit') {
@@ -896,6 +924,7 @@ export default function SuperAdmin() {
         if (!providerUserSearch) return
         setSearchingProviderUser(true)
         setProviderUserResult(null)
+        setProviderSearchResults(null)
         try {
             const res = await fetch('https://api.clicknich.com/api/superadmin/payment-config/search', {
                 method: 'POST',
@@ -904,10 +933,19 @@ export default function SuperAdmin() {
             })
             if (res.ok) {
                 const d = await res.json()
-                setProviderUserResult(d)
-                setSelectedProviderForUser(d.config?.provider_id || '')
+                const list: Array<{ id: string; email: string; config: any }> = d.users ?? []
+                setProviderSearchResults(list)
+                if (list.length === 1) {
+                    setProviderUserResult({ user: { id: list[0].id, email: list[0].email }, config: list[0].config })
+                    setSelectedProviderForUser(list[0].config?.provider_id || '')
+                }
             }
         } catch (e) { console.error(e) } finally { setSearchingProviderUser(false) }
+    }
+
+    const handleSelectProviderUser = (u: { id: string; email: string; config: any }) => {
+        setProviderUserResult({ user: { id: u.id, email: u.email }, config: u.config })
+        setSelectedProviderForUser(u.config?.provider_id || '')
     }
 
     const handleAssignProviderToUser = async () => {
@@ -925,6 +963,7 @@ export default function SuperAdmin() {
             if (res.ok) {
                 fetchPaymentConfigs()
                 setProviderUserResult(null)
+                setProviderSearchResults(null)
                 setProviderUserSearch('')
                 setSelectedProviderForUser('')
             } else alert('Erro ao atribuir provedor')
@@ -1092,7 +1131,7 @@ export default function SuperAdmin() {
         { id: 'verifications', label: t('superadmin.bank_verifications'), badge: bankVerifications.length },
         { id: 'reviews', label: t('superadmin.products_tab'), badge: pendingApps.length + pendingProducts.length },
         { id: 'financial', label: 'Financeiro', badge: 0 },
-        { id: 'payments', label: 'Pagamentos', badge: 0 },
+
         { id: 'config', label: 'Config', badge: 0 },
         { id: 'announcements', label: 'Comunicados', badge: 0 },
         { id: 'audit', label: 'Audit Log', badge: 0 },
@@ -1873,6 +1912,44 @@ export default function SuperAdmin() {
                                                     ) : (
                                                         <p className="text-gray-500 text-sm text-center py-4">{t('superadmin.no_apps_created')}</p>
                                                     )}
+                                                </div>
+
+                                                {/* Provedor de Pagamento Individual */}
+                                                <div className="backdrop-blur-xl bg-white/[0.02] border border-white/[0.05] rounded-xl p-4">
+                                                    <h4 className="font-semibold text-white text-sm mb-1">Provedor de Pagamento</h4>
+                                                    <p className="text-xs text-gray-500 mb-3">Atribui um provedor específico para este usuário. Deixe em "Padrão da plataforma" para usar o global.</p>
+                                                    <div className="flex gap-2">
+                                                        <select
+                                                            value={userModalProviderId}
+                                                            onChange={e => setUserModalProviderId(e.target.value)}
+                                                            className="flex-1 px-3 py-2 bg-[#0d1117] border border-white/[0.08] rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40"
+                                                        >
+                                                            <option value="">Padrão da plataforma</option>
+                                                            {providers.filter(p => p.is_active).map(p => (
+                                                                <option key={p.id} value={p.id}>{p.name} ({p.type})</option>
+                                                            ))}
+                                                        </select>
+                                                        <button
+                                                            onClick={async () => {
+                                                                setSavingUserModalProvider(true)
+                                                                try {
+                                                                    const res = await fetch(`https://api.clicknich.com/api/superadmin/payment-config/${selectedUser.id}`, {
+                                                                        method: 'PUT',
+                                                                        headers: ADMIN_HEADERS,
+                                                                        body: JSON.stringify({
+                                                                            provider_id: userModalProviderId || null,
+                                                                            override_platform_default: !!userModalProviderId
+                                                                        })
+                                                                    })
+                                                                    if (!res.ok) alert('Erro ao salvar provedor')
+                                                                } catch (e) { console.error(e) } finally { setSavingUserModalProvider(false) }
+                                                            }}
+                                                            disabled={savingUserModalProvider}
+                                                            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded-lg text-sm font-medium transition-all"
+                                                        >
+                                                            {savingUserModalProvider ? 'Salvando...' : 'Salvar'}
+                                                        </button>
+                                                    </div>
                                                 </div>
 
                                                 {/* Action Buttons */}
@@ -3100,7 +3177,7 @@ export default function SuperAdmin() {
                 )}
 
                 {/* ════════════════ PAYMENTS TAB ════════════════ */}
-                {activeTab === 'payments' && (
+                {false && (
                     <div className="space-y-6">
 
                         {/* ── 1. PROVEDOR GLOBAL PADRÃO ── */}
@@ -3111,13 +3188,6 @@ export default function SuperAdmin() {
                                     <p className="text-sm text-gray-500 mt-1">Usado por todos os usuários sem override individual</p>
                                 </div>
                                 {providers.find(p => p.is_global_default) && (() => {
-                                    const p = providers.find(p => p.is_global_default)!
-                                    const c = PROVIDER_COLORS[p.type]
-                                    return (
-                                        <span className={`px-3 py-1.5 rounded-xl text-xs font-semibold border ${c.bg} ${c.text} ${c.border}`}>
-                                            {PROVIDER_ICONS[p.type]} {p.name}
-                                        </span>
-                                    )
                                 })()}
                             </div>
                             {loadingProviders ? (
@@ -3168,7 +3238,7 @@ export default function SuperAdmin() {
                                             <label className="block text-xs text-gray-500 mb-1.5 font-medium">Nome de exibição</label>
                                             <input
                                                 type="text"
-                                                placeholder="Ex: Stripe Brasil"
+                                                placeholder=""
                                                 value={newProviderForm.name}
                                                 onChange={e => setNewProviderForm(f => ({ ...f, name: e.target.value }))}
                                                 className="w-full px-3 py-2 bg-[#0d1117] border border-white/[0.08] rounded-lg text-white text-sm placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500/40"
@@ -3181,11 +3251,8 @@ export default function SuperAdmin() {
                                                 onChange={e => setNewProviderForm(f => ({ ...f, type: e.target.value, credentials: {} }))}
                                                 className="w-full px-3 py-2 bg-[#0d1117] border border-white/[0.08] rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40"
                                             >
-                                                <option value="stripe">🔵 Stripe</option>
-                                                <option value="stripe_connect">🔵 Stripe Connect</option>
-                                                <option value="mollie">🟠 Mollie</option>
-                                                <option value="paypal">🟡 PayPal</option>
-                                                <option value="custom">⚙️ Customizado</option>
+                                                <option value="stripe">Stripe</option>
+                                                <option value="mollie">Mollie</option>
                                             </select>
                                         </div>
                                     </div>
@@ -3365,41 +3432,79 @@ export default function SuperAdmin() {
                             </div>
 
                             {/* Resultado da busca */}
-                            {providerUserResult !== null && (
-                                <div className={`px-6 py-4 border-b ${providerUserResult.user ? 'border-blue-500/10 bg-blue-500/[0.02]' : 'border-red-500/10 bg-red-500/[0.02]'}`}>
-                                    {!providerUserResult.user ? (
-                                        <p className="text-sm text-red-400">Usuário não encontrado para "{providerUserSearch}"</p>
-                                    ) : (
-                                        <div className="flex items-center gap-3">
-                                            <div className="w-9 h-9 bg-gradient-to-br from-blue-500 to-violet-600 rounded-full flex items-center justify-center text-xs font-bold text-white">
-                                                {providerUserResult.user.email?.charAt(0)?.toUpperCase()}
-                                            </div>
-                                            <div className="flex-1">
-                                                <p className="text-sm font-semibold text-white">{providerUserResult.user.email}</p>
-                                                <p className="text-xs text-gray-500">
-                                                    {providerUserResult.config?.provider_id
-                                                        ? `Override ativo → ${providers.find(p => p.id === providerUserResult.config.provider_id)?.name || 'Provedor desconhecido'}`
-                                                        : 'Sem override · usa provedor padrão global'}
-                                                </p>
-                                            </div>
-                                            <select
-                                                value={selectedProviderForUser}
-                                                onChange={e => setSelectedProviderForUser(e.target.value)}
-                                                className="px-3 py-2 bg-[#0d1117] border border-white/[0.08] rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40"
-                                            >
-                                                <option value="">↔ Padrão global</option>
-                                                {providers.filter(p => p.is_active).map(p => (
-                                                    <option key={p.id} value={p.id}>{PROVIDER_ICONS[p.type]} {p.name}</option>
-                                                ))}
-                                            </select>
-                                            <button
-                                                onClick={handleAssignProviderToUser}
-                                                disabled={assigningProvider}
-                                                className="px-4 py-2 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-400 hover:to-blue-500 disabled:opacity-50 text-white rounded-lg text-sm font-semibold transition-all"
-                                            >
-                                                {assigningProvider ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin mx-auto" /> : 'Atribuir'}
-                                            </button>
+                            {providerSearchResults !== null && (
+                                <div className="border-b border-white/[0.04]">
+                                    {providerSearchResults!.length === 0 ? (
+                                        <div className="px-6 py-4 bg-red-500/[0.02]">
+                                            <p className="text-sm text-red-400">Nenhum usuário encontrado para "{providerUserSearch}"</p>
                                         </div>
+                                    ) : (
+                                        <>
+                                            {/* Lista de usuários encontrados (quando > 1) */}
+                                            {providerSearchResults!.length > 1 && !providerUserResult && (
+                                                <div className="px-6 py-3 bg-white/[0.01]">
+                                                    <p className="text-xs text-gray-500 mb-2">{providerSearchResults!.length} usuários encontrados — clique para selecionar:</p>
+                                                    <div className="flex flex-col gap-1">
+                                                        {providerSearchResults!.map(u => (
+                                                            <button
+                                                                key={u.id}
+                                                                onClick={() => handleSelectProviderUser(u)}
+                                                                className="flex items-center gap-3 px-3 py-2 rounded-lg bg-white/[0.03] hover:bg-white/[0.07] text-left transition-colors"
+                                                            >
+                                                                <div className="w-7 h-7 bg-gradient-to-br from-blue-500 to-violet-600 rounded-full flex items-center justify-center text-xs font-bold text-white shrink-0">
+                                                                    {u.email?.charAt(0)?.toUpperCase()}
+                                                                </div>
+                                                                <span className="text-sm text-white">{u.email}</span>
+                                                                {u.config?.provider_id && (
+                                                                    <span className="ml-auto text-xs text-blue-400 border border-blue-500/30 rounded px-1.5 py-0.5">
+                                                                        {providers.find(p => p.id === u.config.provider_id)?.name || 'override'}
+                                                                    </span>
+                                                                )}
+                                                            </button>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            )}
+
+                                            {/* Usuário selecionado + atribuição de provedor */}
+                                            {providerUserResult?.user && (
+                                                <div className="px-6 py-4 bg-blue-500/[0.02]">
+                                                    <div className="flex items-center gap-3">
+                                                        {providerSearchResults!.length > 1 && (
+                                                            <button onClick={() => setProviderUserResult(null)} className="text-gray-500 hover:text-white text-xs mr-1 transition-colors">← voltar</button>
+                                                        )}
+                                                        <div className="w-9 h-9 bg-gradient-to-br from-blue-500 to-violet-600 rounded-full flex items-center justify-center text-xs font-bold text-white shrink-0">
+                                                            {providerUserResult!.user.email?.charAt(0)?.toUpperCase()}
+                                                        </div>
+                                                        <div className="flex-1">
+                                                            <p className="text-sm font-semibold text-white">{providerUserResult!.user.email}</p>
+                                                            <p className="text-xs text-gray-500">
+                                                                {providerUserResult!.config?.provider_id
+                                                                    ? `Override ativo → ${providers.find(p => p.id === providerUserResult!.config.provider_id)?.name || 'Provedor desconhecido'}`
+                                                                    : 'Sem override · usa provedor padrão global'}
+                                                            </p>
+                                                        </div>
+                                                        <select
+                                                            value={selectedProviderForUser}
+                                                            onChange={e => setSelectedProviderForUser(e.target.value)}
+                                                            className="px-3 py-2 bg-[#0d1117] border border-white/[0.08] rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40"
+                                                        >
+                                                            <option value="">↔ Padrão global</option>
+                                                            {providers.filter(p => p.is_active).map(p => (
+                                                                <option key={p.id} value={p.id}>{PROVIDER_ICONS[p.type]} {p.name}</option>
+                                                            ))}
+                                                        </select>
+                                                        <button
+                                                            onClick={handleAssignProviderToUser}
+                                                            disabled={assigningProvider}
+                                                            className="px-4 py-2 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-400 hover:to-blue-500 disabled:opacity-50 text-white rounded-lg text-sm font-semibold transition-all"
+                                                        >
+                                                            {assigningProvider ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin mx-auto" /> : 'Atribuir'}
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </>
                                     )}
                                 </div>
                             )}
@@ -3569,149 +3674,225 @@ export default function SuperAdmin() {
                                     </div>
                                 )}
 
-                                {/* ─── Chaves de API dos Provedores ─────────────────────── */}
-                                <div className="backdrop-blur-xl bg-white/[0.02] rounded-none border border-white/[0.05]">
-                                    <div className="p-6 border-b border-white/[0.05] flex items-start justify-between">
-                                        <div>
-                                            <h3 className="text-lg font-semibold text-white">Chaves de API dos Provedores</h3>
-                                            <p className="text-sm text-gray-500 mt-1">Chaves globais da plataforma para Stripe e Mollie. Armazenadas de forma segura no banco.</p>
-                                        </div>
-                                        <span className="px-2.5 py-1 bg-amber-500/10 text-amber-400 border border-amber-500/20 rounded-lg text-xs font-semibold">🔐 Sensível</span>
-                                    </div>
-
-                                    <div className="p-6 space-y-6">
-                                        {/* ── Stripe ── */}
-                                        <div>
-                                            <div className="flex items-center gap-2 mb-4">
-                                                <div className="w-7 h-7 bg-indigo-500/20 rounded-lg flex items-center justify-center">
-                                                    <span className="text-base">🔵</span>
-                                                </div>
-                                                <h4 className="text-sm font-semibold text-white">Stripe</h4>
-                                                <span className="text-xs text-gray-600">Plataforma global</span>
-                                            </div>
-                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                                                {([
-                                                    { key: 'stripe_platform_secret_key', label: 'Secret Key', placeholder: 'sk_live_...', hint: 'Encontre em dashboard.stripe.com → Developers → API keys' },
-                                                    { key: 'stripe_platform_webhook_secret', label: 'Webhook Secret', placeholder: 'whsec_...', hint: 'Encontre em Stripe → Webhooks → seu endpoint' },
-                                                ] as const).map(({ key, label, placeholder, hint }) => {
-                                                    const rawVal = platformConfigEdits[key]
-                                                    const displayVal = typeof rawVal === 'string' ? rawVal.replace(/^"|"$/g, '') : ''
-                                                    const hasValue = displayVal.length > 0
-                                                    return (
-                                                        <div key={key} className="p-4 bg-white/[0.02] rounded-xl border border-indigo-500/10 hover:border-indigo-500/25 transition-colors">
-                                                            <div className="flex items-center justify-between mb-2">
-                                                                <label className="text-xs font-semibold text-gray-300">{label}</label>
-                                                                <div className="flex items-center gap-2">
-                                                                    {hasValue && (
-                                                                        <span className="px-1.5 py-0.5 bg-emerald-500/15 text-emerald-400 text-xs rounded font-medium border border-emerald-500/20">✓ Salva</span>
-                                                                    )}
-                                                                    <button
-                                                                        onClick={() => setShowApiKey(s => ({ ...s, [key]: !s[key] }))}
-                                                                        className="text-xs text-gray-500 hover:text-gray-300 transition-colors px-2 py-0.5 bg-white/[0.04] rounded"
-                                                                    >
-                                                                        {showApiKey[key] ? 'Ocultar' : 'Mostrar'}
-                                                                    </button>
-                                                                </div>
-                                                            </div>
-                                                            <div className="flex gap-2">
-                                                                <input
-                                                                    type={showApiKey[key] ? 'text' : 'password'}
-                                                                    value={displayVal}
-                                                                    onChange={e => setPlatformConfigEdits(ed => ({ ...ed, [key]: `"${e.target.value}"` }))}
-                                                                    placeholder={placeholder}
-                                                                    className="flex-1 px-3 py-2 bg-[#0d1117] border border-white/[0.08] rounded-lg text-white text-sm placeholder-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/40 font-mono"
-                                                                />
-                                                                <button
-                                                                    onClick={() => saveSinglePlatformConfig(key)}
-                                                                    disabled={savingPlatformConfig === key}
-                                                                    className="px-4 py-2 bg-gradient-to-r from-indigo-500 to-indigo-600 hover:from-indigo-400 hover:to-indigo-500 disabled:opacity-50 text-white rounded-lg text-xs font-semibold transition-all whitespace-nowrap"
-                                                                >
-                                                                    {savingPlatformConfig === key ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : 'Salvar'}
-                                                                </button>
-                                                            </div>
-                                                            <p className="text-xs text-gray-600 mt-1.5">{hint}</p>
-                                                        </div>
-                                                    )
-                                                })}
-                                            </div>
-                                        </div>
-
-                                        <div className="border-t border-white/[0.04]" />
-
-                                        {/* ── Mollie ── */}
-                                        <div>
-                                            <div className="flex items-center gap-3 mb-4">
-                                                <div className="w-7 h-7 bg-orange-500/20 rounded-lg flex items-center justify-center">
-                                                    <span className="text-base">🟠</span>
-                                                </div>
-                                                <h4 className="text-sm font-semibold text-white">Mollie</h4>
-                                                <span className="text-xs text-gray-600">Plataforma global</span>
-                                                {/* Toggle test mode inline */}
-                                                <button
-                                                    onClick={() => {
-                                                        const current = platformConfigEdits['mollie_test_mode']
-                                                        const isTest = current === 'true' || current === true
-                                                        setPlatformConfigEdits(ed => ({ ...ed, mollie_test_mode: isTest ? 'false' : 'true' }))
-                                                        setTimeout(() => saveSinglePlatformConfig('mollie_test_mode'), 0)
-                                                    }}
-                                                    className={`ml-auto px-3 py-1 rounded-lg text-xs font-semibold border transition-all ${(platformConfigEdits['mollie_test_mode'] === 'true' || platformConfigEdits['mollie_test_mode'] === true)
-                                                        ? 'bg-amber-500/20 text-amber-300 border-amber-500/30'
-                                                        : 'bg-white/[0.03] text-gray-500 border-white/[0.08] hover:bg-white/[0.06]'
-                                                        }`}
-                                                >
-                                                    {(platformConfigEdits['mollie_test_mode'] === 'true' || platformConfigEdits['mollie_test_mode'] === true) ? '⚠ Modo Teste Ativo' : '✓ Modo Live'}
-                                                </button>
-                                            </div>
-                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                                                {([
-                                                    { key: 'mollie_live_api_key', label: 'Live API Key', placeholder: 'live_...', hint: 'Encontre em my.mollie.com → Developers → API keys' },
-                                                    { key: 'mollie_test_api_key', label: 'Test API Key', placeholder: 'test_...', hint: 'Usada quando Modo Teste está ativo' },
-                                                ] as const).map(({ key, label, placeholder, hint }) => {
-                                                    const rawVal = platformConfigEdits[key]
-                                                    const displayVal = typeof rawVal === 'string' ? rawVal.replace(/^"|"$/g, '') : ''
-                                                    const hasValue = displayVal.length > 0
-                                                    return (
-                                                        <div key={key} className="p-4 bg-white/[0.02] rounded-xl border border-orange-500/10 hover:border-orange-500/25 transition-colors">
-                                                            <div className="flex items-center justify-between mb-2">
-                                                                <label className="text-xs font-semibold text-gray-300">{label}</label>
-                                                                <div className="flex items-center gap-2">
-                                                                    {hasValue && (
-                                                                        <span className="px-1.5 py-0.5 bg-emerald-500/15 text-emerald-400 text-xs rounded font-medium border border-emerald-500/20">✓ Salva</span>
-                                                                    )}
-                                                                    <button
-                                                                        onClick={() => setShowApiKey(s => ({ ...s, [key]: !s[key] }))}
-                                                                        className="text-xs text-gray-500 hover:text-gray-300 transition-colors px-2 py-0.5 bg-white/[0.04] rounded"
-                                                                    >
-                                                                        {showApiKey[key] ? 'Ocultar' : 'Mostrar'}
-                                                                    </button>
-                                                                </div>
-                                                            </div>
-                                                            <div className="flex gap-2">
-                                                                <input
-                                                                    type={showApiKey[key] ? 'text' : 'password'}
-                                                                    value={displayVal}
-                                                                    onChange={e => setPlatformConfigEdits(ed => ({ ...ed, [key]: `"${e.target.value}"` }))}
-                                                                    placeholder={placeholder}
-                                                                    className="flex-1 px-3 py-2 bg-[#0d1117] border border-white/[0.08] rounded-lg text-white text-sm placeholder-gray-700 focus:outline-none focus:ring-2 focus:ring-orange-500/40 font-mono"
-                                                                />
-                                                                <button
-                                                                    onClick={() => saveSinglePlatformConfig(key)}
-                                                                    disabled={savingPlatformConfig === key}
-                                                                    className="px-4 py-2 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-400 hover:to-orange-500 disabled:opacity-50 text-white rounded-lg text-xs font-semibold transition-all whitespace-nowrap"
-                                                                >
-                                                                    {savingPlatformConfig === key ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : 'Salvar'}
-                                                                </button>
-                                                            </div>
-                                                            <p className="text-xs text-gray-600 mt-1.5">{hint}</p>
-                                                        </div>
-                                                    )
-                                                })}
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
                             </>
                         )}
+
+                        {/* ── PROVEDOR GLOBAL PADRÃO ── */}
+                        <div className="backdrop-blur-xl bg-white/[0.02] rounded-none border border-white/[0.05] p-6">
+                            <div className="flex items-start justify-between mb-5">
+                                <div>
+                                    <h3 className="text-lg font-semibold text-white">Provedor Global Padrão</h3>
+                                    <p className="text-sm text-gray-500 mt-1">Usado por todos os usuários sem override individual</p>
+                                </div>
+                                {providers.find(p => p.is_global_default) && (() => {
+                                    const p = providers.find(p => p.is_global_default)!
+                                    const c = PROVIDER_COLORS[p.type]
+                                    return (
+                                        <span className={`px-3 py-1.5 rounded-xl text-xs font-semibold border ${c.bg} ${c.text} ${c.border}`}>
+                                            {PROVIDER_ICONS[p.type]} {p.name}
+                                        </span>
+                                    )
+                                })()}
+                            </div>
+                            {loadingProviders ? (
+                                <div className="flex gap-2">{[1, 2, 3].map(i => <div key={i} className="flex-1 h-12 bg-white/[0.03] rounded-xl animate-pulse" />)}</div>
+                            ) : providers.filter(p => p.is_active).length === 0 ? (
+                                <p className="text-sm text-gray-600 text-center py-4">Cadastre provedores na seção abaixo para selecionar o padrão global.</p>
+                            ) : (
+                                <div className="flex flex-wrap gap-2">
+                                    {providers.filter(p => p.is_active).map(p => {
+                                        const c = PROVIDER_COLORS[p.type]
+                                        const isDefault = p.is_global_default
+                                        return (
+                                            <button
+                                                key={p.id}
+                                                onClick={() => handleSetGlobalDefault(p.id)}
+                                                className={`px-5 py-3 rounded-xl font-semibold text-sm transition-all border ${isDefault ? `${c.bg} ${c.text} ${c.border}` : 'bg-white/[0.03] text-gray-400 border-white/[0.08] hover:bg-white/[0.06]'}`}
+                                            >
+                                                {PROVIDER_ICONS[p.type]} {p.name}
+                                                {isDefault && <span className="ml-2 text-xs opacity-70">★ Padrão</span>}
+                                            </button>
+                                        )
+                                    })}
+                                </div>
+                            )}
+                        </div>
+
+                        {/* ── PROVEDORES CADASTRADOS ── */}
+                        <div className="backdrop-blur-xl bg-white/[0.02] rounded-none border border-white/[0.05] overflow-hidden">
+                            <div className="px-6 py-4 border-b border-white/[0.05] flex items-center justify-between">
+                                <div>
+                                    <h3 className="text-lg font-semibold text-white">Provedores Cadastrados</h3>
+                                    <p className="text-sm text-gray-500 mt-0.5">Credenciais armazenadas no banco — {providers.length} provedor(es)</p>
+                                </div>
+                                <button
+                                    onClick={() => { setShowAddProviderForm(v => !v); setEditingProviderId(null) }}
+                                    className="flex items-center gap-2 px-4 py-2 bg-blue-500/20 hover:bg-blue-500/30 text-blue-300 border border-blue-500/30 rounded-xl text-sm font-semibold transition-all"
+                                >
+                                    {showAddProviderForm ? '✕ Cancelar' : '+ Novo Provedor'}
+                                </button>
+                            </div>
+                            {showAddProviderForm && (
+                                <div className="px-6 py-5 border-b border-blue-500/10 bg-blue-500/[0.02] space-y-4">
+                                    <p className="text-xs font-semibold text-blue-400">+ Cadastrar novo provedor</p>
+                                    <div className="grid grid-cols-2 gap-3">
+                                        <div>
+                                            <label className="block text-xs text-gray-500 mb-1.5 font-medium">Nome de exibição</label>
+                                            <input type="text" placeholder="" value={newProviderForm.name} onChange={e => setNewProviderForm(f => ({ ...f, name: e.target.value }))} className="w-full px-3 py-2 bg-[#0d1117] border border-white/[0.08] rounded-lg text-white text-sm placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500/40" />
+                                        </div>
+                                        <div>
+                                            <label className="block text-xs text-gray-500 mb-1.5 font-medium">Tipo</label>
+                                            <select value={newProviderForm.type} onChange={e => setNewProviderForm(f => ({ ...f, type: e.target.value, credentials: {} }))} className="w-full px-3 py-2 bg-[#0d1117] border border-white/[0.08] rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40">
+                                                <option value="stripe">Stripe</option>
+                                                <option value="mollie">Mollie</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-3">
+                                        {(CREDENTIAL_FIELDS[newProviderForm.type] || []).map(field => (
+                                            <div key={field.key}>
+                                                <label className="block text-xs text-gray-500 mb-1.5 font-medium">{field.label}</label>
+                                                <input type="password" placeholder={field.placeholder} value={(newProviderForm.credentials as any)[field.key] || ''} onChange={e => setNewProviderForm(f => ({ ...f, credentials: { ...f.credentials, [field.key]: e.target.value } }))} className="w-full px-3 py-2 bg-[#0d1117] border border-white/[0.08] rounded-lg text-white text-sm placeholder-gray-600 font-mono focus:outline-none focus:ring-2 focus:ring-blue-500/40" />
+                                            </div>
+                                        ))}
+                                    </div>
+                                    <button onClick={handleCreateProvider} disabled={savingProvider || !newProviderForm.name} className="px-5 py-2 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-400 hover:to-blue-500 disabled:opacity-50 text-white rounded-lg text-sm font-semibold transition-all">
+                                        {savingProvider ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin mx-auto" /> : 'Cadastrar Provedor'}
+                                    </button>
+                                </div>
+                            )}
+                            {loadingProviders ? (
+                                <div className="p-12 flex justify-center"><div className="w-8 h-8 border-2 border-blue-500/30 border-t-blue-500 rounded-full animate-spin" /></div>
+                            ) : providers.length === 0 ? (
+                                <div className="p-12 text-center">
+                                    <p className="text-gray-500 text-sm">Nenhum provedor cadastrado.</p>
+                                    <p className="text-gray-600 text-xs mt-1">Use o botão "+ Novo Provedor" para adicionar.</p>
+                                </div>
+                            ) : (
+                                <div className="divide-y divide-white/[0.03]">
+                                    {providers.map(provider => {
+                                        const c = PROVIDER_COLORS[provider.type]
+                                        const isEditing = editingProviderId === provider.id
+                                        return (
+                                            <div key={provider.id} className={isEditing ? 'bg-white/[0.015]' : ''}>
+                                                <div className="px-6 py-4 flex items-center gap-4">
+                                                    <div className={`w-10 h-10 ${c.bg} rounded-xl flex items-center justify-center text-xl`}>{PROVIDER_ICONS[provider.type]}</div>
+                                                    <div className="flex-1">
+                                                        <div className="flex items-center gap-2 flex-wrap">
+                                                            <p className="text-sm font-semibold text-white">{provider.name}</p>
+                                                            <span className={`px-2 py-0.5 rounded text-xs font-semibold border ${c.bg} ${c.text} ${c.border}`}>{provider.type}</span>
+                                                            <span className={`px-2 py-0.5 rounded text-xs font-semibold border ${provider.is_active ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30' : 'bg-gray-500/15 text-gray-400 border-gray-500/20'}`}>{provider.is_active ? '● Ativo' : '○ Inativo'}</span>
+                                                            {provider.is_global_default && (<span className="px-2 py-0.5 rounded text-xs font-semibold border bg-blue-500/15 text-blue-300 border-blue-500/30">★ Padrão global</span>)}
+                                                        </div>
+                                                        <p className="text-xs text-gray-600 mt-0.5">Criado em {new Date(provider.created_at).toLocaleDateString('pt-BR')}</p>
+                                                    </div>
+                                                    <div className="flex items-center gap-2">
+                                                        <button onClick={() => handleToggleProviderActive(provider.id, provider.is_active)} className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all ${provider.is_active ? 'bg-gray-500/10 text-gray-400 border-gray-500/20 hover:bg-gray-500/20' : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20 hover:bg-emerald-500/20'}`}>{provider.is_active ? 'Desativar' : 'Ativar'}</button>
+                                                        <button onClick={() => { if (isEditing) { setEditingProviderId(null); return } setEditingProviderId(provider.id); setEditingProviderName(provider.name); setEditingProviderCreds({}); setShowAddProviderForm(false) }} className={`px-3 py-1.5 rounded-lg text-xs transition-colors border ${isEditing ? `${c.bg} ${c.text} ${c.border}` : 'bg-white/[0.05] hover:bg-white/[0.1] text-gray-400 hover:text-white border-white/[0.08]'}`}>{isEditing ? '✎ Editando' : 'Editar chaves'}</button>
+                                                        {!provider.is_global_default && (<button onClick={() => handleDeleteProvider(provider.id)} className="px-3 py-1.5 bg-red-500/10 hover:bg-red-500/20 text-red-400 rounded-lg text-xs transition-colors border border-red-500/20">Remover</button>)}
+                                                    </div>
+                                                </div>
+                                                {isEditing && (
+                                                    <div className="px-6 pb-5 space-y-4 border-t border-white/[0.05]">
+                                                        <div className="pt-4 grid grid-cols-2 gap-3">
+                                                            <div className="col-span-2 md:col-span-1">
+                                                                <label className="block text-xs text-gray-500 mb-1.5 font-medium">Nome de exibição</label>
+                                                                <input type="text" value={editingProviderName} onChange={e => setEditingProviderName(e.target.value)} className="w-full px-3 py-2 bg-[#0d1117] border border-white/[0.08] rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40" />
+                                                            </div>
+                                                            {(CREDENTIAL_FIELDS[provider.type] || []).map(field => (
+                                                                <div key={field.key}>
+                                                                    <label className="block text-xs text-gray-500 mb-1.5 font-medium">{field.label} <span className="text-gray-700">(deixe em branco para manter)</span></label>
+                                                                    <div className="flex gap-2">
+                                                                        <input type={showApiKey[`edit-${provider.id}-${field.key}`] ? 'text' : 'password'} placeholder={field.placeholder} value={editingProviderCreds[field.key] || ''} onChange={e => setEditingProviderCreds(prev => ({ ...prev, [field.key]: e.target.value }))} className="flex-1 px-3 py-2 bg-[#0d1117] border border-white/[0.08] rounded-lg text-white text-sm font-mono placeholder-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500/40" />
+                                                                        <button onClick={() => setShowApiKey(prev => ({ ...prev, [`edit-${provider.id}-${field.key}`]: !prev[`edit-${provider.id}-${field.key}`] }))} className="px-3 py-2 bg-white/[0.04] hover:bg-white/[0.08] text-gray-400 rounded-lg text-xs border border-white/[0.08]">{showApiKey[`edit-${provider.id}-${field.key}`] ? 'Ocultar' : 'Mostrar'}</button>
+                                                                    </div>
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                        <div className="flex gap-2">
+                                                            <button onClick={() => setEditingProviderId(null)} className="px-4 py-2 bg-white/[0.05] hover:bg-white/[0.1] text-gray-400 rounded-lg text-sm transition-colors border border-white/[0.08]">Cancelar</button>
+                                                            <button onClick={() => handleSaveProviderEdit(provider.id)} disabled={savingProvider} className="px-5 py-2 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-400 hover:to-blue-500 disabled:opacity-50 text-white rounded-lg text-sm font-semibold transition-all">{savingProvider ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin mx-auto" /> : 'Salvar'}</button>
+                                                        </div>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        )
+                                    })}
+                                </div>
+                            )}
+                        </div>
+
+                        {/* ── OVERRIDES POR USUÁRIO ── */}
+                        <div className="backdrop-blur-xl bg-white/[0.02] rounded-none border border-white/[0.05] overflow-hidden">
+                            <div className="px-6 py-4 border-b border-white/[0.05] flex items-center justify-between gap-4">
+                                <div>
+                                    <h3 className="text-lg font-semibold text-white">Overrides por Usuário</h3>
+                                    <p className="text-sm text-gray-500 mt-0.5">Atribua um provedor específico a qualquer owner</p>
+                                </div>
+                                <button onClick={fetchPaymentConfigs} className="px-4 py-2 bg-white/[0.05] hover:bg-white/[0.1] text-gray-300 rounded-xl text-sm border border-white/[0.08] transition-colors">Atualizar</button>
+                            </div>
+                            <div className="px-6 py-4 border-b border-white/[0.04] flex items-center gap-3">
+                                <div className="relative flex-1 max-w-sm">
+                                    <input type="text" placeholder="Buscar owner por email..." value={providerUserSearch} onChange={e => setProviderUserSearch(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleSearchProviderUser()} className="w-full pl-8 pr-3 py-2 bg-[#0d1117] border border-white/[0.08] rounded-xl text-white text-sm placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500/40" />
+                                    <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-600 text-sm">🔍</span>
+                                </div>
+                                <button onClick={handleSearchProviderUser} disabled={searchingProviderUser} className="px-4 py-2 bg-blue-500/20 hover:bg-blue-500/30 text-blue-300 border border-blue-500/30 rounded-xl text-sm font-semibold transition-all disabled:opacity-50">
+                                    {searchingProviderUser ? <div className="w-4 h-4 border-2 border-blue-300/30 border-t-blue-300 rounded-full animate-spin" /> : 'Buscar'}
+                                </button>
+                            </div>
+                            {providerUserResult && (
+                                <div className={`px-6 py-4 border-b ${providerUserResult!.user ? 'border-blue-500/10 bg-blue-500/[0.02]' : 'border-red-500/10 bg-red-500/[0.02]'}`}>
+                                    {!providerUserResult!.user ? (
+                                        <p className="text-sm text-red-400">Usuário não encontrado para "{providerUserSearch}"</p>
+                                    ) : (
+                                        <div className="flex items-center gap-3">
+                                            <div className="w-9 h-9 bg-gradient-to-br from-blue-500 to-violet-600 rounded-full flex items-center justify-center text-xs font-bold text-white">{providerUserResult!.user.email?.charAt(0)?.toUpperCase()}</div>
+                                            <div className="flex-1">
+                                                <p className="text-sm font-semibold text-white">{providerUserResult!.user.email}</p>
+                                                <p className="text-xs text-gray-500">{providerUserResult!.config?.provider_id ? `Override ativo → ${providers.find(p => p.id === providerUserResult!.config.provider_id)?.name || 'Provedor desconhecido'}` : 'Sem override · usa provedor padrão global'}</p>
+                                            </div>
+                                            <select value={selectedProviderForUser} onChange={e => setSelectedProviderForUser(e.target.value)} className="px-3 py-2 bg-[#0d1117] border border-white/[0.08] rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40">
+                                                <option value="">↔ Padrão global</option>
+                                                {providers.filter(p => p.is_active).map(p => (<option key={p.id} value={p.id}>{PROVIDER_ICONS[p.type]} {p.name}</option>))}
+                                            </select>
+                                            <button onClick={handleAssignProviderToUser} disabled={assigningProvider} className="px-4 py-2 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-400 hover:to-blue-500 disabled:opacity-50 text-white rounded-lg text-sm font-semibold transition-all">
+                                                {assigningProvider ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin mx-auto" /> : 'Atribuir'}
+                                            </button>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+                            {loadingPaymentConfigs ? (
+                                <div className="p-12 flex justify-center"><div className="w-8 h-8 border-2 border-blue-500/30 border-t-blue-500 rounded-full animate-spin" /></div>
+                            ) : paymentConfigs.length === 0 ? (
+                                <div className="p-10 text-center">
+                                    <p className="text-gray-500 text-sm">Nenhum override configurado ainda.</p>
+                                    <p className="text-gray-600 text-xs mt-1">Busque um usuário acima para atribuir um provedor específico.</p>
+                                </div>
+                            ) : (
+                                <div className="divide-y divide-white/[0.03]">
+                                    {paymentConfigs.map((cfg) => {
+                                        const assignedProvider = providers.find(p => p.id === cfg.provider_id)
+                                        const c = assignedProvider ? PROVIDER_COLORS[assignedProvider.type] : PROVIDER_COLORS.stripe
+                                        return (
+                                            <div key={cfg.id} className="px-6 py-4 flex items-center gap-4">
+                                                <div className="w-9 h-9 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center text-white text-sm font-bold">{cfg.user_email?.charAt(0)?.toUpperCase() || '?'}</div>
+                                                <div className="flex-1">
+                                                    <p className="text-sm font-medium text-white">{cfg.user_email}</p>
+                                                    <p className="text-xs text-gray-500">{cfg.user_id}</p>
+                                                </div>
+                                                {assignedProvider ? (
+                                                    <span className={`px-2.5 py-1 rounded-lg text-xs font-semibold border ${c.bg} ${c.text} ${c.border}`}>{PROVIDER_ICONS[assignedProvider.type]} {assignedProvider.name}</span>
+                                                ) : (
+                                                    <span className="px-2.5 py-1 rounded-lg text-xs font-semibold border bg-gray-500/15 text-gray-400 border-gray-500/20">{cfg.payment_provider || 'Padrão global'}</span>
+                                                )}
+                                                <span className="px-2.5 py-1 rounded-lg text-xs font-semibold border bg-emerald-500/15 text-emerald-300 border-emerald-500/30">● ativo</span>
+                                            </div>
+                                        )
+                                    })}
+                                </div>
+                            )}
+                        </div>
                     </div>
                 )}
 
