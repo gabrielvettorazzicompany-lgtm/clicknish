@@ -169,9 +169,12 @@ export default function SuperAdmin() {
     const [editingProviderName, setEditingProviderName] = useState('')
     const [providerUserSearch, setProviderUserSearch] = useState('')
     const [providerUserResult, setProviderUserResult] = useState<{ user: { id: string; email: string }; config: any } | null>(null)
+    const [providerSearchResults, setProviderSearchResults] = useState<Array<{ id: string; email: string; config: any }> | null>(null)
     const [searchingProviderUser, setSearchingProviderUser] = useState(false)
     const [assigningProvider, setAssigningProvider] = useState(false)
     const [selectedProviderForUser, setSelectedProviderForUser] = useState('')
+    const [userModalProviderId, setUserModalProviderId] = useState<string>('')
+    const [savingUserModalProvider, setSavingUserModalProvider] = useState(false)
 
     // ─── Platform config ────────────────────────────────────────────────────────
     const [platformConfig, setPlatformConfig] = useState<Record<string, any>>({})
@@ -205,6 +208,30 @@ export default function SuperAdmin() {
         }
     }, [user])
 
+    // Quando o modal de usuário abre: carrega config de provedor atual + garante que providers estão carregados
+    useEffect(() => {
+        if (!selectedUser) {
+            setUserModalProviderId('')
+            return
+        }
+        // Garante que a lista de providers está disponível
+        if (providers.length === 0) fetchPaymentConfigs()
+            // Busca o provedor atual atribuído a este usuário
+            ; (async () => {
+                try {
+                    const res = await fetch('https://api.clicknich.com/api/superadmin/payment-config/search', {
+                        method: 'POST',
+                        headers: ADMIN_HEADERS,
+                        body: JSON.stringify({ email: selectedUser.email })
+                    })
+                    if (res.ok) {
+                        const d = await res.json()
+                        setUserModalProviderId(d.config?.provider_id || '')
+                    }
+                } catch (e) { console.error(e) }
+            })()
+    }, [selectedUser])
+
     useEffect(() => {
         if (activeTab === 'dashboard' && !financialData) {
             fetchFinancial()
@@ -227,6 +254,7 @@ export default function SuperAdmin() {
             fetchPaymentConfigs()
         } else if (activeTab === 'config' && Object.keys(platformConfig).length === 0) {
             fetchPlatformConfig()
+            fetchPaymentConfigs()
         } else if (activeTab === 'announcements') {
             fetchAnnouncements()
         } else if (activeTab === 'audit') {
@@ -737,11 +765,11 @@ export default function SuperAdmin() {
     }
 
     const PROVIDER_ICONS: Record<string, string> = {
-        stripe: '🔵',
-        stripe_connect: '🔵',
-        mollie: '🟠',
-        paypal: '🟡',
-        custom: '⚙️',
+        stripe: '',
+        stripe_connect: '',
+        mollie: '',
+        paypal: '',
+        custom: '',
     }
 
     const PROVIDER_COLORS: Record<string, { bg: string; text: string; border: string }> = {
@@ -896,6 +924,7 @@ export default function SuperAdmin() {
         if (!providerUserSearch) return
         setSearchingProviderUser(true)
         setProviderUserResult(null)
+        setProviderSearchResults(null)
         try {
             const res = await fetch('https://api.clicknich.com/api/superadmin/payment-config/search', {
                 method: 'POST',
@@ -904,10 +933,19 @@ export default function SuperAdmin() {
             })
             if (res.ok) {
                 const d = await res.json()
-                setProviderUserResult(d)
-                setSelectedProviderForUser(d.config?.provider_id || '')
+                const list: Array<{ id: string; email: string; config: any }> = d.users ?? []
+                setProviderSearchResults(list)
+                if (list.length === 1) {
+                    setProviderUserResult({ user: { id: list[0].id, email: list[0].email }, config: list[0].config })
+                    setSelectedProviderForUser(list[0].config?.provider_id || '')
+                }
             }
         } catch (e) { console.error(e) } finally { setSearchingProviderUser(false) }
+    }
+
+    const handleSelectProviderUser = (u: { id: string; email: string; config: any }) => {
+        setProviderUserResult({ user: { id: u.id, email: u.email }, config: u.config })
+        setSelectedProviderForUser(u.config?.provider_id || '')
     }
 
     const handleAssignProviderToUser = async () => {
@@ -925,6 +963,7 @@ export default function SuperAdmin() {
             if (res.ok) {
                 fetchPaymentConfigs()
                 setProviderUserResult(null)
+                setProviderSearchResults(null)
                 setProviderUserSearch('')
                 setSelectedProviderForUser('')
             } else alert('Erro ao atribuir provedor')
@@ -1092,7 +1131,7 @@ export default function SuperAdmin() {
         { id: 'verifications', label: t('superadmin.bank_verifications'), badge: bankVerifications.length },
         { id: 'reviews', label: t('superadmin.products_tab'), badge: pendingApps.length + pendingProducts.length },
         { id: 'financial', label: 'Financeiro', badge: 0 },
-        { id: 'payments', label: 'Pagamentos', badge: 0 },
+
         { id: 'config', label: 'Config', badge: 0 },
         { id: 'announcements', label: 'Comunicados', badge: 0 },
         { id: 'audit', label: 'Audit Log', badge: 0 },
@@ -1875,6 +1914,44 @@ export default function SuperAdmin() {
                                                     )}
                                                 </div>
 
+                                                {/* Provedor de Pagamento Individual */}
+                                                <div className="backdrop-blur-xl bg-white/[0.02] border border-white/[0.05] rounded-xl p-4">
+                                                    <h4 className="font-semibold text-white text-sm mb-1">Provedor de Pagamento</h4>
+                                                    <p className="text-xs text-gray-500 mb-3">Atribui um provedor específico para este usuário. Deixe em "Padrão da plataforma" para usar o global.</p>
+                                                    <div className="flex gap-2">
+                                                        <select
+                                                            value={userModalProviderId}
+                                                            onChange={e => setUserModalProviderId(e.target.value)}
+                                                            className="flex-1 px-3 py-2 bg-[#0d1117] border border-white/[0.08] rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40"
+                                                        >
+                                                            <option value="">Padrão da plataforma</option>
+                                                            {providers.filter(p => p.is_active).map(p => (
+                                                                <option key={p.id} value={p.id}>{p.name} ({p.type})</option>
+                                                            ))}
+                                                        </select>
+                                                        <button
+                                                            onClick={async () => {
+                                                                setSavingUserModalProvider(true)
+                                                                try {
+                                                                    const res = await fetch(`https://api.clicknich.com/api/superadmin/payment-config/${selectedUser.id}`, {
+                                                                        method: 'PUT',
+                                                                        headers: ADMIN_HEADERS,
+                                                                        body: JSON.stringify({
+                                                                            provider_id: userModalProviderId || null,
+                                                                            override_platform_default: !!userModalProviderId
+                                                                        })
+                                                                    })
+                                                                    if (!res.ok) alert('Erro ao salvar provedor')
+                                                                } catch (e) { console.error(e) } finally { setSavingUserModalProvider(false) }
+                                                            }}
+                                                            disabled={savingUserModalProvider}
+                                                            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded-lg text-sm font-medium transition-all"
+                                                        >
+                                                            {savingUserModalProvider ? 'Salvando...' : 'Salvar'}
+                                                        </button>
+                                                    </div>
+                                                </div>
+
                                                 {/* Action Buttons */}
                                                 <div className="backdrop-blur-xl bg-white/[0.02] border border-white/[0.05] rounded-xl p-4">
                                                     <h4 className="font-semibold text-white text-sm mb-3">
@@ -2200,275 +2277,162 @@ export default function SuperAdmin() {
 
                 {/* Reviews Tab (Combined Apps and Products) */}
                 {activeTab === 'reviews' && (
-                    <div className="space-y-6">
-                        {/* Apps Review Section */}
-                        {true && (
-                            <div className="space-y-6">
-                                {loadingApps ? (
-                                    <div className="backdrop-blur-xl bg-white/[0.02] rounded-none border border-white/[0.05] p-16 flex flex-col items-center justify-center">
-                                        <div className="w-12 h-12 border-3 border-blue-500/30 border-t-blue-500 rounded-full animate-spin mb-4"></div>
-                                        <p className="text-gray-400">{t('superadmin.loading_apps')}</p>
-                                    </div>
-                                ) : pendingApps.length === 0 ? (
-                                    <div className="backdrop-blur-xl bg-gradient-to-br from-blue-500/5 via-transparent to-transparent rounded-none border border-blue-500/20 p-12 text-center">
-                                        <div className="w-16 h-16 mx-auto mb-5 bg-gradient-to-br from-blue-500/20 to-blue-600/10 rounded-full flex items-center justify-center border border-blue-500/30">
-                                            <svg className="w-8 h-8 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                                            </svg>
-                                        </div>
-                                        <h4 className="text-xl font-semibold text-blue-400 mb-2">{t('superadmin.all_caught_up')}</h4>
-                                        <p className="text-gray-500 text-sm max-w-sm mx-auto">{t('superadmin.no_apps_review')}</p>
-                                    </div>
-                                ) : (
-                                    <div className="grid gap-4">
-                                        {pendingApps.map((app, index) => (
-                                            <div
-                                                key={app.id}
-                                                className="backdrop-blur-xl bg-white/[0.02] rounded-none border border-white/[0.05] overflow-hidden hover:border-blue-500/30 transition-all duration-300 group"
-                                                style={{ animationDelay: `${index * 50}ms` }}
-                                            >
-                                                <div className="p-6">
-                                                    <div className="flex items-start gap-5">
-                                                        {/* App Logo */}
-                                                        <div className="relative">
-                                                            <div className="w-20 h-20 rounded-xl overflow-hidden bg-gradient-to-br from-white/[0.05] to-white/[0.02] flex-shrink-0 ring-2 ring-white/[0.05] group-hover:ring-blue-500/30 transition-all">
-                                                                {app.logo_url ? (
-                                                                    <img
-                                                                        src={app.logo_url}
-                                                                        alt={app.name}
-                                                                        className="w-full h-full object-cover"
-                                                                    />
-                                                                ) : (
-                                                                    <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-blue-600/20 to-indigo-600/20">
-                                                                        <span className="text-2xl font-bold text-blue-400">{app.name?.charAt(0) || 'A'}</span>
-                                                                    </div>
-                                                                )}
-                                                            </div>
-                                                            <div className="absolute -bottom-2 -right-2 w-6 h-6 bg-blue-500 rounded-lg flex items-center justify-center">
-                                                                <span className="text-xs font-bold text-white">!</span>
-                                                            </div>
-                                                        </div>
-
-                                                        {/* App Info */}
-                                                        <div className="flex-1 min-w-0">
-                                                            <div className="flex items-start justify-between gap-4">
-                                                                <div>
-                                                                    <h4 className="text-xl font-bold text-white group-hover:text-blue-400 transition-colors">{app.name}</h4>
-                                                                    <p className="text-sm text-gray-500 mt-1">/{app.slug}</p>
-                                                                </div>
-                                                            </div>
-
-                                                            {/* Meta Info */}
-                                                            <div className="flex items-center flex-wrap gap-3 mt-4">
-                                                                <div className="flex items-center gap-2 px-3 py-1.5 bg-white/[0.03] rounded-lg text-sm">
-                                                                    <span className="text-gray-500">Owner:</span>
-                                                                    <span className="text-gray-300">{app.owner_email || 'Unknown'}</span>
-                                                                </div>
-                                                                <div className="flex items-center gap-2 px-3 py-1.5 bg-white/[0.03] rounded-lg text-sm">
-                                                                    <span className="text-gray-500">Created:</span>
-                                                                    <span className="text-gray-300">
-                                                                        {new Date(app.created_at).toLocaleDateString('en-US', {
-                                                                            month: 'short',
-                                                                            day: 'numeric',
-                                                                            year: 'numeric'
-                                                                        })}
-                                                                    </span>
-                                                                </div>
-                                                                {app.app_type && (
-                                                                    <span className="px-3 py-1.5 bg-blue-500/10 text-blue-400 border border-blue-500/20 rounded-lg text-sm font-medium">
-                                                                        {app.app_type}
-                                                                    </span>
-                                                                )}
-                                                                {app.language && (
-                                                                    <span className="px-3 py-1.5 bg-purple-500/10 text-purple-400 border border-purple-500/20 rounded-lg text-sm font-medium">
-                                                                        {app.language}
-                                                                    </span>
-                                                                )}
-                                                            </div>
-                                                        </div>
-                                                    </div>
-
-                                                    {/* Actions */}
-                                                    <div className="flex items-center gap-2 mt-5 pt-4 border-t border-white/[0.05]">
-                                                        <button
-                                                            onClick={() => handleApproveApp(app.id)}
-                                                            disabled={processingId === app.id}
-                                                            className="relative flex-1 px-4 py-2 bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] hover:border-blue-500/50 text-gray-300 hover:text-white rounded-lg text-sm font-medium transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-                                                        >
-                                                            <span className="flex items-center justify-center gap-1.5">
-                                                                {processingId === app.id ? (
-                                                                    <>
-                                                                        <svg className="animate-spin h-3.5 w-3.5" fill="none" viewBox="0 0 24 24">
-                                                                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                                                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                                                        </svg>
-                                                                        <span className="text-xs">Processing...</span>
-                                                                    </>
-                                                                ) : (
-                                                                    <>
-                                                                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
-                                                                        </svg>
-                                                                        <span className="text-xs">Approve</span>
-                                                                    </>
-                                                                )}
-                                                            </span>
-                                                        </button>
-                                                        <button
-                                                            onClick={() => openAppRejectModal(app)}
-                                                            disabled={processingId === app.id}
-                                                            className="px-3 py-2 bg-white/[0.02] hover:bg-white/[0.04] border border-white/[0.06] hover:border-white/[0.12] text-gray-500 hover:text-gray-300 rounded-lg text-xs font-medium transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-                                                        >
-                                                            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                                                            </svg>
-                                                        </button>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                )}
+                    <div className="space-y-4">
+                        {(loadingApps || loadingProducts) ? (
+                            <div className="backdrop-blur-xl bg-white/[0.02] rounded-none border border-white/[0.05] p-16 flex flex-col items-center justify-center">
+                                <div className="w-12 h-12 border-3 border-blue-500/30 border-t-blue-500 rounded-full animate-spin mb-4"></div>
+                                <p className="text-gray-400">{t('superadmin.loading_apps')}</p>
                             </div>
-                        )}
-
-                        {/* Products Review Section */}
-                        {true && (
-                            <div className="space-y-6">
-                                {loadingProducts ? (
-                                    <div className="backdrop-blur-xl bg-white/[0.02] rounded-none border border-white/[0.05] p-16 flex flex-col items-center justify-center">
-                                        <div className="w-12 h-12 border-3 border-blue-500/30 border-t-blue-500 rounded-full animate-spin mb-4"></div>
-                                        <p className="text-gray-400">{t('superadmin.loading_products')}</p>
-                                    </div>
-                                ) : pendingProducts.length === 0 ? (
-                                    <div className="backdrop-blur-xl bg-gradient-to-br from-blue-500/5 via-transparent to-transparent rounded-none border border-blue-500/20 p-12 text-center">
-                                        <div className="w-16 h-16 mx-auto mb-5 bg-gradient-to-br from-blue-500/20 to-blue-600/10 rounded-full flex items-center justify-center border border-blue-500/30">
-                                            <svg className="w-8 h-8 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                                            </svg>
-                                        </div>
-                                        <h4 className="text-xl font-semibold text-blue-400 mb-2">{t('superadmin.all_caught_up')}</h4>
-                                        <p className="text-gray-500 text-sm max-w-sm mx-auto">{t('superadmin.no_products_review')}</p>
-                                    </div>
-                                ) : (
-                                    <div className="grid gap-4">
-                                        {pendingProducts.map((product, index) => (
-                                            <div
-                                                key={product.id}
-                                                className="backdrop-blur-xl bg-white/[0.02] rounded-none border border-white/[0.05] overflow-hidden hover:border-blue-500/30 transition-all duration-300 group"
-                                                style={{ animationDelay: `${index * 50}ms` }}
-                                            >
-                                                <div className="p-6">
-                                                    <div className="flex items-start gap-5">
-                                                        {/* Product Image */}
-                                                        <div className="relative">
-                                                            <div className="w-24 h-24 rounded-xl overflow-hidden bg-gradient-to-br from-white/[0.05] to-white/[0.02] flex-shrink-0 ring-2 ring-white/[0.05] group-hover:ring-blue-500/30 transition-all">
-                                                                {product.image_url ? (
-                                                                    <img
-                                                                        src={product.image_url}
-                                                                        alt={product.name}
-                                                                        className="w-full h-full object-cover"
-                                                                    />
-                                                                ) : (
-                                                                    <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-blue-600/20 to-indigo-600/20">
-                                                                        <span className="text-2xl font-bold text-blue-400">{product.name?.charAt(0) || 'P'}</span>
-                                                                    </div>
-                                                                )}
+                        ) : (pendingApps.length === 0 && pendingProducts.length === 0) ? (
+                            <div className="backdrop-blur-xl bg-gradient-to-br from-blue-500/5 via-transparent to-transparent rounded-none border border-blue-500/20 p-12 text-center">
+                                <div className="w-16 h-16 mx-auto mb-5 bg-gradient-to-br from-blue-500/20 to-blue-600/10 rounded-full flex items-center justify-center border border-blue-500/30">
+                                    <svg className="w-8 h-8 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                    </svg>
+                                </div>
+                                <h4 className="text-xl font-semibold text-blue-400 mb-2">{t('superadmin.all_caught_up')}</h4>
+                                <p className="text-gray-500 text-sm max-w-sm mx-auto">{t('superadmin.no_apps_review')}</p>
+                            </div>
+                        ) : (
+                            <div className="grid gap-4">
+                                {/* Apps pendentes */}
+                                {pendingApps.map((app, index) => (
+                                    <div
+                                        key={app.id}
+                                        className="backdrop-blur-xl bg-white/[0.02] rounded-none border border-white/[0.05] overflow-hidden hover:border-blue-500/30 transition-all duration-300 group"
+                                        style={{ animationDelay: `${index * 50}ms` }}
+                                    >
+                                        <div className="p-6">
+                                            <div className="flex items-start gap-5">
+                                                <div className="relative">
+                                                    <div className="w-20 h-20 rounded-xl overflow-hidden bg-gradient-to-br from-white/[0.05] to-white/[0.02] flex-shrink-0 ring-2 ring-white/[0.05] group-hover:ring-blue-500/30 transition-all">
+                                                        {app.logo_url ? (
+                                                            <img src={app.logo_url} alt={app.name} className="w-full h-full object-cover" />
+                                                        ) : (
+                                                            <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-blue-600/20 to-indigo-600/20">
+                                                                <span className="text-2xl font-bold text-blue-400">{app.name?.charAt(0) || 'A'}</span>
                                                             </div>
-                                                            <div className="absolute -bottom-2 -right-2 w-6 h-6 bg-blue-500 rounded-lg flex items-center justify-center">
-                                                                <span className="text-xs font-bold text-white">!</span>
+                                                        )}
+                                                    </div>
+                                                    <div className="absolute -bottom-2 -right-2 w-6 h-6 bg-blue-500 rounded-lg flex items-center justify-center">
+                                                        <span className="text-xs font-bold text-white">!</span>
+                                                    </div>
+                                                </div>
+                                                <div className="flex-1 min-w-0">
+                                                    <div className="flex items-start justify-between gap-4">
+                                                        <div>
+                                                            <div className="flex items-center gap-2 mb-1">
+                                                                <h4 className="text-xl font-bold text-white group-hover:text-blue-400 transition-colors">{app.name}</h4>
+                                                                <span className="px-2 py-0.5 bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 rounded text-xs font-medium">App</span>
                                                             </div>
-                                                        </div>
-
-                                                        {/* Product Info */}
-                                                        <div className="flex-1 min-w-0">
-                                                            <div className="flex items-start justify-between gap-4">
-                                                                <div>
-                                                                    <h4 className="text-xl font-bold text-white group-hover:text-blue-400 transition-colors">{product.name}</h4>
-                                                                    <p className="text-sm text-gray-500 mt-1 line-clamp-2">{product.description || 'No description provided'}</p>
-                                                                </div>
-                                                                <div className="text-right flex-shrink-0">
-                                                                    <p className="text-2xl font-bold bg-gradient-to-r from-blue-400 to-blue-500 bg-clip-text text-transparent">
-                                                                        {product.currency || 'USD'} {product.price?.toFixed(2) || '0.00'}
-                                                                    </p>
-                                                                </div>
-                                                            </div>
-
-                                                            {/* Meta Info */}
-                                                            <div className="flex items-center flex-wrap gap-3 mt-4">
-                                                                <div className="flex items-center gap-2 px-3 py-1.5 bg-white/[0.03] rounded-lg text-sm">
-                                                                    <span className="text-gray-500">Owner:</span>
-                                                                    <span className="text-gray-300">{product.owner_email || 'Unknown'}</span>
-                                                                </div>
-                                                                <div className="flex items-center gap-2 px-3 py-1.5 bg-white/[0.03] rounded-lg text-sm">
-                                                                    <span className="text-gray-500">Created:</span>
-                                                                    <span className="text-gray-300">
-                                                                        {new Date(product.created_at).toLocaleDateString('en-US', {
-                                                                            month: 'short',
-                                                                            day: 'numeric',
-                                                                            year: 'numeric'
-                                                                        })}
-                                                                    </span>
-                                                                </div>
-                                                                {product.category && (
-                                                                    <span className="px-3 py-1.5 bg-blue-500/10 text-blue-400 border border-blue-500/20 rounded-lg text-sm font-medium">
-                                                                        {product.category}
-                                                                    </span>
-                                                                )}
-                                                                {product.delivery_type && (
-                                                                    <span className="px-3 py-1.5 bg-blue-500/10 text-blue-400 border border-blue-500/20 rounded-lg text-sm font-medium">
-                                                                        {product.delivery_type}
-                                                                    </span>
-                                                                )}
-                                                            </div>
+                                                            <p className="text-sm text-gray-500">/{app.slug}</p>
                                                         </div>
                                                     </div>
-
-                                                    {/* Actions */}
-                                                    <div className="flex items-center gap-2 mt-5 pt-4 border-t border-white/[0.05]">
-                                                        <button
-                                                            onClick={() => openProductDetailsModal(product)}
-                                                            className="relative flex-1 px-4 py-2 bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/30 hover:border-blue-500/50 text-blue-400 hover:text-blue-300 rounded-lg text-sm font-medium transition-all duration-200"
-                                                        >
-                                                            <span className="flex items-center justify-center gap-1.5">
-                                                                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                                                                </svg>
-                                                                <span className="text-xs">Review</span>
-                                                            </span>
-                                                        </button>
-                                                        <button
-                                                            onClick={() => handleApproveProduct(product.id)}
-                                                            disabled={processingId === product.id}
-                                                            className="px-3 py-2 bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] hover:border-blue-500/50 text-gray-300 hover:text-white rounded-lg text-xs font-medium transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-                                                        >
-                                                            {processingId === product.id ? (
-                                                                <svg className="animate-spin h-3.5 w-3.5" fill="none" viewBox="0 0 24 24">
-                                                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                                                </svg>
-                                                            ) : (
-                                                                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
-                                                                </svg>
-                                                            )}
-                                                        </button>
-                                                        <button
-                                                            onClick={() => openProductRejectModal(product)}
-                                                            disabled={processingId === product.id}
-                                                            className="px-3 py-2 bg-white/[0.02] hover:bg-white/[0.04] border border-white/[0.06] hover:border-white/[0.12] text-gray-500 hover:text-gray-300 rounded-lg text-xs font-medium transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-                                                        >
-                                                            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                                                            </svg>
-                                                        </button>
+                                                    <div className="flex items-center flex-wrap gap-3 mt-4">
+                                                        <div className="flex items-center gap-2 px-3 py-1.5 bg-white/[0.03] rounded-lg text-sm">
+                                                            <span className="text-gray-500">Owner:</span>
+                                                            <span className="text-gray-300">{app.owner_email || 'Unknown'}</span>
+                                                        </div>
+                                                        <div className="flex items-center gap-2 px-3 py-1.5 bg-white/[0.03] rounded-lg text-sm">
+                                                            <span className="text-gray-500">Created:</span>
+                                                            <span className="text-gray-300">{new Date(app.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+                                                        </div>
+                                                        {app.app_type && <span className="px-3 py-1.5 bg-blue-500/10 text-blue-400 border border-blue-500/20 rounded-lg text-sm font-medium">{app.app_type}</span>}
+                                                        {app.language && <span className="px-3 py-1.5 bg-purple-500/10 text-purple-400 border border-purple-500/20 rounded-lg text-sm font-medium">{app.language}</span>}
                                                     </div>
                                                 </div>
                                             </div>
-                                        ))}
+                                            <div className="flex items-center gap-2 mt-5 pt-4 border-t border-white/[0.05]">
+                                                <button onClick={() => handleApproveApp(app.id)} disabled={processingId === app.id} className="relative flex-1 px-4 py-2 bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] hover:border-blue-500/50 text-gray-300 hover:text-white rounded-lg text-sm font-medium transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed">
+                                                    <span className="flex items-center justify-center gap-1.5">
+                                                        {processingId === app.id ? (
+                                                            <><svg className="animate-spin h-3.5 w-3.5" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg><span className="text-xs">Processing...</span></>
+                                                        ) : (
+                                                            <><svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" /></svg><span className="text-xs">Approve</span></>
+                                                        )}
+                                                    </span>
+                                                </button>
+                                                <button onClick={() => openAppRejectModal(app)} disabled={processingId === app.id} className="px-3 py-2 bg-white/[0.02] hover:bg-white/[0.04] border border-white/[0.06] hover:border-white/[0.12] text-gray-500 hover:text-gray-300 rounded-lg text-xs font-medium transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed">
+                                                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                                                </button>
+                                            </div>
+                                        </div>
                                     </div>
-                                )}
+                                ))}
+
+                                {/* Produtos pendentes */}
+                                {pendingProducts.map((product, index) => (
+                                    <div
+                                        key={product.id}
+                                        className="backdrop-blur-xl bg-white/[0.02] rounded-none border border-white/[0.05] overflow-hidden hover:border-blue-500/30 transition-all duration-300 group"
+                                        style={{ animationDelay: `${(pendingApps.length + index) * 50}ms` }}
+                                    >
+                                        <div className="p-6">
+                                            <div className="flex items-start gap-5">
+                                                <div className="relative">
+                                                    <div className="w-24 h-24 rounded-xl overflow-hidden bg-gradient-to-br from-white/[0.05] to-white/[0.02] flex-shrink-0 ring-2 ring-white/[0.05] group-hover:ring-blue-500/30 transition-all">
+                                                        {product.image_url ? (
+                                                            <img src={product.image_url} alt={product.name} className="w-full h-full object-cover" />
+                                                        ) : (
+                                                            <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-blue-600/20 to-indigo-600/20">
+                                                                <span className="text-2xl font-bold text-blue-400">{product.name?.charAt(0) || 'P'}</span>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                    <div className="absolute -bottom-2 -right-2 w-6 h-6 bg-blue-500 rounded-lg flex items-center justify-center">
+                                                        <span className="text-xs font-bold text-white">!</span>
+                                                    </div>
+                                                </div>
+                                                <div className="flex-1 min-w-0">
+                                                    <div className="flex items-start justify-between gap-4">
+                                                        <div>
+                                                            <div className="flex items-center gap-2 mb-1">
+                                                                <h4 className="text-xl font-bold text-white group-hover:text-blue-400 transition-colors">{product.name}</h4>
+                                                                <span className="px-2 py-0.5 bg-violet-500/10 text-violet-400 border border-violet-500/20 rounded text-xs font-medium">Área</span>
+                                                            </div>
+                                                            <p className="text-sm text-gray-500 line-clamp-2">{product.description || 'No description provided'}</p>
+                                                        </div>
+                                                        <div className="text-right flex-shrink-0">
+                                                            <p className="text-2xl font-bold bg-gradient-to-r from-blue-400 to-blue-500 bg-clip-text text-transparent">
+                                                                {product.currency || 'USD'} {product.price?.toFixed(2) || '0.00'}
+                                                            </p>
+                                                        </div>
+                                                    </div>
+                                                    <div className="flex items-center flex-wrap gap-3 mt-4">
+                                                        <div className="flex items-center gap-2 px-3 py-1.5 bg-white/[0.03] rounded-lg text-sm">
+                                                            <span className="text-gray-500">Owner:</span>
+                                                            <span className="text-gray-300">{product.owner_email || 'Unknown'}</span>
+                                                        </div>
+                                                        <div className="flex items-center gap-2 px-3 py-1.5 bg-white/[0.03] rounded-lg text-sm">
+                                                            <span className="text-gray-500">Created:</span>
+                                                            <span className="text-gray-300">{new Date(product.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+                                                        </div>
+                                                        {product.category && <span className="px-3 py-1.5 bg-blue-500/10 text-blue-400 border border-blue-500/20 rounded-lg text-sm font-medium">{product.category}</span>}
+                                                        {product.delivery_type && <span className="px-3 py-1.5 bg-blue-500/10 text-blue-400 border border-blue-500/20 rounded-lg text-sm font-medium">{product.delivery_type}</span>}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div className="flex items-center gap-2 mt-5 pt-4 border-t border-white/[0.05]">
+                                                <button onClick={() => openProductDetailsModal(product)} className="relative flex-1 px-4 py-2 bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/30 hover:border-blue-500/50 text-blue-400 hover:text-blue-300 rounded-lg text-sm font-medium transition-all duration-200">
+                                                    <span className="flex items-center justify-center gap-1.5">
+                                                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
+                                                        <span className="text-xs">Review</span>
+                                                    </span>
+                                                </button>
+                                                <button onClick={() => handleApproveProduct(product.id)} disabled={processingId === product.id} className="px-3 py-2 bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] hover:border-blue-500/50 text-gray-300 hover:text-white rounded-lg text-xs font-medium transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed">
+                                                    {processingId === product.id ? (
+                                                        <svg className="animate-spin h-3.5 w-3.5" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                                                    ) : (
+                                                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" /></svg>
+                                                    )}
+                                                </button>
+                                                <button onClick={() => openProductRejectModal(product)} disabled={processingId === product.id} className="px-3 py-2 bg-white/[0.02] hover:bg-white/[0.04] border border-white/[0.06] hover:border-white/[0.12] text-gray-500 hover:text-gray-300 rounded-lg text-xs font-medium transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed">
+                                                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))}
                             </div>
                         )}
                     </div>
@@ -3100,7 +3064,7 @@ export default function SuperAdmin() {
                 )}
 
                 {/* ════════════════ PAYMENTS TAB ════════════════ */}
-                {activeTab === 'payments' && (
+                {false && (
                     <div className="space-y-6">
 
                         {/* ── 1. PROVEDOR GLOBAL PADRÃO ── */}
@@ -3111,13 +3075,6 @@ export default function SuperAdmin() {
                                     <p className="text-sm text-gray-500 mt-1">Usado por todos os usuários sem override individual</p>
                                 </div>
                                 {providers.find(p => p.is_global_default) && (() => {
-                                    const p = providers.find(p => p.is_global_default)!
-                                    const c = PROVIDER_COLORS[p.type]
-                                    return (
-                                        <span className={`px-3 py-1.5 rounded-xl text-xs font-semibold border ${c.bg} ${c.text} ${c.border}`}>
-                                            {PROVIDER_ICONS[p.type]} {p.name}
-                                        </span>
-                                    )
                                 })()}
                             </div>
                             {loadingProviders ? (
@@ -3135,7 +3092,7 @@ export default function SuperAdmin() {
                                                 onClick={() => handleSetGlobalDefault(p.id)}
                                                 className={`px-5 py-3 rounded-xl font-semibold text-sm transition-all border ${isDefault ? `${c.bg} ${c.text} ${c.border}` : 'bg-white/[0.03] text-gray-400 border-white/[0.08] hover:bg-white/[0.06]'}`}
                                             >
-                                                {PROVIDER_ICONS[p.type]} {p.name}
+                                                {p.name}
                                                 {isDefault && <span className="ml-2 text-xs opacity-70">★ Padrão</span>}
                                             </button>
                                         )
@@ -3168,7 +3125,7 @@ export default function SuperAdmin() {
                                             <label className="block text-xs text-gray-500 mb-1.5 font-medium">Nome de exibição</label>
                                             <input
                                                 type="text"
-                                                placeholder="Ex: Stripe Brasil"
+                                                placeholder=""
                                                 value={newProviderForm.name}
                                                 onChange={e => setNewProviderForm(f => ({ ...f, name: e.target.value }))}
                                                 className="w-full px-3 py-2 bg-[#0d1117] border border-white/[0.08] rounded-lg text-white text-sm placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500/40"
@@ -3181,11 +3138,8 @@ export default function SuperAdmin() {
                                                 onChange={e => setNewProviderForm(f => ({ ...f, type: e.target.value, credentials: {} }))}
                                                 className="w-full px-3 py-2 bg-[#0d1117] border border-white/[0.08] rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40"
                                             >
-                                                <option value="stripe">🔵 Stripe</option>
-                                                <option value="stripe_connect">🔵 Stripe Connect</option>
-                                                <option value="mollie">🟠 Mollie</option>
-                                                <option value="paypal">🟡 PayPal</option>
-                                                <option value="custom">⚙️ Customizado</option>
+                                                <option value="stripe">Stripe</option>
+                                                <option value="mollie">Mollie</option>
                                             </select>
                                         </div>
                                     </div>
@@ -3231,9 +3185,6 @@ export default function SuperAdmin() {
                                         return (
                                             <div key={provider.id} className={isEditing ? 'bg-white/[0.015]' : ''}>
                                                 <div className="px-6 py-4 flex items-center gap-4">
-                                                    <div className={`w-10 h-10 ${c.bg} rounded-xl flex items-center justify-center text-xl`}>
-                                                        {PROVIDER_ICONS[provider.type]}
-                                                    </div>
                                                     <div className="flex-1">
                                                         <div className="flex items-center gap-2 flex-wrap">
                                                             <p className="text-sm font-semibold text-white">{provider.name}</p>
@@ -3365,41 +3316,79 @@ export default function SuperAdmin() {
                             </div>
 
                             {/* Resultado da busca */}
-                            {providerUserResult !== null && (
-                                <div className={`px-6 py-4 border-b ${providerUserResult.user ? 'border-blue-500/10 bg-blue-500/[0.02]' : 'border-red-500/10 bg-red-500/[0.02]'}`}>
-                                    {!providerUserResult.user ? (
-                                        <p className="text-sm text-red-400">Usuário não encontrado para "{providerUserSearch}"</p>
-                                    ) : (
-                                        <div className="flex items-center gap-3">
-                                            <div className="w-9 h-9 bg-gradient-to-br from-blue-500 to-violet-600 rounded-full flex items-center justify-center text-xs font-bold text-white">
-                                                {providerUserResult.user.email?.charAt(0)?.toUpperCase()}
-                                            </div>
-                                            <div className="flex-1">
-                                                <p className="text-sm font-semibold text-white">{providerUserResult.user.email}</p>
-                                                <p className="text-xs text-gray-500">
-                                                    {providerUserResult.config?.provider_id
-                                                        ? `Override ativo → ${providers.find(p => p.id === providerUserResult.config.provider_id)?.name || 'Provedor desconhecido'}`
-                                                        : 'Sem override · usa provedor padrão global'}
-                                                </p>
-                                            </div>
-                                            <select
-                                                value={selectedProviderForUser}
-                                                onChange={e => setSelectedProviderForUser(e.target.value)}
-                                                className="px-3 py-2 bg-[#0d1117] border border-white/[0.08] rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40"
-                                            >
-                                                <option value="">↔ Padrão global</option>
-                                                {providers.filter(p => p.is_active).map(p => (
-                                                    <option key={p.id} value={p.id}>{PROVIDER_ICONS[p.type]} {p.name}</option>
-                                                ))}
-                                            </select>
-                                            <button
-                                                onClick={handleAssignProviderToUser}
-                                                disabled={assigningProvider}
-                                                className="px-4 py-2 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-400 hover:to-blue-500 disabled:opacity-50 text-white rounded-lg text-sm font-semibold transition-all"
-                                            >
-                                                {assigningProvider ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin mx-auto" /> : 'Atribuir'}
-                                            </button>
+                            {providerSearchResults !== null && (
+                                <div className="border-b border-white/[0.04]">
+                                    {providerSearchResults!.length === 0 ? (
+                                        <div className="px-6 py-4 bg-red-500/[0.02]">
+                                            <p className="text-sm text-red-400">Nenhum usuário encontrado para "{providerUserSearch}"</p>
                                         </div>
+                                    ) : (
+                                        <>
+                                            {/* Lista de usuários encontrados (quando > 1) */}
+                                            {providerSearchResults!.length > 1 && !providerUserResult && (
+                                                <div className="px-6 py-3 bg-white/[0.01]">
+                                                    <p className="text-xs text-gray-500 mb-2">{providerSearchResults!.length} usuários encontrados — clique para selecionar:</p>
+                                                    <div className="flex flex-col gap-1">
+                                                        {providerSearchResults!.map(u => (
+                                                            <button
+                                                                key={u.id}
+                                                                onClick={() => handleSelectProviderUser(u)}
+                                                                className="flex items-center gap-3 px-3 py-2 rounded-lg bg-white/[0.03] hover:bg-white/[0.07] text-left transition-colors"
+                                                            >
+                                                                <div className="w-7 h-7 bg-gradient-to-br from-blue-500 to-violet-600 rounded-full flex items-center justify-center text-xs font-bold text-white shrink-0">
+                                                                    {u.email?.charAt(0)?.toUpperCase()}
+                                                                </div>
+                                                                <span className="text-sm text-white">{u.email}</span>
+                                                                {u.config?.provider_id && (
+                                                                    <span className="ml-auto text-xs text-blue-400 border border-blue-500/30 rounded px-1.5 py-0.5">
+                                                                        {providers.find(p => p.id === u.config.provider_id)?.name || 'override'}
+                                                                    </span>
+                                                                )}
+                                                            </button>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            )}
+
+                                            {/* Usuário selecionado + atribuição de provedor */}
+                                            {providerUserResult?.user && (
+                                                <div className="px-6 py-4 bg-blue-500/[0.02]">
+                                                    <div className="flex items-center gap-3">
+                                                        {providerSearchResults!.length > 1 && (
+                                                            <button onClick={() => setProviderUserResult(null)} className="text-gray-500 hover:text-white text-xs mr-1 transition-colors">← voltar</button>
+                                                        )}
+                                                        <div className="w-9 h-9 bg-gradient-to-br from-blue-500 to-violet-600 rounded-full flex items-center justify-center text-xs font-bold text-white shrink-0">
+                                                            {providerUserResult!.user.email?.charAt(0)?.toUpperCase()}
+                                                        </div>
+                                                        <div className="flex-1">
+                                                            <p className="text-sm font-semibold text-white">{providerUserResult!.user.email}</p>
+                                                            <p className="text-xs text-gray-500">
+                                                                {providerUserResult!.config?.provider_id
+                                                                    ? `Override ativo → ${providers.find(p => p.id === providerUserResult!.config.provider_id)?.name || 'Provedor desconhecido'}`
+                                                                    : 'Sem override · usa provedor padrão global'}
+                                                            </p>
+                                                        </div>
+                                                        <select
+                                                            value={selectedProviderForUser}
+                                                            onChange={e => setSelectedProviderForUser(e.target.value)}
+                                                            className="px-3 py-2 bg-[#0d1117] border border-white/[0.08] rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40"
+                                                        >
+                                                            <option value="">↔ Padrão global</option>
+                                                            {providers.filter(p => p.is_active).map(p => (
+                                                                <option key={p.id} value={p.id}>{p.name}</option>
+                                                            ))}
+                                                        </select>
+                                                        <button
+                                                            onClick={handleAssignProviderToUser}
+                                                            disabled={assigningProvider}
+                                                            className="px-4 py-2 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-400 hover:to-blue-500 disabled:opacity-50 text-white rounded-lg text-sm font-semibold transition-all"
+                                                        >
+                                                            {assigningProvider ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin mx-auto" /> : 'Atribuir'}
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </>
                                     )}
                                 </div>
                             )}
@@ -3430,7 +3419,7 @@ export default function SuperAdmin() {
                                                 </div>
                                                 {assignedProvider ? (
                                                     <span className={`px-2.5 py-1 rounded-lg text-xs font-semibold border ${c.bg} ${c.text} ${c.border}`}>
-                                                        {PROVIDER_ICONS[assignedProvider.type]} {assignedProvider.name}
+                                                        {assignedProvider.name}
                                                     </span>
                                                 ) : (
                                                     <span className="px-2.5 py-1 rounded-lg text-xs font-semibold border bg-gray-500/15 text-gray-400 border-gray-500/20">
@@ -3481,7 +3470,6 @@ export default function SuperAdmin() {
                                             { key: 'max_free_apps', label: 'Máx. apps no plano Free', desc: 'Limite de apps para usuários gratuitos', suffix: 'apps' },
                                             { key: 'min_withdrawal_amount', label: 'Saque mínimo', desc: 'Valor mínimo em USD para solicitar saque', suffix: 'USD' },
                                             { key: 'withdrawal_hold_days', label: 'Prazo de retenção (D+N)', desc: 'Dias antes de liberar saldo para saque', suffix: 'dias' },
-                                            { key: 'affiliate_max_commission', label: 'Comissão máx. afiliados (%)', desc: 'Percentual máximo permitido para afiliados', suffix: '%' },
                                         ].map(({ key, label, desc, suffix }) => (
                                             <div key={key} className="p-4 bg-white/[0.02] rounded-xl border border-white/[0.05]">
                                                 <div className="flex items-start justify-between mb-3">
@@ -3509,32 +3497,7 @@ export default function SuperAdmin() {
                                             </div>
                                         ))}
 
-                                        {/* Modo manutenção */}
-                                        <div className="p-4 bg-white/[0.02] rounded-xl border border-white/[0.05]">
-                                            <div className="flex items-start justify-between mb-3">
-                                                <div>
-                                                    <p className="text-sm font-medium text-white">Modo Manutenção</p>
-                                                    <p className="text-xs text-gray-500 mt-0.5">Exibe página de manutenção para usuários comuns</p>
-                                                </div>
-                                                <span className={`text-xs px-2 py-0.5 rounded font-semibold ${platformConfigEdits['maintenance_mode'] === 'true' || platformConfigEdits['maintenance_mode'] === true ? 'bg-red-500/20 text-red-400' : 'bg-emerald-500/20 text-emerald-400'}`}>
-                                                    {platformConfigEdits['maintenance_mode'] === 'true' || platformConfigEdits['maintenance_mode'] === true ? 'Ativo' : 'Desativado'}
-                                                </span>
-                                            </div>
-                                            <div className="flex gap-2">
-                                                <button
-                                                    onClick={() => { setPlatformConfigEdits(ed => ({ ...ed, maintenance_mode: 'false' })); setTimeout(() => saveSinglePlatformConfig('maintenance_mode'), 0) }}
-                                                    className={`flex-1 py-2 rounded-lg text-sm font-medium border transition-all ${(platformConfigEdits['maintenance_mode'] === 'false' || platformConfigEdits['maintenance_mode'] === false) ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' : 'bg-white/[0.03] text-gray-500 border-white/[0.08] hover:bg-white/[0.06]'}`}
-                                                >
-                                                    ✓ Online
-                                                </button>
-                                                <button
-                                                    onClick={() => { if (!confirm('Colocar plataforma em manutenção? Todos os usuários serão afetados.')) return; setPlatformConfigEdits(ed => ({ ...ed, maintenance_mode: 'true' })); setTimeout(() => saveSinglePlatformConfig('maintenance_mode'), 0) }}
-                                                    className={`flex-1 py-2 rounded-lg text-sm font-medium border transition-all ${(platformConfigEdits['maintenance_mode'] === 'true' || platformConfigEdits['maintenance_mode'] === true) ? 'bg-red-500/20 text-red-300 border-red-500/30' : 'bg-white/[0.03] text-gray-500 border-white/[0.08] hover:bg-white/[0.06]'}`}
-                                                >
-                                                    ⚠ Manutenção
-                                                </button>
-                                            </div>
-                                        </div>
+
                                     </div>
                                 </div>
 
@@ -3569,149 +3532,225 @@ export default function SuperAdmin() {
                                     </div>
                                 )}
 
-                                {/* ─── Chaves de API dos Provedores ─────────────────────── */}
-                                <div className="backdrop-blur-xl bg-white/[0.02] rounded-none border border-white/[0.05]">
-                                    <div className="p-6 border-b border-white/[0.05] flex items-start justify-between">
-                                        <div>
-                                            <h3 className="text-lg font-semibold text-white">Chaves de API dos Provedores</h3>
-                                            <p className="text-sm text-gray-500 mt-1">Chaves globais da plataforma para Stripe e Mollie. Armazenadas de forma segura no banco.</p>
-                                        </div>
-                                        <span className="px-2.5 py-1 bg-amber-500/10 text-amber-400 border border-amber-500/20 rounded-lg text-xs font-semibold">🔐 Sensível</span>
-                                    </div>
-
-                                    <div className="p-6 space-y-6">
-                                        {/* ── Stripe ── */}
-                                        <div>
-                                            <div className="flex items-center gap-2 mb-4">
-                                                <div className="w-7 h-7 bg-indigo-500/20 rounded-lg flex items-center justify-center">
-                                                    <span className="text-base">🔵</span>
-                                                </div>
-                                                <h4 className="text-sm font-semibold text-white">Stripe</h4>
-                                                <span className="text-xs text-gray-600">Plataforma global</span>
-                                            </div>
-                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                                                {([
-                                                    { key: 'stripe_platform_secret_key', label: 'Secret Key', placeholder: 'sk_live_...', hint: 'Encontre em dashboard.stripe.com → Developers → API keys' },
-                                                    { key: 'stripe_platform_webhook_secret', label: 'Webhook Secret', placeholder: 'whsec_...', hint: 'Encontre em Stripe → Webhooks → seu endpoint' },
-                                                ] as const).map(({ key, label, placeholder, hint }) => {
-                                                    const rawVal = platformConfigEdits[key]
-                                                    const displayVal = typeof rawVal === 'string' ? rawVal.replace(/^"|"$/g, '') : ''
-                                                    const hasValue = displayVal.length > 0
-                                                    return (
-                                                        <div key={key} className="p-4 bg-white/[0.02] rounded-xl border border-indigo-500/10 hover:border-indigo-500/25 transition-colors">
-                                                            <div className="flex items-center justify-between mb-2">
-                                                                <label className="text-xs font-semibold text-gray-300">{label}</label>
-                                                                <div className="flex items-center gap-2">
-                                                                    {hasValue && (
-                                                                        <span className="px-1.5 py-0.5 bg-emerald-500/15 text-emerald-400 text-xs rounded font-medium border border-emerald-500/20">✓ Salva</span>
-                                                                    )}
-                                                                    <button
-                                                                        onClick={() => setShowApiKey(s => ({ ...s, [key]: !s[key] }))}
-                                                                        className="text-xs text-gray-500 hover:text-gray-300 transition-colors px-2 py-0.5 bg-white/[0.04] rounded"
-                                                                    >
-                                                                        {showApiKey[key] ? 'Ocultar' : 'Mostrar'}
-                                                                    </button>
-                                                                </div>
-                                                            </div>
-                                                            <div className="flex gap-2">
-                                                                <input
-                                                                    type={showApiKey[key] ? 'text' : 'password'}
-                                                                    value={displayVal}
-                                                                    onChange={e => setPlatformConfigEdits(ed => ({ ...ed, [key]: `"${e.target.value}"` }))}
-                                                                    placeholder={placeholder}
-                                                                    className="flex-1 px-3 py-2 bg-[#0d1117] border border-white/[0.08] rounded-lg text-white text-sm placeholder-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/40 font-mono"
-                                                                />
-                                                                <button
-                                                                    onClick={() => saveSinglePlatformConfig(key)}
-                                                                    disabled={savingPlatformConfig === key}
-                                                                    className="px-4 py-2 bg-gradient-to-r from-indigo-500 to-indigo-600 hover:from-indigo-400 hover:to-indigo-500 disabled:opacity-50 text-white rounded-lg text-xs font-semibold transition-all whitespace-nowrap"
-                                                                >
-                                                                    {savingPlatformConfig === key ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : 'Salvar'}
-                                                                </button>
-                                                            </div>
-                                                            <p className="text-xs text-gray-600 mt-1.5">{hint}</p>
-                                                        </div>
-                                                    )
-                                                })}
-                                            </div>
-                                        </div>
-
-                                        <div className="border-t border-white/[0.04]" />
-
-                                        {/* ── Mollie ── */}
-                                        <div>
-                                            <div className="flex items-center gap-3 mb-4">
-                                                <div className="w-7 h-7 bg-orange-500/20 rounded-lg flex items-center justify-center">
-                                                    <span className="text-base">🟠</span>
-                                                </div>
-                                                <h4 className="text-sm font-semibold text-white">Mollie</h4>
-                                                <span className="text-xs text-gray-600">Plataforma global</span>
-                                                {/* Toggle test mode inline */}
-                                                <button
-                                                    onClick={() => {
-                                                        const current = platformConfigEdits['mollie_test_mode']
-                                                        const isTest = current === 'true' || current === true
-                                                        setPlatformConfigEdits(ed => ({ ...ed, mollie_test_mode: isTest ? 'false' : 'true' }))
-                                                        setTimeout(() => saveSinglePlatformConfig('mollie_test_mode'), 0)
-                                                    }}
-                                                    className={`ml-auto px-3 py-1 rounded-lg text-xs font-semibold border transition-all ${(platformConfigEdits['mollie_test_mode'] === 'true' || platformConfigEdits['mollie_test_mode'] === true)
-                                                        ? 'bg-amber-500/20 text-amber-300 border-amber-500/30'
-                                                        : 'bg-white/[0.03] text-gray-500 border-white/[0.08] hover:bg-white/[0.06]'
-                                                        }`}
-                                                >
-                                                    {(platformConfigEdits['mollie_test_mode'] === 'true' || platformConfigEdits['mollie_test_mode'] === true) ? '⚠ Modo Teste Ativo' : '✓ Modo Live'}
-                                                </button>
-                                            </div>
-                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                                                {([
-                                                    { key: 'mollie_live_api_key', label: 'Live API Key', placeholder: 'live_...', hint: 'Encontre em my.mollie.com → Developers → API keys' },
-                                                    { key: 'mollie_test_api_key', label: 'Test API Key', placeholder: 'test_...', hint: 'Usada quando Modo Teste está ativo' },
-                                                ] as const).map(({ key, label, placeholder, hint }) => {
-                                                    const rawVal = platformConfigEdits[key]
-                                                    const displayVal = typeof rawVal === 'string' ? rawVal.replace(/^"|"$/g, '') : ''
-                                                    const hasValue = displayVal.length > 0
-                                                    return (
-                                                        <div key={key} className="p-4 bg-white/[0.02] rounded-xl border border-orange-500/10 hover:border-orange-500/25 transition-colors">
-                                                            <div className="flex items-center justify-between mb-2">
-                                                                <label className="text-xs font-semibold text-gray-300">{label}</label>
-                                                                <div className="flex items-center gap-2">
-                                                                    {hasValue && (
-                                                                        <span className="px-1.5 py-0.5 bg-emerald-500/15 text-emerald-400 text-xs rounded font-medium border border-emerald-500/20">✓ Salva</span>
-                                                                    )}
-                                                                    <button
-                                                                        onClick={() => setShowApiKey(s => ({ ...s, [key]: !s[key] }))}
-                                                                        className="text-xs text-gray-500 hover:text-gray-300 transition-colors px-2 py-0.5 bg-white/[0.04] rounded"
-                                                                    >
-                                                                        {showApiKey[key] ? 'Ocultar' : 'Mostrar'}
-                                                                    </button>
-                                                                </div>
-                                                            </div>
-                                                            <div className="flex gap-2">
-                                                                <input
-                                                                    type={showApiKey[key] ? 'text' : 'password'}
-                                                                    value={displayVal}
-                                                                    onChange={e => setPlatformConfigEdits(ed => ({ ...ed, [key]: `"${e.target.value}"` }))}
-                                                                    placeholder={placeholder}
-                                                                    className="flex-1 px-3 py-2 bg-[#0d1117] border border-white/[0.08] rounded-lg text-white text-sm placeholder-gray-700 focus:outline-none focus:ring-2 focus:ring-orange-500/40 font-mono"
-                                                                />
-                                                                <button
-                                                                    onClick={() => saveSinglePlatformConfig(key)}
-                                                                    disabled={savingPlatformConfig === key}
-                                                                    className="px-4 py-2 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-400 hover:to-orange-500 disabled:opacity-50 text-white rounded-lg text-xs font-semibold transition-all whitespace-nowrap"
-                                                                >
-                                                                    {savingPlatformConfig === key ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : 'Salvar'}
-                                                                </button>
-                                                            </div>
-                                                            <p className="text-xs text-gray-600 mt-1.5">{hint}</p>
-                                                        </div>
-                                                    )
-                                                })}
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
                             </>
                         )}
+
+                        {/* ── PROVEDOR GLOBAL PADRÃO ── */}
+                        <div className="backdrop-blur-xl bg-white/[0.02] rounded-none border border-white/[0.05] p-6">
+                            <div className="flex items-start justify-between mb-5">
+                                <div>
+                                    <h3 className="text-lg font-semibold text-white">Provedor Global Padrão</h3>
+                                    <p className="text-sm text-gray-500 mt-1">Usado por todos os usuários sem override individual</p>
+                                </div>
+                                {providers.find(p => p.is_global_default) && (() => {
+                                    const p = providers.find(p => p.is_global_default)!
+                                    const c = PROVIDER_COLORS[p.type]
+                                    return (
+                                        <span className={`px-3 py-1.5 rounded-xl text-xs font-semibold border ${c.bg} ${c.text} ${c.border}`}>
+                                            {p.name}
+                                        </span>
+                                    )
+                                })()}
+                            </div>
+                            {loadingProviders ? (
+                                <div className="flex gap-2">{[1, 2, 3].map(i => <div key={i} className="flex-1 h-12 bg-white/[0.03] rounded-xl animate-pulse" />)}</div>
+                            ) : providers.filter(p => p.is_active).length === 0 ? (
+                                <p className="text-sm text-gray-600 text-center py-4">Cadastre provedores na seção abaixo para selecionar o padrão global.</p>
+                            ) : (
+                                <div className="flex flex-wrap gap-2">
+                                    {providers.filter(p => p.is_active).map(p => {
+                                        const c = PROVIDER_COLORS[p.type]
+                                        const isDefault = p.is_global_default
+                                        return (
+                                            <button
+                                                key={p.id}
+                                                onClick={() => handleSetGlobalDefault(p.id)}
+                                                className={`px-5 py-3 rounded-xl font-semibold text-sm transition-all border ${isDefault ? `${c.bg} ${c.text} ${c.border}` : 'bg-white/[0.03] text-gray-400 border-white/[0.08] hover:bg-white/[0.06]'}`}
+                                            >
+                                                {p.name}
+                                                {isDefault && <span className="ml-2 text-xs opacity-70">★ Padrão</span>}
+                                            </button>
+                                        )
+                                    })}
+                                </div>
+                            )}
+                        </div>
+
+                        {/* ── PROVEDORES CADASTRADOS ── */}
+                        <div className="backdrop-blur-xl bg-white/[0.02] rounded-none border border-white/[0.05] overflow-hidden">
+                            <div className="px-6 py-4 border-b border-white/[0.05] flex items-center justify-between">
+                                <div>
+                                    <h3 className="text-lg font-semibold text-white">Provedores Cadastrados</h3>
+                                    <p className="text-sm text-gray-500 mt-0.5">Credenciais armazenadas no banco — {providers.length} provedor(es)</p>
+                                </div>
+                                <button
+                                    onClick={() => { setShowAddProviderForm(v => !v); setEditingProviderId(null) }}
+                                    className="flex items-center gap-2 px-4 py-2 bg-blue-500/20 hover:bg-blue-500/30 text-blue-300 border border-blue-500/30 rounded-xl text-sm font-semibold transition-all"
+                                >
+                                    {showAddProviderForm ? '✕ Cancelar' : '+ Novo Provedor'}
+                                </button>
+                            </div>
+                            {showAddProviderForm && (
+                                <div className="px-6 py-5 border-b border-blue-500/10 bg-blue-500/[0.02] space-y-4">
+                                    <p className="text-xs font-semibold text-blue-400">+ Cadastrar novo provedor</p>
+                                    <div className="grid grid-cols-2 gap-3">
+                                        <div>
+                                            <label className="block text-xs text-gray-500 mb-1.5 font-medium">Nome de exibição</label>
+                                            <input type="text" placeholder="" value={newProviderForm.name} onChange={e => setNewProviderForm(f => ({ ...f, name: e.target.value }))} className="w-full px-3 py-2 bg-[#0d1117] border border-white/[0.08] rounded-lg text-white text-sm placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500/40" />
+                                        </div>
+                                        <div>
+                                            <label className="block text-xs text-gray-500 mb-1.5 font-medium">Tipo</label>
+                                            <select value={newProviderForm.type} onChange={e => setNewProviderForm(f => ({ ...f, type: e.target.value, credentials: {} }))} className="w-full px-3 py-2 bg-[#0d1117] border border-white/[0.08] rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40">
+                                                <option value="stripe">Stripe</option>
+                                                <option value="mollie">Mollie</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-3">
+                                        {(CREDENTIAL_FIELDS[newProviderForm.type] || []).map(field => (
+                                            <div key={field.key}>
+                                                <label className="block text-xs text-gray-500 mb-1.5 font-medium">{field.label}</label>
+                                                <input type="password" placeholder={field.placeholder} value={(newProviderForm.credentials as any)[field.key] || ''} onChange={e => setNewProviderForm(f => ({ ...f, credentials: { ...f.credentials, [field.key]: e.target.value } }))} className="w-full px-3 py-2 bg-[#0d1117] border border-white/[0.08] rounded-lg text-white text-sm placeholder-gray-600 font-mono focus:outline-none focus:ring-2 focus:ring-blue-500/40" />
+                                            </div>
+                                        ))}
+                                    </div>
+                                    <button onClick={handleCreateProvider} disabled={savingProvider || !newProviderForm.name} className="px-5 py-2 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-400 hover:to-blue-500 disabled:opacity-50 text-white rounded-lg text-sm font-semibold transition-all">
+                                        {savingProvider ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin mx-auto" /> : 'Cadastrar Provedor'}
+                                    </button>
+                                </div>
+                            )}
+                            {loadingProviders ? (
+                                <div className="p-12 flex justify-center"><div className="w-8 h-8 border-2 border-blue-500/30 border-t-blue-500 rounded-full animate-spin" /></div>
+                            ) : providers.length === 0 ? (
+                                <div className="p-12 text-center">
+                                    <p className="text-gray-500 text-sm">Nenhum provedor cadastrado.</p>
+                                    <p className="text-gray-600 text-xs mt-1">Use o botão "+ Novo Provedor" para adicionar.</p>
+                                </div>
+                            ) : (
+                                <div className="divide-y divide-white/[0.03]">
+                                    {providers.map(provider => {
+                                        const c = PROVIDER_COLORS[provider.type]
+                                        const isEditing = editingProviderId === provider.id
+                                        return (
+                                            <div key={provider.id} className={isEditing ? 'bg-white/[0.015]' : ''}>
+                                                <div className="px-6 py-4 flex items-center gap-4">
+
+                                                    <div className="flex-1">
+                                                        <div className="flex items-center gap-2 flex-wrap">
+                                                            <p className="text-sm font-semibold text-white">{provider.name}</p>
+                                                            <span className={`px-2 py-0.5 rounded text-xs font-semibold border ${c.bg} ${c.text} ${c.border}`}>{provider.type}</span>
+                                                            <span className={`px-2 py-0.5 rounded text-xs font-semibold border ${provider.is_active ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30' : 'bg-gray-500/15 text-gray-400 border-gray-500/20'}`}>{provider.is_active ? '● Ativo' : '○ Inativo'}</span>
+                                                            {provider.is_global_default && (<span className="px-2 py-0.5 rounded text-xs font-semibold border bg-blue-500/15 text-blue-300 border-blue-500/30">★ Padrão global</span>)}
+                                                        </div>
+                                                        <p className="text-xs text-gray-600 mt-0.5">Criado em {new Date(provider.created_at).toLocaleDateString('pt-BR')}</p>
+                                                    </div>
+                                                    <div className="flex items-center gap-2">
+                                                        <button onClick={() => handleToggleProviderActive(provider.id, provider.is_active)} className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all ${provider.is_active ? 'bg-gray-500/10 text-gray-400 border-gray-500/20 hover:bg-gray-500/20' : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20 hover:bg-emerald-500/20'}`}>{provider.is_active ? 'Desativar' : 'Ativar'}</button>
+                                                        <button onClick={() => { if (isEditing) { setEditingProviderId(null); return } setEditingProviderId(provider.id); setEditingProviderName(provider.name); setEditingProviderCreds({}); setShowAddProviderForm(false) }} className={`px-3 py-1.5 rounded-lg text-xs transition-colors border ${isEditing ? `${c.bg} ${c.text} ${c.border}` : 'bg-white/[0.05] hover:bg-white/[0.1] text-gray-400 hover:text-white border-white/[0.08]'}`}>{isEditing ? '✎ Editando' : 'Editar chaves'}</button>
+                                                        {!provider.is_global_default && (<button onClick={() => handleDeleteProvider(provider.id)} className="px-3 py-1.5 bg-red-500/10 hover:bg-red-500/20 text-red-400 rounded-lg text-xs transition-colors border border-red-500/20">Remover</button>)}
+                                                    </div>
+                                                </div>
+                                                {isEditing && (
+                                                    <div className="px-6 pb-5 space-y-4 border-t border-white/[0.05]">
+                                                        <div className="pt-4 grid grid-cols-2 gap-3">
+                                                            <div className="col-span-2 md:col-span-1">
+                                                                <label className="block text-xs text-gray-500 mb-1.5 font-medium">Nome de exibição</label>
+                                                                <input type="text" value={editingProviderName} onChange={e => setEditingProviderName(e.target.value)} className="w-full px-3 py-2 bg-[#0d1117] border border-white/[0.08] rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40" />
+                                                            </div>
+                                                            {(CREDENTIAL_FIELDS[provider.type] || []).map(field => (
+                                                                <div key={field.key}>
+                                                                    <label className="block text-xs text-gray-500 mb-1.5 font-medium">{field.label} <span className="text-gray-700">(deixe em branco para manter)</span></label>
+                                                                    <div className="flex gap-2">
+                                                                        <input type={showApiKey[`edit-${provider.id}-${field.key}`] ? 'text' : 'password'} placeholder={field.placeholder} value={editingProviderCreds[field.key] || ''} onChange={e => setEditingProviderCreds(prev => ({ ...prev, [field.key]: e.target.value }))} className="flex-1 px-3 py-2 bg-[#0d1117] border border-white/[0.08] rounded-lg text-white text-sm font-mono placeholder-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500/40" />
+                                                                        <button onClick={() => setShowApiKey(prev => ({ ...prev, [`edit-${provider.id}-${field.key}`]: !prev[`edit-${provider.id}-${field.key}`] }))} className="px-3 py-2 bg-white/[0.04] hover:bg-white/[0.08] text-gray-400 rounded-lg text-xs border border-white/[0.08]">{showApiKey[`edit-${provider.id}-${field.key}`] ? 'Ocultar' : 'Mostrar'}</button>
+                                                                    </div>
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                        <div className="flex gap-2">
+                                                            <button onClick={() => setEditingProviderId(null)} className="px-4 py-2 bg-white/[0.05] hover:bg-white/[0.1] text-gray-400 rounded-lg text-sm transition-colors border border-white/[0.08]">Cancelar</button>
+                                                            <button onClick={() => handleSaveProviderEdit(provider.id)} disabled={savingProvider} className="px-5 py-2 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-400 hover:to-blue-500 disabled:opacity-50 text-white rounded-lg text-sm font-semibold transition-all">{savingProvider ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin mx-auto" /> : 'Salvar'}</button>
+                                                        </div>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        )
+                                    })}
+                                </div>
+                            )}
+                        </div>
+
+                        {/* ── OVERRIDES POR USUÁRIO ── */}
+                        <div className="backdrop-blur-xl bg-white/[0.02] rounded-none border border-white/[0.05] overflow-hidden">
+                            <div className="px-6 py-4 border-b border-white/[0.05] flex items-center justify-between gap-4">
+                                <div>
+                                    <h3 className="text-lg font-semibold text-white">Overrides por Usuário</h3>
+                                    <p className="text-sm text-gray-500 mt-0.5">Atribua um provedor específico a qualquer owner</p>
+                                </div>
+                                <button onClick={fetchPaymentConfigs} className="px-4 py-2 bg-white/[0.05] hover:bg-white/[0.1] text-gray-300 rounded-xl text-sm border border-white/[0.08] transition-colors">Atualizar</button>
+                            </div>
+                            <div className="px-6 py-4 border-b border-white/[0.04] flex items-center gap-3">
+                                <div className="relative flex-1 max-w-sm">
+                                    <input type="text" placeholder="Buscar owner por email..." value={providerUserSearch} onChange={e => setProviderUserSearch(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleSearchProviderUser()} className="w-full pl-8 pr-3 py-2 bg-[#0d1117] border border-white/[0.08] rounded-xl text-white text-sm placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500/40" />
+                                    <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-600 text-sm">🔍</span>
+                                </div>
+                                <button onClick={handleSearchProviderUser} disabled={searchingProviderUser} className="px-4 py-2 bg-blue-500/20 hover:bg-blue-500/30 text-blue-300 border border-blue-500/30 rounded-xl text-sm font-semibold transition-all disabled:opacity-50">
+                                    {searchingProviderUser ? <div className="w-4 h-4 border-2 border-blue-300/30 border-t-blue-300 rounded-full animate-spin" /> : 'Buscar'}
+                                </button>
+                            </div>
+                            {providerUserResult && (
+                                <div className={`px-6 py-4 border-b ${providerUserResult!.user ? 'border-blue-500/10 bg-blue-500/[0.02]' : 'border-red-500/10 bg-red-500/[0.02]'}`}>
+                                    {!providerUserResult!.user ? (
+                                        <p className="text-sm text-red-400">Usuário não encontrado para "{providerUserSearch}"</p>
+                                    ) : (
+                                        <div className="flex items-center gap-3">
+                                            <div className="w-9 h-9 bg-gradient-to-br from-blue-500 to-violet-600 rounded-full flex items-center justify-center text-xs font-bold text-white">{providerUserResult!.user.email?.charAt(0)?.toUpperCase()}</div>
+                                            <div className="flex-1">
+                                                <p className="text-sm font-semibold text-white">{providerUserResult!.user.email}</p>
+                                                <p className="text-xs text-gray-500">{providerUserResult!.config?.provider_id ? `Override ativo → ${providers.find(p => p.id === providerUserResult!.config.provider_id)?.name || 'Provedor desconhecido'}` : 'Sem override · usa provedor padrão global'}</p>
+                                            </div>
+                                            <select value={selectedProviderForUser} onChange={e => setSelectedProviderForUser(e.target.value)} className="px-3 py-2 bg-[#0d1117] border border-white/[0.08] rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40">
+                                                <option value="">↔ Padrão global</option>
+                                                {providers.filter(p => p.is_active).map(p => (<option key={p.id} value={p.id}>{p.name}</option>))}
+                                            </select>
+                                            <button onClick={handleAssignProviderToUser} disabled={assigningProvider} className="px-4 py-2 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-400 hover:to-blue-500 disabled:opacity-50 text-white rounded-lg text-sm font-semibold transition-all">
+                                                {assigningProvider ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin mx-auto" /> : 'Atribuir'}
+                                            </button>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+                            {loadingPaymentConfigs ? (
+                                <div className="p-12 flex justify-center"><div className="w-8 h-8 border-2 border-blue-500/30 border-t-blue-500 rounded-full animate-spin" /></div>
+                            ) : paymentConfigs.length === 0 ? (
+                                <div className="p-10 text-center">
+                                    <p className="text-gray-500 text-sm">Nenhum override configurado ainda.</p>
+                                    <p className="text-gray-600 text-xs mt-1">Busque um usuário acima para atribuir um provedor específico.</p>
+                                </div>
+                            ) : (
+                                <div className="divide-y divide-white/[0.03]">
+                                    {paymentConfigs.map((cfg) => {
+                                        const assignedProvider = providers.find(p => p.id === cfg.provider_id)
+                                        const c = assignedProvider ? PROVIDER_COLORS[assignedProvider.type] : PROVIDER_COLORS.stripe
+                                        return (
+                                            <div key={cfg.id} className="px-6 py-4 flex items-center gap-4">
+                                                <div className="w-9 h-9 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center text-white text-sm font-bold">{cfg.user_email?.charAt(0)?.toUpperCase() || '?'}</div>
+                                                <div className="flex-1">
+                                                    <p className="text-sm font-medium text-white">{cfg.user_email}</p>
+                                                    <p className="text-xs text-gray-500">{cfg.user_id}</p>
+                                                </div>
+                                                {assignedProvider ? (
+                                                    <span className={`px-2.5 py-1 rounded-lg text-xs font-semibold border ${c.bg} ${c.text} ${c.border}`}>{assignedProvider.name}</span>
+                                                ) : (
+                                                    <span className="px-2.5 py-1 rounded-lg text-xs font-semibold border bg-gray-500/15 text-gray-400 border-gray-500/20">{cfg.payment_provider || 'Padrão global'}</span>
+                                                )}
+                                                <span className="px-2.5 py-1 rounded-lg text-xs font-semibold border bg-emerald-500/15 text-emerald-300 border-emerald-500/30">● ativo</span>
+                                            </div>
+                                        )
+                                    })}
+                                </div>
+                            )}
+                        </div>
                     </div>
                 )}
 

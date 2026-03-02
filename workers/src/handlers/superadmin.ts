@@ -705,18 +705,26 @@ export async function handleSuperadmin(request: Request, env: any, pathSegments:
                 })
             }
             const { data: usersData } = await supabase.auth.admin.listUsers()
-            const found = (usersData?.users || []).find((u: any) => u.email?.toLowerCase() === email.toLowerCase())
-            if (!found) {
-                return new Response(JSON.stringify({ user: null }), {
+            const matched = (usersData?.users || [])
+                .filter((u: any) => u.email?.toLowerCase().includes(email.toLowerCase()))
+                .slice(0, 15)
+            if (matched.length === 0) {
+                return new Response(JSON.stringify({ users: [] }), {
                     headers: { ...corsHeaders, 'Content-Type': 'application/json' }
                 })
             }
-            const { data: currentCfg } = await supabase
+            const ids = matched.map((u: any) => u.id)
+            const { data: configs } = await supabase
                 .from('user_payment_config')
                 .select('*')
-                .eq('user_id', found.id)
-                .single()
-            return new Response(JSON.stringify({ user: { id: found.id, email: found.email }, config: currentCfg || null }), {
+                .in('user_id', ids)
+            const configMap: Record<string, any> = Object.fromEntries((configs || []).map((c: any) => [c.user_id, c]))
+            const users = matched.map((u: any) => ({
+                id: u.id,
+                email: u.email,
+                config: configMap[u.id] || null
+            }))
+            return new Response(JSON.stringify({ users }), {
                 headers: { ...corsHeaders, 'Content-Type': 'application/json' }
             })
         }
