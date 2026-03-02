@@ -19,9 +19,9 @@ const CHECKOUT_API = 'https://api.clicknich.com'
 function makeHeaders(shortId) {
     return {
         'Content-Type': 'text/html; charset=utf-8',
-        // 10s de cache na CDN Cloudflare global → requisições populares chegam
-        // no edge mais próximo do usuário sem passar pelo worker
-        'Cache-Control': 'public, max-age=10, stale-while-revalidate=60',
+        // 60s de cache na CDN Cloudflare global → 6x mais CDN hits,
+        // a maioria dos usuários nem chega ao Worker
+        'Cache-Control': 'public, max-age=60, stale-while-revalidate=300',
         'X-Edge-Rendered': 'true',
         'X-Checkout-Id': shortId,
         // Early Hints (103): Cloudflare converte automaticamente para push/preload
@@ -90,7 +90,7 @@ export default {
             const data = await dataPromise
             const full = buildInjectedHtml(html, shortId, data)
             if (env.CACHE && data) {
-                ctx.waitUntil(env.CACHE.put(`html:${shortId}`, full, { expirationTtl: 1800 }).catch(() => { }))
+                ctx.waitUntil(env.CACHE.put(`html:${shortId}`, full, { expirationTtl: 86400 }).catch(() => { }))
             }
             return new Response(full, { status: 200, headers: makeHeaders(shortId) })
         }
@@ -119,7 +119,8 @@ export default {
                 // 4. Background: grava HTML completo no KV para próximas requisições (TTL 30min)
                 if (env.CACHE && checkoutData) {
                     const fullHtml = headChunk + scriptTag + tailChunk
-                    env.CACHE.put(`html:${shortId}`, fullHtml, { expirationTtl: 1800 }).catch(() => { })
+                    // TTL 24h — purge ativo ao salvar checkout garante dados frescos
+                    env.CACHE.put(`html:${shortId}`, fullHtml, { expirationTtl: 86400 }).catch(() => { })
                 }
             } catch (_) {
                 // Ignora erros de write (conexão fechada pelo cliente, etc.)

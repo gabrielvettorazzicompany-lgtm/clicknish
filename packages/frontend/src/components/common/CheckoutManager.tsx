@@ -215,6 +215,13 @@ export default function CheckoutManager({
             ))
             setEditModal(null)
             alert(t('components.checkout_manager.updated_success'))
+
+            // ⚡ Purge KV cache — próximo acesso já vê o novo preço/nome
+            fetch('https://api.clicknich.com/api/cache/purge', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ checkoutId: editModal.id }),
+            }).catch(() => { })
         } catch (error) {
             console.error('Error updating price:', error)
             alert(t('components.checkout_manager.error_updating_price'))

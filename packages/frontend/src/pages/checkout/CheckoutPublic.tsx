@@ -1,13 +1,18 @@
 import { useParams, useNavigate } from 'react-router-dom'
-import { useEffect, useState, useCallback, useRef } from 'react'
+import { useEffect, useState, useCallback, useRef, lazy, Suspense } from 'react'
 import { supabase } from '@/services/supabase'
 import { useCheckoutPageView, trackCheckoutEvent } from '@/services/checkouts'
-import CheckoutDigital, { getStripePromise } from '@/components/checkout/CheckoutDigital'
 import type { CheckoutLanguage } from '@/components/checkout/translations'
 import { getTranslations } from '@/components/checkout/translations'
+// ⚡ PRELOAD: Stripe começa a carregar imediatamente — importação barata do singleton
+// (não puxa o bundle inteiro de CheckoutDigital)
+import { getStripePromise } from '@/lib/stripe-singleton'
 
-// ⚡ PRELOAD: Stripe começa a carregar imediatamente ao importar este módulo,
-// em paralelo com o fetch de dados — elimina a espera sequencial (~200-300ms)
+// ⚡ LAZY: CheckoutDigital (~pesado) só é parsed/executado após o React hidratar.
+// O download já começa agora (browser faz prefetch), mas não bloqueia o primeiro render.
+const CheckoutDigital = lazy(() => import('@/components/checkout/CheckoutDigital'))
+
+// ⚡ PRELOAD: inicia conexão com Stripe em paralelo com o fetch de dados
 getStripePromise()
 
 interface Product {
@@ -868,84 +873,88 @@ export default function CheckoutPublic() {
     }
 
     return (
-        <CheckoutDigital
-            productId={product.id}
-            productName={product.name}
-            productPrice={checkout.custom_price || product.price}
-            productImage={product.image_url}
-            productDescription={product.description}
-            selectedPaymentMethods={product.payment_methods || ['credit_card']}
-            defaultPaymentMethod={product.default_payment_method || 'credit_card'}
-            productType={product.productType}
-            applicationId={product.applicationId}
-            checkoutId={checkout.id}
-            sessionId={checkoutSessionId || undefined}
-            trackingParameters={utmParams.current}
-            language={checkout.language}
-            initialOrderBumps={initialOrderBumps}
-            initialAppProducts={initialAppProducts}
-            customBanner={{
-                image: checkout.banner_image,
-                title: checkout.banner_title,
-                customHeight: checkout.custom_height
-            }}
-            timerConfig={timerConfig}
-            isPreview={false}
-            buttonColor={buttonColor}
-            securitySealsEnabled={securitySealsEnabled}
-            testimonials={testimonials}
-            imageBlocks={imageBlocks}
-            onProcessPayment={handleProcessPayment}
-            onLeadCapture={(data) => {
-                leadDataRef.current = data
-                abandonedFiredRef.current = false
-            }}
-            onPaymentSuccess={async (paymentResult) => {
-                // Pagamento confirmado — cancelar envio de abandono
-                abandonedFiredRef.current = true
-                // Track conversion event
-                if (finalCheckoutId) {
-                    try {
-                        await trackCheckoutEvent(finalCheckoutId, 'conversion', {
-                            purchase_id: paymentResult?.purchaseId || paymentResultRef.current?.purchaseId,
-                            thankyou_token: paymentResult?.thankyouToken || paymentResultRef.current?.thankyouToken,
-                            timestamp: new Date().toISOString()
-                        })
-                    } catch (error) {
-                        console.warn('Failed to track conversion:', error)
+        // Suspense necessário pelo lazy(). Na prática o bundle já foi baixado
+        // durante o loading dos dados, então este fallback raramente aparece.
+        <Suspense fallback={null}>
+            <CheckoutDigital
+                productId={product.id}
+                productName={product.name}
+                productPrice={checkout.custom_price || product.price}
+                productImage={product.image_url}
+                productDescription={product.description}
+                selectedPaymentMethods={product.payment_methods || ['credit_card']}
+                defaultPaymentMethod={product.default_payment_method || 'credit_card'}
+                productType={product.productType}
+                applicationId={product.applicationId}
+                checkoutId={checkout.id}
+                sessionId={checkoutSessionId || undefined}
+                trackingParameters={utmParams.current}
+                language={checkout.language}
+                initialOrderBumps={initialOrderBumps}
+                initialAppProducts={initialAppProducts}
+                customBanner={{
+                    image: checkout.banner_image,
+                    title: checkout.banner_title,
+                    customHeight: checkout.custom_height
+                }}
+                timerConfig={timerConfig}
+                isPreview={false}
+                buttonColor={buttonColor}
+                securitySealsEnabled={securitySealsEnabled}
+                testimonials={testimonials}
+                imageBlocks={imageBlocks}
+                onProcessPayment={handleProcessPayment}
+                onLeadCapture={(data) => {
+                    leadDataRef.current = data
+                    abandonedFiredRef.current = false
+                }}
+                onPaymentSuccess={async (paymentResult) => {
+                    // Pagamento confirmado — cancelar envio de abandono
+                    abandonedFiredRef.current = true
+                    // Track conversion event
+                    if (finalCheckoutId) {
+                        try {
+                            await trackCheckoutEvent(finalCheckoutId, 'conversion', {
+                                purchase_id: paymentResult?.purchaseId || paymentResultRef.current?.purchaseId,
+                                thankyou_token: paymentResult?.thankyouToken || paymentResultRef.current?.thankyouToken,
+                                timestamp: new Date().toISOString()
+                            })
+                        } catch (error) {
+                            console.warn('Failed to track conversion:', error)
+                        }
                     }
-                }
 
-                const result = paymentResult || paymentResultRef.current
-                if (!result) return
+                    const result = paymentResult || paymentResultRef.current
+                    if (!result) return
 
-                const urlParams = new URLSearchParams(window.location.search)
-                const postPurchaseRedirect = urlParams.get('redirect')
+                    const urlParams = new URLSearchParams(window.location.search)
+                    const postPurchaseRedirect = urlParams.get('redirect')
 
-                // Redirect explícito via query param
-                if (postPurchaseRedirect) {
-                    setTimeout(() => { window.location.href = postPurchaseRedirect }, 150)
-                    return
-                }
+                    // Redirect explícito via query param
+                    if (postPurchaseRedirect) {
+                        setTimeout(() => { window.location.href = postPurchaseRedirect }, 150)
+                        return
+                    }
 
-                // Usar config pré-carregada enquanto o usuário preenchia o formulário
-                if (preloadedRedirect?.url) {
-                    const baseUrl = preloadedRedirect.url
-                    const finalUrl = baseUrl.includes('?')
-                        ? `${baseUrl}&purchase_id=${result.purchaseId}&token=${result.thankyouToken}`
-                        : `${baseUrl}?purchase_id=${result.purchaseId}&token=${result.thankyouToken}`
-                    setTimeout(() => { window.location.href = finalUrl }, 150)
-                    return
-                }
+                    // Usar config pré-carregada enquanto o usuário preenchia o formulário
+                    if (preloadedRedirect?.url) {
+                        const baseUrl = preloadedRedirect.url
+                        const finalUrl = baseUrl.includes('?')
+                            ? `${baseUrl}&purchase_id=${result.purchaseId}&token=${result.thankyouToken}`
+                            : `${baseUrl}?purchase_id=${result.purchaseId}&token=${result.thankyouToken}`
+                        setTimeout(() => { window.location.href = finalUrl }, 150)
+                        return
+                    }
 
-                // Usar redirectUrl do backend (upsell ou login)
-                if (result.redirectUrl) {
-                    const url = result.redirectUrl
-                    setTimeout(() => { window.location.href = url }, 150)
-                    return
-                }
+                    // Usar redirectUrl do backend (upsell ou login)
+                    if (result.redirectUrl) {
+                        const url = result.redirectUrl
+                        setTimeout(() => { window.location.href = url }, 150)
+                        return
+                    }
 
-            }}
-        />
+                }}
+            />
+        </Suspense>
     )
 }

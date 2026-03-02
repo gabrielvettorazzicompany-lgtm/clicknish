@@ -104,9 +104,9 @@ export async function handleCheckoutData(
         // ═══════════════════════════════════════════════════════════════════
         if (env.CACHE && rpcResult) {
             const serialized = JSON.stringify(rpcResult)
-            // Cache principal: 30 minutos — reduz drasticamente cache misses
+            // Cache principal: 24h — purge ativo ao salvar checkout garante dados frescos
             const mainCachePromise = env.CACHE.put(cacheKey, serialized, {
-                expirationTtl: 1800,  // 30 min
+                expirationTtl: 86400,  // 24h
             })
             // Micro cache: 2 min — absorve picos de requisições burst
             const microCachePromise = env.CACHE.put(microCacheKey, serialized, {

@@ -35,6 +35,7 @@ import { handleWebhooks, handleStripeWebhook } from './handlers/webhooks'
 import { handleCheckoutSession } from './handlers/checkout-session'
 import { handleCheckoutData } from './handlers/checkout-data'
 import { handleCachePreloader } from './handlers/preloader'
+import { handleCachePurge } from './handlers/purge'
 
 export interface Env {
     // Variáveis públicas
@@ -135,6 +136,11 @@ async function handleApiRoute(
     if (pathname.startsWith('/api/checkout-data/') && request.method === 'GET') {
         const shortId = pathname.split('/api/checkout-data/')[1]
         return handleCheckoutData(request, env, shortId, ctx)
+    }
+
+    // POST /api/cache/purge — invalida KV ao salvar checkout no dashboard
+    if (pathname === '/api/cache/purge' && request.method === 'POST') {
+        return handleCachePurge(request, env, ctx)
     }
 
     // GET /api/cache-preloader — Sistema de pré-aquecimento inteligente (cron trigger)

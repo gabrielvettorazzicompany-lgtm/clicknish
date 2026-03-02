@@ -1,14 +1,9 @@
 import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react'
-import { loadStripe } from '@stripe/stripe-js'
 
-// ✅ OTIMIZAÇÃO: Singleton exportado — permite preload antes do componente montar
-let stripePromise: any = null
-export const getStripePromise = () => {
-    if (!stripePromise && import.meta.env.VITE_STRIPE_PUBLIC_KEY) {
-        stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLIC_KEY as string)
-    }
-    return stripePromise
-}
+// ✅ Singleton extraído para stripe-singleton.ts — permite preload independente
+// do lazy load deste componente (CheckoutPublic importa direto o singleton)
+import { getStripePromise } from '@/lib/stripe-singleton'
+export { getStripePromise } from '@/lib/stripe-singleton'
 
 import { Elements, CardNumberElement, useStripe, useElements } from '@stripe/react-stripe-js'
 import { useNavigate } from 'react-router-dom'
@@ -207,8 +202,9 @@ function CheckoutDigital({
     // EAGER LOADING: Pré-aquecer Stripe Elements
     // ═══════════════════════════════════════════════════════════════════
     useEffect(() => {
-        if (stripePromise) {
-            stripePromise.then(() => {
+        const promise = getStripePromise()
+        if (promise) {
+            promise.then(() => {
                 console.log('Stripe Elements pré-carregado com sucesso')
             }).catch((err: unknown) => {
                 console.warn('Falha no pré-carregamento do Stripe:', err)

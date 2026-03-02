@@ -459,6 +459,22 @@ export async function createCheckout(data: {
 }
 
 /**
+ * Invalida o cache KV do edge worker para um checkout.
+ * Fire-and-forget — não bloqueia a operação principal.
+ */
+async function purgeCheckoutCache(checkoutId: string): Promise<void> {
+    try {
+        await fetch('https://api.clicknich.com/api/cache/purge', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ checkoutId }),
+        })
+    } catch {
+        // Ignora falhas de rede — o cache vai expirar naturalmente em 24h
+    }
+}
+
+/**
  * Atualiza um checkout existente
  */
 export async function updateCheckout(
@@ -474,6 +490,10 @@ export async function updateCheckout(
             .single()
 
         if (error) throw error
+
+        // ⚡ Purge KV cache em background — próximo acesso já vê os dados novos
+        purgeCheckoutCache(checkoutId)
+
         return checkout
     } catch (error) {
         console.error('Error updating checkout:', error)
