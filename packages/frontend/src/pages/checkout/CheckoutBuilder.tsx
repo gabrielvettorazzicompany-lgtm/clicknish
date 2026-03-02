@@ -99,6 +99,7 @@ export default function CheckoutBuilder() {
     const [checkoutLanguage, setCheckoutLanguage] = useState<CheckoutLanguage>('en')
 
     const [buttonColor, setButtonColor] = useState('#111827')
+    const [paymentMethodsOverride, setPaymentMethodsOverride] = useState<('credit_card' | 'paypal')[] | null>(null)
     const [utmifyToken, setUtmifyToken] = useState('')
     const [utmifyTokenVisible, setUtmifyTokenVisible] = useState(false)
     const [customPixels, setCustomPixels] = useState('')
@@ -251,6 +252,11 @@ export default function CheckoutBuilder() {
             if (customFields.imageBlocks) {
                 setImageBlocks(customFields.imageBlocks)
             }
+
+            // Load payment methods override
+            if (customFields.paymentMethods) {
+                setPaymentMethodsOverride(customFields.paymentMethods)
+            }
         } catch (error) {
             console.error('Error loading data:', error)
             alert(t('checkout_pages.error_loading'))
@@ -294,7 +300,8 @@ export default function CheckoutBuilder() {
                 bannerImagePosition: bannerImagePosition,
                 securitySealsEnabled: securitySealsEnabled,
                 testimonials: testimonials.length > 0 ? testimonials : undefined,
-                imageBlocks: imageBlocks.length > 0 ? imageBlocks : undefined
+                imageBlocks: imageBlocks.length > 0 ? imageBlocks : undefined,
+                paymentMethods: paymentMethodsOverride ?? undefined
             }
 
 
@@ -808,7 +815,7 @@ export default function CheckoutBuilder() {
                                             productName={product.name}
                                             productPrice={checkoutPrice !== '' ? parseFloat(checkoutPrice) || product.price : (checkout.custom_price || product.price)}
                                             productCurrency={product.currency}
-                                            selectedPaymentMethods={product.payment_methods as ('credit_card' | 'paypal')[]}
+                                            selectedPaymentMethods={(paymentMethodsOverride ?? product.payment_methods) as ('credit_card' | 'paypal')[]}
                                             defaultPaymentMethod={product.default_payment_method as 'credit_card' | 'paypal'}
                                             productImage={product.image_url}
                                             productDescription={product.description}
@@ -990,6 +997,39 @@ export default function CheckoutBuilder() {
                                         className="w-full px-2 py-2 bg-gray-950 border border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-300 text-[11px] font-mono resize-y"
                                     />
                                 </div>
+
+                                {/* MÉTODOS DE PAGAMENTO */}
+                                {product && product.payment_methods && product.payment_methods.length > 1 && (
+                                    <div className="mt-4 pt-4 border-t border-gray-700">
+                                        <div className="text-[10px] font-semibold text-gray-400 tracking-widest mb-2">
+                                            MÉTODOS DE PAGAMENTO
+                                        </div>
+                                        <div className="space-y-1.5">
+                                            {product.payment_methods.map((method) => {
+                                                const active = (paymentMethodsOverride ?? product.payment_methods!).includes(method as 'credit_card' | 'paypal')
+                                                const label = method === 'credit_card' ? 'Cartão de Crédito' : 'PayPal'
+                                                return (
+                                                    <label key={method} className="flex items-center gap-2 cursor-pointer group">
+                                                        <div
+                                                            onClick={() => {
+                                                                const current = (paymentMethodsOverride ?? product.payment_methods!) as ('credit_card' | 'paypal')[]
+                                                                const updated = current.includes(method as 'credit_card' | 'paypal')
+                                                                    ? current.filter(m => m !== method)
+                                                                    : [...current, method as 'credit_card' | 'paypal']
+                                                                if (updated.length === 0) return // mínimo 1
+                                                                setPaymentMethodsOverride(updated)
+                                                            }}
+                                                            className={`w-8 h-4 rounded-full transition-colors cursor-pointer flex-shrink-0 ${active ? 'bg-blue-500' : 'bg-gray-700'}`}
+                                                        >
+                                                            <div className={`w-3.5 h-3.5 rounded-full bg-white shadow transition-transform m-[1px] ${active ? 'translate-x-4' : 'translate-x-0'}`} />
+                                                        </div>
+                                                        <span className={`text-[11px] transition-colors ${active ? 'text-gray-200' : 'text-gray-500'}`}>{label}</span>
+                                                    </label>
+                                                )
+                                            })}
+                                        </div>
+                                    </div>
+                                )}
 
                                 {/* IMAGENS */}
                                 <div className="mt-4 pt-4 border-t border-gray-700">

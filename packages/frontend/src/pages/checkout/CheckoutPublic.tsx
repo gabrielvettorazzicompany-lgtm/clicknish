@@ -74,6 +74,8 @@ function buildInitialState(raw: any) {
         description: prod.description || '',
         productType: raw.productType,
         applicationId: prod.applicationId || undefined,
+        payment_methods: (customFields.paymentMethods ?? prod.payment_methods) as ('credit_card' | 'paypal')[] | undefined,
+        default_payment_method: prod.default_payment_method as 'credit_card' | 'paypal' | undefined,
     }
     const checkout: Checkout = {
         id: ck.id,
@@ -542,6 +544,13 @@ export default function CheckoutPublic() {
             }
             if (customFields.imageBlocks) {
                 setImageBlocks(customFields.imageBlocks)
+            }
+
+            // Aplicar override de métodos de pagamento por checkout
+            if (customFields.paymentMethods && Array.isArray(customFields.paymentMethods)) {
+                fetchedProduct.payment_methods = customFields.paymentMethods as ('credit_card' | 'paypal')[]
+                // Atualiza o produto no estado com o override
+                setProduct({ ...fetchedProduct })
             }
 
             // Load pixels e UTMs personalizados
