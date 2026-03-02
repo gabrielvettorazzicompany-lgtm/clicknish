@@ -845,8 +845,11 @@ export default function CheckoutPublic() {
         )
     }
 
-    const handleProcessPayment = async (paymentData: { formData: { name: string; email: string; phone: string }, selectedOrderBumps: any[], totalAmount: number, installments?: number }) => {
+    const handleProcessPayment = async (paymentData: { formData: { name: string; email: string; phone: string; paymentMethod?: string }, selectedOrderBumps: any[], totalAmount: number, installments?: number }) => {
         try {
+            const paymentMethod = (paymentData.formData as any).paymentMethod || 'credit_card'
+            const paymentProvider = paymentMethod === 'paypal' ? 'paypal' : 'stripe'
+
             const response = await fetch('https://api.clicknich.com/api/process-payment', {
                 method: 'POST',
                 headers: {
@@ -860,6 +863,7 @@ export default function CheckoutPublic() {
                     customerEmail: paymentData.formData.email,
                     customerName: paymentData.formData.name,
                     customerPhone: paymentData.formData.phone,
+                    paymentProvider,
                     selectedOrderBumps: paymentData.selectedOrderBumps,
                     totalAmount: paymentData.totalAmount,
                     installments: paymentData.installments ?? 1,
@@ -869,6 +873,13 @@ export default function CheckoutPublic() {
             })
 
             const result = await response.json()
+
+            // Checar redirecionamento PayPal ANTES do check de success
+            if (result.requiresApproval && result.approvalUrl) {
+                window.location.href = result.approvalUrl
+                return { success: false }
+            }
+
             if (!result.success) {
                 throw new Error(result.error || 'Payment failed')
             }
