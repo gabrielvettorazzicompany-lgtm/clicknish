@@ -7,8 +7,8 @@ import { Mail, Lock, AlertCircle, Loader, Shield } from 'lucide-react'
 
 export default function SuperAdminLogin() {
     const { t } = useI18n()
-    const [email, setEmail] = useState('admin@exemplo.com')
-    const [password, setPassword] = useState('admin123')
+    const [email, setEmail] = useState('')
+    const [password, setPassword] = useState('')
     const [loading, setLoading] = useState(false)
     const [error, setError] = useState('')
     const navigate = useNavigate()

@@ -8,8 +8,7 @@ const corsHeaders = {
 }
 
 const SUPER_ADMINS = [
-    'admin@exemplo.com',
-    'teste@exemplo.com',
+    'admin@clicknich.com',
     'gabrielvettorazzii@gmail.com',
 ]
 

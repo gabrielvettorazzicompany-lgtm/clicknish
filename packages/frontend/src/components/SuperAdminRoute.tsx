@@ -4,8 +4,7 @@ import { useAuthStore } from '@/stores/authStore'
 
 // Lista de super admins autorizados
 const SUPER_ADMINS = [
-    'admin@exemplo.com', // Usuário de teste - Senha: admin123
-    'teste@exemplo.com',
+    'admin@clicknich.com',
     'gabrielvettorazzii@gmail.com'
 ]
 
