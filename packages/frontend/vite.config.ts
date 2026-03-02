@@ -145,6 +145,14 @@ export default defineConfig({
           if (id.includes('node_modules/@supabase') || id.includes('node_modules/supabase')) {
             return 'vendor-supabase'
           }
+
+          // ✅ CHECKOUT-SUPABASE: singleton isolado para o checkout
+          // Ao separar do services/supabase.ts (que fica num chunk compartilhado
+          // com o main app), evitamos o side-effect import de vendor-heroui (+198KB gzip)
+          // que o Rollup injeta em chunks shared entre entries com deps diferentes.
+          if (id.includes('services/checkout-supabase')) {
+            return 'checkout-supabase'
+          }
         },
       },
     },

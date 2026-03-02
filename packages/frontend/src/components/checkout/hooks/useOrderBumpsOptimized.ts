@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { supabase } from '../../../services/supabase'
+import { checkoutSupabase as supabase } from '../../../services/checkout-supabase'
 import { OrderBump } from '../types'
 
 // ✅ CACHE: Evitar recarregamentos desnecessários
