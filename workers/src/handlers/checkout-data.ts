@@ -25,7 +25,8 @@ const corsHeaders = {
 export async function handleCheckoutData(
     request: Request,
     env: Env,
-    shortId: string
+    shortId: string,
+    ctx?: ExecutionContext
 ): Promise<Response> {
     if (request.method === 'OPTIONS') {
         return new Response('ok', { headers: corsHeaders })
@@ -44,40 +45,29 @@ export async function handleCheckoutData(
 
     try {
         // ═══════════════════════════════════════════════════════════════════
-        // ULTRA-FAST PATH: Cache hit agressivo (<5ms, zero DB queries)
+        // ULTRA-FAST PATH: Lê main-cache e micro-cache em PARALELO (<5ms)
         // ═══════════════════════════════════════════════════════════════════
         const cacheKey = `checkout-data:${shortId}`
+        const microCacheKey = `micro:${shortId}`
 
         if (env.CACHE) {
-            const cached = await env.CACHE.get(cacheKey, 'json')
+            const [cached, microCached] = await Promise.all([
+                env.CACHE.get(cacheKey, 'json'),
+                env.CACHE.get(microCacheKey, 'json'),
+            ])
+
             if (cached) {
-                console.log(`[checkout-data] ⚡ ULTRA CACHE HIT: ${shortId}`)
+                console.log(`[checkout-data] ⚡ CACHE HIT: ${shortId}`)
                 return checkoutNetworkOptimizer.createCheckoutResponse(
                     JSON.stringify(cached),
-                    {
-                        shortId,
-                        cacheHit: true,
-                        processingTime: 1
-                    }
+                    { shortId, cacheHit: true, processingTime: 1 }
                 )
             }
-        }
-
-        // ═══════════════════════════════════════════════════════════════════
-        // MICRO-CACHE: Cache por 30s para requisições simultâneas
-        // ═══════════════════════════════════════════════════════════════════
-        const microCacheKey = `micro:${shortId}`
-        if (env.CACHE) {
-            const microCached = await env.CACHE.get(microCacheKey, 'json')
             if (microCached) {
                 console.log(`[checkout-data] ⚡ MICRO CACHE HIT: ${shortId}`)
                 return checkoutNetworkOptimizer.createCheckoutResponse(
                     JSON.stringify(microCached),
-                    {
-                        shortId,
-                        cacheHit: true,
-                        processingTime: 2
-                    }
+                    { shortId, cacheHit: true, processingTime: 2 }
                 )
             }
         }
@@ -109,27 +99,32 @@ export async function handleCheckoutData(
         }
 
         // ═══════════════════════════════════════════════════════════════════
-        // CACHE STRATEGY: Múltiplas camadas para máxima velocidade
+        // CACHE STRATEGY: Grava no KV via ctx.waitUntil (não bloqueia resposta
+        // e garante que os writes completam mesmo após o retorno da Response)
         // ═══════════════════════════════════════════════════════════════════
         if (env.CACHE && rpcResult) {
-            // Cache principal: 5 minutos
-            const mainCachePromise = env.CACHE.put(cacheKey, JSON.stringify(rpcResult), {
-                expirationTtl: 300,  // 5 min
+            const serialized = JSON.stringify(rpcResult)
+            // Cache principal: 30 minutos — reduz drasticamente cache misses
+            const mainCachePromise = env.CACHE.put(cacheKey, serialized, {
+                expirationTtl: 1800,  // 30 min
+            })
+            // Micro cache: 2 min — absorve picos de requisições burst
+            const microCachePromise = env.CACHE.put(microCacheKey, serialized, {
+                expirationTtl: 120
             })
 
-            // Micro cache: 30s para requisições burst
-            const microCachePromise = env.CACHE.put(microCacheKey, JSON.stringify(rpcResult), {
-                expirationTtl: 30
-            })
+            const writeAll = Promise.allSettled([mainCachePromise, microCachePromise])
+                .catch(err => console.warn('[checkout-data] KV write failed:', err))
 
-            // Cache em paralelo, não bloquear resposta
-            Promise.allSettled([mainCachePromise, microCachePromise]).catch(err => {
-                console.warn('[checkout-data] KV write failed:', err)
-            })
+            // ctx.waitUntil garante que os writes COMPLETAM antes do isolate terminar
+            if (ctx) {
+                ctx.waitUntil(writeAll)
+            } else {
+                await writeAll
+            }
         }
 
-        const startTime = Date.now()
-        const processingTime = Date.now() - startTime
+        const processingTime = 0
 
         // ✅ OPTIMIZED RESPONSE: Com Early Hints e HTTP/3
         return checkoutNetworkOptimizer.createCheckoutResponse(

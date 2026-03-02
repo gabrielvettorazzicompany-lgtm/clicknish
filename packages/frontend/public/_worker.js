@@ -89,7 +89,7 @@ export default {
             const data = await dataPromise
             const full = buildInjectedHtml(html, shortId, data)
             if (env.CACHE && data) {
-                ctx.waitUntil(env.CACHE.put(`html:${shortId}`, full, { expirationTtl: 30 }).catch(() => { }))
+                ctx.waitUntil(env.CACHE.put(`html:${shortId}`, full, { expirationTtl: 1800 }).catch(() => { }))
             }
             return new Response(full, { status: 200, headers: makeHeaders(shortId) })
         }
@@ -115,10 +115,10 @@ export default {
                 // 3. Envia injeção de dados + resto do body
                 await writer.write(enc.encode(scriptTag + tailChunk))
 
-                // 4. Background: grava HTML completo no KV para próximas requisições
+                // 4. Background: grava HTML completo no KV para próximas requisições (TTL 30min)
                 if (env.CACHE && checkoutData) {
                     const fullHtml = headChunk + scriptTag + tailChunk
-                    env.CACHE.put(`html:${shortId}`, fullHtml, { expirationTtl: 30 }).catch(() => { })
+                    env.CACHE.put(`html:${shortId}`, fullHtml, { expirationTtl: 1800 }).catch(() => { })
                 }
             } catch (_) {
                 // Ignora erros de write (conexão fechada pelo cliente, etc.)

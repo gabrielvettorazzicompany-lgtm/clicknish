@@ -131,10 +131,10 @@ async function handleApiRoute(
         return handleCheckoutSession(request, env)
     }
 
-    // GET /api/checkout-data/:shortId — RPC com cache edge ultra-rápido (5min TTL)
+    // GET /api/checkout-data/:shortId — RPC com cache edge ultra-rápido (30min TTL)
     if (pathname.startsWith('/api/checkout-data/') && request.method === 'GET') {
         const shortId = pathname.split('/api/checkout-data/')[1]
-        return handleCheckoutData(request, env, shortId)
+        return handleCheckoutData(request, env, shortId, ctx)
     }
 
     // GET /api/cache-preloader — Sistema de pré-aquecimento inteligente (cron trigger)
