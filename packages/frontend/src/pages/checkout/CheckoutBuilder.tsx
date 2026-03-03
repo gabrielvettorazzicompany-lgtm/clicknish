@@ -142,7 +142,7 @@ export default function CheckoutBuilder() {
                     currency: 'USD',
                     payment_methods: ['credit_card'],
                     default_payment_method: 'credit_card',
-                    image_url: appData.logo,
+                    image_url: appData.logo_url,
                     description: appData.description || ''
                 }
             } else {

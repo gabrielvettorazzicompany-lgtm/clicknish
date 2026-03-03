@@ -259,6 +259,7 @@ function CheckoutDigital({
                 <ProductInfoHeader
                     customBanner={customBanner}
                     productName={productName}
+                    productImage={productImage}
                     t={t}
                 />
 

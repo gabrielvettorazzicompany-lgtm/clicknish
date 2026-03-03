@@ -98,54 +98,7 @@ export const OrderSummary: React.FC<OrderSummaryProps> = ({
 
   return (
     <div className={containerClass}>
-      <h3 className="text-[12px] font-semibold text-gray-900 mb-3">{t.orderSummary}</h3>
-
-      {/* Produto */}
-      {isMobile && productImage ? (
-        <div className="flex gap-2.5 pb-2.5 mb-2.5 border-b border-gray-100">
-          <img
-            src={productImage}
-            alt={productName}
-            className="w-12 h-12 object-cover rounded-lg flex-shrink-0"
-          />
-          <div className="flex-1 min-w-0">
-            <h4 className="text-[12px] font-medium text-gray-900 truncate">{productName}</h4>
-            {productDescription && (
-              <p className="text-[11px] text-gray-400 mt-0.5 line-clamp-2">{productDescription}</p>
-            )}
-          </div>
-        </div>
-      ) : (
-        <div className="pb-2.5 mb-2.5 border-b border-gray-100">
-          <h3 className="font-medium text-gray-900 text-[12px]">{productName}</h3>
-        </div>
-      )}
-
-      <div className="space-y-1.5 mb-2.5">
-        <div className="flex justify-between text-[12px]">
-          <span className="text-gray-400">{t.subtotal}</span>
-          <span className="text-gray-700">{formatPrice(productPrice, productCurrency)}</span>
-        </div>
-
-        {/* Order Bumps Selecionados */}
-        {selectedBumps.size > 0 && (
-          <>
-            {Array.from(selectedBumps).map(bumpId => {
-              const bump = orderBumps.find(b => b.id === bumpId)
-              if (!bump) return null
-              const price = bump.custom_price || bump.offer_product_price
-              return (
-                <div key={bumpId} className="flex justify-between text-[12px]">
-                  <span className="text-gray-400">{bump.offer_product_name}</span>
-                  <span className="text-gray-700">{formatPrice(price, bump.offer_product_currency)}</span>
-                </div>
-              )
-            })}
-          </>
-        )}
-      </div>
-
-      <div className="pt-2.5 border-t border-gray-100 mb-3">
+      <div className="mb-3">
         <div className="flex justify-between items-baseline">
           <span className="text-[12px] font-medium text-gray-900">{t.total}</span>
           <span className={`font-semibold text-gray-900 ${isMobile ? 'text-lg' : 'text-base'}`}>
