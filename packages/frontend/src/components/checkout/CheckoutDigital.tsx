@@ -76,7 +76,8 @@ function CheckoutDigital({
     onTestimonialsClick,
     imageBlocks = [],
     onImageBlockClick,
-    onUpdateImageBlock
+    onUpdateImageBlock,
+    onDeleteImageBlock
 }: CheckoutDigitalProps) {
     const [showPrivacyPolicy, setShowPrivacyPolicy] = useState(false)
 
@@ -281,6 +282,7 @@ function CheckoutDigital({
                             isDragging={isDragging}
                             draggedComponentType={draggedComponentType || undefined}
                             onUpdateImageBlock={onUpdateImageBlock}
+                            onDeleteImageBlock={onDeleteImageBlock}
                         />
 
                         <OrderBumpsList
@@ -317,6 +319,7 @@ function CheckoutDigital({
                             isDragging={isDragging}
                             draggedComponentType={draggedComponentType || undefined}
                             onUpdateImageBlock={onUpdateImageBlock}
+                            onDeleteImageBlock={onDeleteImageBlock}
                         />
                     </div>
                 </div>
@@ -345,6 +348,7 @@ function CheckoutDigital({
                         isDragging={isDragging}
                         draggedComponentType={draggedComponentType || undefined}
                         onUpdateImageBlock={onUpdateImageBlock}
+                        onDeleteImageBlock={onDeleteImageBlock}
                     />
                 </div>
             </div>
@@ -355,7 +359,7 @@ function CheckoutDigital({
                 <div className="w-full lg:max-w-7xl lg:mx-auto">
                     {/* Image block: above testimonials */}
                     <ImageDropZone slot="above_testimonials" isPreview={isPreview} isDragging={isDragging} draggedComponentType={draggedComponentType || undefined} />
-                    <CheckoutImageDisplay imageBlocks={imageBlocks} slot="above_testimonials" isPreview={isPreview} onPreviewClick={isPreview ? onImageBlockClick : undefined} onUpdateImageBlock={onUpdateImageBlock} />
+                    <CheckoutImageDisplay imageBlocks={imageBlocks} slot="above_testimonials" isPreview={isPreview} onPreviewClick={isPreview ? onImageBlockClick : undefined} onUpdateImageBlock={onUpdateImageBlock} onDeleteImageBlock={isPreview ? onDeleteImageBlock : undefined} />
                     <TestimonialsSection
                         testimonials={testimonials}
                         isPreview={isPreview}
@@ -365,15 +369,16 @@ function CheckoutDigital({
                         isDragging={isDragging}
                         draggedComponentType={draggedComponentType || undefined}
                         onUpdateImageBlock={onUpdateImageBlock}
+                        onDeleteImageBlock={isPreview ? onDeleteImageBlock : undefined}
                     />
                     {/* Image block: below testimonials */}
                     <ImageDropZone slot="below_testimonials" isPreview={isPreview} isDragging={isDragging} draggedComponentType={draggedComponentType || undefined} />
-                    <CheckoutImageDisplay imageBlocks={imageBlocks} slot="below_testimonials" isPreview={isPreview} onPreviewClick={isPreview ? onImageBlockClick : undefined} onUpdateImageBlock={onUpdateImageBlock} />
+                    <CheckoutImageDisplay imageBlocks={imageBlocks} slot="below_testimonials" isPreview={isPreview} onPreviewClick={isPreview ? onImageBlockClick : undefined} onUpdateImageBlock={onUpdateImageBlock} onDeleteImageBlock={isPreview ? onDeleteImageBlock : undefined} />
                 </div>
 
                 {/* Image block: below seals */}
                 <ImageDropZone slot="below_seals" isPreview={isPreview} isDragging={isDragging} draggedComponentType={draggedComponentType || undefined} />
-                <CheckoutImageDisplay imageBlocks={imageBlocks} slot="below_seals" className="w-full lg:max-w-7xl lg:mx-auto" isPreview={isPreview} onPreviewClick={isPreview ? onImageBlockClick : undefined} onUpdateImageBlock={onUpdateImageBlock} />
+                <CheckoutImageDisplay imageBlocks={imageBlocks} slot="below_seals" className="w-full lg:max-w-7xl lg:mx-auto" isPreview={isPreview} onPreviewClick={isPreview ? onImageBlockClick : undefined} onUpdateImageBlock={onUpdateImageBlock} onDeleteImageBlock={isPreview ? onDeleteImageBlock : undefined} />
 
                 <CheckoutFooter t={t} onPrivacyClick={handlePrivacyClick} />
 
@@ -392,8 +397,16 @@ function CheckoutDigital({
 
 // ✅ OTIMIZAÇÃO: Só carregar Stripe Elements quando necessário
 function CheckoutDigitalWithStripe(props: CheckoutDigitalProps) {
-    // Se for preview, renderizar direto sem Stripe
+    // Se for preview, tenta envolver com Elements para que os campos de cartão funcionem no builder
     if (props.isPreview) {
+        const stripe = getStripePromise()
+        if (stripe) {
+            return (
+                <Elements stripe={stripe}>
+                    <CheckoutDigital {...props} />
+                </Elements>
+            )
+        }
         return <CheckoutDigital {...props} />
     }
 

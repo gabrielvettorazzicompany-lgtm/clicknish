@@ -1,4 +1,4 @@
-import React, { memo } from 'react'
+import React, { memo, useState, useCallback } from 'react'
 import { Image as ImageIcon } from 'lucide-react'
 import type { ImageBlockSlot } from '../types'
 
@@ -27,6 +27,24 @@ const ImageDropZone = memo(({
     draggedComponentType,
     label
 }: ImageDropZoneProps) => {
+    const [isHovered, setIsHovered] = useState(false)
+
+    const handleDragEnter = useCallback((e: React.DragEvent) => {
+        e.preventDefault()
+        setIsHovered(true)
+    }, [])
+
+    const handleDragLeave = useCallback((e: React.DragEvent) => {
+        // só limpa se saiu do elemento raiz (não de um filho)
+        if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+            setIsHovered(false)
+        }
+    }, [])
+
+    const handleDragOver = useCallback((e: React.DragEvent) => {
+        e.preventDefault()
+    }, [])
+
     if (!isPreview || !isDragging || draggedComponentType !== 'image') {
         return null
     }
@@ -35,8 +53,14 @@ const ImageDropZone = memo(({
         <div
             className="w-full px-4 py-2"
             data-drop-zone={slot}
+            onDragEnter={handleDragEnter}
+            onDragLeave={handleDragLeave}
+            onDragOver={handleDragOver}
         >
-            <div className="min-h-[60px] border-2 border-dashed border-blue-500 bg-blue-500/10 rounded-lg transition-all hover:bg-blue-500/20">
+            <div className={`min-h-[60px] border-2 border-dashed rounded-lg transition-all duration-150 ${isHovered
+                    ? 'border-blue-500 bg-blue-500/20'
+                    : 'border-transparent bg-transparent'
+                }`}>
             </div>
         </div>
     )

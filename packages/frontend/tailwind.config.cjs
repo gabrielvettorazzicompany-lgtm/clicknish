@@ -9,6 +9,9 @@ module.exports = {
   darkMode: 'class', // Habilita modo escuro via classe CSS
   theme: {
     extend: {
+      fontFamily: {
+        sans: ['Inter', 'ui-sans-serif', 'system-ui', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'sans-serif'],
+      },
       colors: {
         primary: '#6366f1',
         secondary: '#ec4899',

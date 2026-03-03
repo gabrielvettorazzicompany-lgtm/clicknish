@@ -14,6 +14,7 @@ interface TestimonialsSectionProps {
     isDragging?: boolean
     draggedComponentType?: string
     onUpdateImageBlock?: (id: string, updates: Partial<CheckoutImageBlock>) => void
+    onDeleteImageBlock?: (id: string) => void
 }
 
 function StarRating({ stars, color }: { stars: number; color: string }) {
@@ -102,7 +103,7 @@ function TestimonialCard({ testimonial }: { testimonial: Testimonial }) {
     )
 }
 
-export default function TestimonialsSection({ testimonials, isPreview, onClick, imageBlocks, onPreviewAdd, isDragging, draggedComponentType, onUpdateImageBlock }: TestimonialsSectionProps) {
+export default function TestimonialsSection({ testimonials, isPreview, onClick, imageBlocks, onPreviewAdd, isDragging, draggedComponentType, onUpdateImageBlock, onDeleteImageBlock }: TestimonialsSectionProps) {
     if (!testimonials || testimonials.length === 0) return null
 
     const hasHorizontal = testimonials.some(t => t.horizontalMode)
@@ -135,7 +136,7 @@ export default function TestimonialsSection({ testimonials, isPreview, onClick, 
 
             {/* Image block: between testimonials groups */}
             <ImageDropZone slot="between_testimonials" isPreview={isPreview} isDragging={isDragging} draggedComponentType={draggedComponentType} />
-            <CheckoutImageDisplay imageBlocks={imageBlocks} slot="between_testimonials" isPreview={isPreview} onUpdateImageBlock={onUpdateImageBlock} />
+            <CheckoutImageDisplay imageBlocks={imageBlocks} slot="between_testimonials" isPreview={isPreview} onUpdateImageBlock={onUpdateImageBlock} onDeleteImageBlock={onDeleteImageBlock} />
 
             {/* Horizontal cards */}
             {hasHorizontal && (

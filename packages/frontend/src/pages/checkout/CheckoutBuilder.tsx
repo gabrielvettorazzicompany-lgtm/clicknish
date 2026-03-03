@@ -645,7 +645,6 @@ export default function CheckoutBuilder() {
     if (loading) {
         return (
             <div className="min-h-screen bg-gray-50 dark:bg-gray-950 flex transition-colors duration-200">
-                <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
                 <div className="flex-1 flex flex-col min-w-0">
                     <div className="flex-1 flex items-center justify-center">
                         <div className="text-center">
@@ -670,19 +669,12 @@ export default function CheckoutBuilder() {
 
     return (
         <div className="min-h-screen bg-[#080b14] flex">
-            <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
             <div className="flex-1 flex flex-col min-w-0">
                 {/* Navbar - Fixed at top */}
                 <div className="bg-gray-900 border-b border-gray-800 sticky top-0 z-[60]">
                     <div className="flex items-center justify-between px-4 lg:px-6">
                         <div className="flex items-center gap-4">
-                            <button
-                                onClick={() => setSidebarOpen(true)}
-                                className="p-2 hover:bg-gray-800/50 rounded-lg transition-colors duration-200 flex-shrink-0 lg:hidden"
-                            >
-                                <Menu size={14} className="text-blue-400" />
-                            </button>
                             <button
                                 onClick={() => navigate(-1)}
                                 className="p-2 hover:bg-gray-800/50 rounded-lg transition-colors duration-200 flex-shrink-0"
@@ -766,9 +758,9 @@ export default function CheckoutBuilder() {
                                 : 'w-full'
                                 }`}>
                                 <div
-                                    className={`rounded-lg ${viewDevice === 'mobile'
-                                        ? 'overflow-auto shadow-xl shadow-black/20'
-                                        : ''
+                                    className={`rounded-xl border border-gray-700/50 shadow-lg shadow-black/20 ${viewDevice === 'mobile'
+                                        ? 'overflow-y-auto'
+                                        : 'overflow-hidden'
                                         }`}
                                     style={viewDevice === 'mobile' ? { maxHeight: '85vh' } : {}}
                                     onDrop={handleDrop}
@@ -877,6 +869,7 @@ export default function CheckoutBuilder() {
                                             }}
                                             imageBlocks={imageBlocks}
                                             onUpdateImageBlock={handleUpdateImageBlock}
+                                            onDeleteImageBlock={handleDeleteImageBlock}
                                         />
                                     </div>
                                 </div>
@@ -889,206 +882,209 @@ export default function CheckoutBuilder() {
                     */}
                     </main>
                     {/* Components Panel - Right Side */}
-                    <aside className="hidden lg:block w-56 flex-shrink-0">
-                        <div className="fixed top-[3rem] right-6 w-56 h-[calc(100vh-3rem)]">
-                            {/* Components */}
-                            <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-xl shadow-xl shadow-black/20 border-2 border-gray-600/30 p-4 h-full overflow-y-auto">
+                    <aside className="hidden lg:block w-56 flex-shrink-0 border-l border-gray-800">
+                        <div className="fixed top-[41px] right-0 w-56 h-[calc(100vh-41px)] overflow-y-auto bg-gray-900 border-l border-gray-800 p-4">
 
-                                {/* Nome e Preço */}
-                                <div className="mb-4 pb-4 border-b border-gray-700 space-y-2">
-                                    <div>
-                                        <div className="text-[10px] font-semibold text-gray-400 tracking-widest mb-1">NOME</div>
-                                        <input
-                                            type="text"
-                                            value={checkoutName}
-                                            onChange={(e) => setCheckoutName(e.target.value)}
-                                            placeholder="Nome do checkout"
-                                            className="w-full px-2 py-1.5 bg-gray-900 border border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-500 text-gray-100 text-xs"
-                                        />
-                                    </div>
-                                    <div>
-                                        <div className="text-[10px] font-semibold text-gray-400 tracking-widest mb-1">PREÇO</div>
-                                        <input
-                                            type="number"
-                                            min="0"
-                                            step="0.01"
-                                            value={checkoutPrice}
-                                            onChange={(e) => setCheckoutPrice(e.target.value)}
-                                            placeholder={product ? String(product.price) : '0.00'}
-                                            className="w-full px-2 py-1.5 bg-gray-900 border border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-500 text-gray-100 text-xs"
-                                        />
-                                    </div>
+                            {/* Nome e Preço */}
+                            <div className="mb-4 pb-4 border-b border-gray-800 space-y-2">
+                                <div>
+                                    <div className="text-[10px] font-semibold text-gray-500 tracking-widest mb-1">NOME</div>
+                                    <input
+                                        type="text"
+                                        value={checkoutName}
+                                        onChange={(e) => setCheckoutName(e.target.value)}
+                                        placeholder="Nome do checkout"
+                                        className="w-full px-2 py-1.5 bg-gray-800 border border-gray-700/50 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500/50 text-gray-100 text-xs"
+                                    />
                                 </div>
-
-                                <h3 className="text-sm font-bold text-gray-100 mb-3">{t('checkout_pages.components')}</h3>
-
-                                <div className="text-[10px] text-gray-400 uppercase tracking-wider mb-3 font-semibold">
-                                    {t('checkout_pages.drag_to_add')}
+                                <div>
+                                    <div className="text-[10px] font-semibold text-gray-500 tracking-widest mb-1">PREÇO</div>
+                                    <input
+                                        type="number"
+                                        min="0"
+                                        step="0.01"
+                                        value={checkoutPrice}
+                                        onChange={(e) => setCheckoutPrice(e.target.value)}
+                                        placeholder={product ? String(product.price) : '0.00'}
+                                        className="w-full px-2 py-1.5 bg-gray-800 border border-gray-700/50 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500/50 text-gray-100 text-xs"
+                                    />
                                 </div>
+                            </div>
 
-                                <div className="grid grid-cols-2 gap-2">
-                                    {availableComponents.map((component) => {
-                                        const Icon = component.icon
-                                        return (
-                                            <div
-                                                key={component.id}
-                                                draggable
-                                                onDragStart={() => handleDragStart(component)}
-                                                onDragEnd={handleDragEnd}
-                                                className="bg-gray-900 rounded-lg p-3 flex flex-col items-center justify-center gap-2 cursor-move hover:bg-gray-700/40 transition-all border border-gray-700 hover:border-gray-500 hover:shadow-lg hover:shadow-gray-900/40"
-                                            >
-                                                <div className="w-9 h-9 bg-gray-700 rounded-lg flex items-center justify-center">
-                                                    <Icon size={18} className="text-gray-400" />
-                                                </div>
-                                                <span className="text-[11px] text-gray-300 text-center font-medium">
-                                                    {component.name}
-                                                </span>
+                            <h3 className="text-sm font-bold text-gray-100 mb-3">{t('checkout_pages.components')}</h3>
+
+                            <div className="text-[10px] text-gray-400 uppercase tracking-wider mb-3 font-semibold">
+                                {t('checkout_pages.drag_to_add')}
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-2">
+                                {availableComponents.map((component) => {
+                                    const Icon = component.icon
+                                    return (
+                                        <div
+                                            key={component.id}
+                                            draggable
+                                            onDragStart={() => handleDragStart(component)}
+                                            onDragEnd={handleDragEnd}
+                                            className="bg-gray-800 rounded-lg p-3 flex flex-col items-center justify-center gap-2 cursor-move hover:bg-gray-700/60 transition-all border border-gray-700/50 hover:border-gray-600"
+                                        >
+                                            <div className="w-9 h-9 bg-gray-700/60 rounded-lg flex items-center justify-center">
+                                                <Icon size={18} className="text-gray-400" />
                                             </div>
-                                        )
-                                    })}
-                                </div>
+                                            <span className="text-[11px] text-gray-300 text-center font-medium">
+                                                {component.name}
+                                            </span>
+                                        </div>
+                                    )
+                                })}
+                            </div>
 
-                                {/* Button Color */}
-                                <div className="mt-4 pt-4 border-t border-gray-700">
-                                    <div className="text-[10px] font-semibold text-gray-400 tracking-widest mb-2">
-                                        {t('checkout_pages.button_color')}
-                                    </div>
-                                    <div className="flex items-center gap-2">
+                            {/* Button Color */}
+                            <div className="mt-4 pt-4 border-t border-gray-800">
+                                <div className="text-[10px] font-semibold text-gray-400 tracking-widest mb-2">
+                                    {t('checkout_pages.button_color')}
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <div className="relative flex-shrink-0">
                                         <input
                                             type="color"
                                             value={buttonColor}
                                             onChange={(e) => setButtonColor(e.target.value)}
-                                            className="w-10 h-10 border border-gray-700 rounded-lg cursor-pointer bg-transparent"
+                                            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                                         />
-                                        <input
-                                            type="text"
-                                            value={buttonColor}
-                                            onChange={(e) => setButtonColor(e.target.value)}
-                                            className="flex-1 px-2 py-1.5 bg-gray-900 border border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-500 text-gray-100 text-xs"
+                                        <div
+                                            className="w-14 h-10 rounded-lg border-2 border-gray-600 shadow-inner cursor-pointer"
+                                            style={{ backgroundColor: buttonColor }}
                                         />
                                     </div>
-                                </div>
-
-                                {/* Pixels Personalizados */}
-                                <div className="mt-4 pt-4 border-t border-gray-700">
-                                    <div className="flex items-center gap-1.5 mb-2">
-                                        <div className="text-[10px] font-semibold text-gray-400 tracking-widest">
-                                            PIXELS DE TRACKING
-                                        </div>
-                                    </div>
-                                    <p className="text-[10px] text-gray-500 mb-2">
-                                        Facebook Pixel, Google Analytics, TikTok Pixel, etc.
-                                    </p>
-                                    <textarea
-                                        value={customPixels}
-                                        onChange={(e) => setCustomPixels(e.target.value)}
-                                        placeholder={`<!-- Exemplo: Pixel do Facebook -->\n<script>\n  fbq('init', 'SEU_PIXEL_ID');\n  fbq('track', 'PageView');\n</script>\n\n<!-- Google Analytics -->\n<script async src="https://www.googletagmanager.com/gtag/js?id=GA_ID"></script>\n<script>\n  window.dataLayer = window.dataLayer || [];\n  function gtag(){dataLayer.push(arguments);}\n  gtag('js', new Date());\n  gtag('config', 'GA_ID');\n</script>`}
-                                        rows={4}
-                                        className="w-full px-2 py-2 bg-gray-900 border border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-500 text-gray-300 text-[11px] font-mono resize-y"
+                                    <input
+                                        type="text"
+                                        value={buttonColor}
+                                        onChange={(e) => setButtonColor(e.target.value)}
+                                        className="flex-1 px-2 py-1.5 bg-gray-800 border border-gray-700/50 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500/50 text-gray-100 text-xs"
                                     />
                                 </div>
+                            </div>
 
-                                {/* UTMs Personalizados */}
-                                <div className="mt-4 pt-4 border-t border-gray-700">
-                                    <div className="flex items-center gap-1.5 mb-2">
-                                        <div className="text-[10px] font-semibold text-gray-400 tracking-widest">
-                                            UTMs CUSTOMIZADOS
-                                        </div>
+                            {/* Pixels Personalizados */}
+                            <div className="mt-4 pt-4 border-t border-gray-800">
+                                <div className="flex items-center gap-1.5 mb-2">
+                                    <div className="text-[10px] font-semibold text-gray-400 tracking-widest">
+                                        PIXELS DE TRACKING
                                     </div>
-                                    <p className="text-[10px] text-gray-500 mb-2">
-                                        UTMs específicos para este checkout (sobrescreve URL).
-                                    </p>
-                                    <textarea
-                                        value={customUtms}
-                                        onChange={(e) => setCustomUtms(e.target.value)}
-                                        placeholder={`<script\n  src="https://cdn.utmify.com.br/scripts/utms/latest.js"\n  data-utmify-prevent-xcod-sck\n  data-utmify-prevent-subids\n  async\n  defer\n></script>`}
-                                        rows={4}
-                                        className="w-full px-2 py-2 bg-gray-950 border border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-300 text-[11px] font-mono resize-y"
-                                    />
                                 </div>
+                                <p className="text-[10px] text-gray-500 mb-2">
+                                    Facebook Pixel, Google Analytics, TikTok Pixel, etc.
+                                </p>
+                                <textarea
+                                    value={customPixels}
+                                    onChange={(e) => setCustomPixels(e.target.value)}
+                                    placeholder={`<!-- Exemplo: Pixel do Facebook -->\n<script>\n  fbq('init', 'SEU_PIXEL_ID');\n  fbq('track', 'PageView');\n</script>\n\n<!-- Google Analytics -->\n<script async src="https://www.googletagmanager.com/gtag/js?id=GA_ID"></script>\n<script>\n  window.dataLayer = window.dataLayer || [];\n  function gtag(){dataLayer.push(arguments);}\n  gtag('js', new Date());\n  gtag('config', 'GA_ID');\n</script>`}
+                                    rows={4}
+                                    className="w-full px-2 py-2 bg-gray-800 border border-gray-700/50 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500/50 text-gray-300 text-[11px] font-mono resize-y"
+                                />
+                            </div>
 
-                                {/* MÉTODOS DE PAGAMENTO */}
-                                {product && product.payment_methods && product.payment_methods.length > 1 && (
-                                    <div className="mt-4 pt-4 border-t border-gray-700">
-                                        <div className="text-[10px] font-semibold text-gray-400 tracking-widest mb-2">
-                                            MÉTODOS DE PAGAMENTO
-                                        </div>
-                                        <div className="space-y-1.5">
-                                            {product.payment_methods.map((method) => {
-                                                const active = (paymentMethodsOverride ?? product.payment_methods!).includes(method as 'credit_card' | 'paypal')
-                                                const label = method === 'credit_card' ? 'Cartão de Crédito' : 'PayPal'
-                                                return (
-                                                    <label key={method} className="flex items-center gap-2 cursor-pointer group">
-                                                        <div
-                                                            onClick={() => {
-                                                                const current = (paymentMethodsOverride ?? product.payment_methods!) as ('credit_card' | 'paypal')[]
-                                                                const updated = current.includes(method as 'credit_card' | 'paypal')
-                                                                    ? current.filter(m => m !== method)
-                                                                    : [...current, method as 'credit_card' | 'paypal']
-                                                                if (updated.length === 0) return // mínimo 1
-                                                                setPaymentMethodsOverride(updated)
-                                                            }}
-                                                            className={`w-8 h-4 rounded-full transition-colors cursor-pointer flex-shrink-0 ${active ? 'bg-blue-500' : 'bg-gray-700'}`}
-                                                        >
-                                                            <div className={`w-3.5 h-3.5 rounded-full bg-white shadow transition-transform m-[1px] ${active ? 'translate-x-4' : 'translate-x-0'}`} />
-                                                        </div>
-                                                        <span className={`text-[11px] transition-colors ${active ? 'text-gray-200' : 'text-gray-500'}`}>{label}</span>
-                                                    </label>
-                                                )
-                                            })}
-                                        </div>
+                            {/* UTMs Personalizados */}
+                            <div className="mt-4 pt-4 border-t border-gray-800">
+                                <div className="flex items-center gap-1.5 mb-2">
+                                    <div className="text-[10px] font-semibold text-gray-400 tracking-widest">
+                                        UTMs CUSTOMIZADOS
+                                    </div>
+                                </div>
+                                <p className="text-[10px] text-gray-500 mb-2">
+                                    UTMs específicos para este checkout (sobrescreve URL).
+                                </p>
+                                <textarea
+                                    value={customUtms}
+                                    onChange={(e) => setCustomUtms(e.target.value)}
+                                    placeholder={`<script\n  src="https://cdn.utmify.com.br/scripts/utms/latest.js"\n  data-utmify-prevent-xcod-sck\n  data-utmify-prevent-subids\n  async\n  defer\n></script>`}
+                                    rows={4}
+                                    className="w-full px-2 py-2 bg-gray-800 border border-gray-700/50 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500/50 text-gray-300 text-[11px] font-mono resize-y"
+                                />
+                            </div>
+
+                            {/* MÉTODOS DE PAGAMENTO */}
+                            {product && product.payment_methods && product.payment_methods.length > 1 && (
+                                <div className="mt-4 pt-4 border-t border-gray-800">
+                                    <div className="text-[10px] font-semibold text-gray-400 tracking-widest mb-2">
+                                        MÉTODOS DE PAGAMENTO
+                                    </div>
+                                    <div className="space-y-1.5">
+                                        {product.payment_methods.map((method) => {
+                                            const active = (paymentMethodsOverride ?? product.payment_methods!).includes(method as 'credit_card' | 'paypal')
+                                            const label = method === 'credit_card' ? 'Cartão de Crédito' : 'PayPal'
+                                            return (
+                                                <label key={method} className="flex items-center gap-2 cursor-pointer group">
+                                                    <div
+                                                        onClick={() => {
+                                                            const current = (paymentMethodsOverride ?? product.payment_methods!) as ('credit_card' | 'paypal')[]
+                                                            const updated = current.includes(method as 'credit_card' | 'paypal')
+                                                                ? current.filter(m => m !== method)
+                                                                : [...current, method as 'credit_card' | 'paypal']
+                                                            if (updated.length === 0) return // mínimo 1
+                                                            setPaymentMethodsOverride(updated)
+                                                        }}
+                                                        className={`w-8 h-4 rounded-full transition-colors cursor-pointer flex-shrink-0 ${active ? 'bg-blue-500' : 'bg-gray-700'}`}
+                                                    >
+                                                        <div className={`w-3.5 h-3.5 rounded-full bg-white shadow transition-transform m-[1px] ${active ? 'translate-x-4' : 'translate-x-0'}`} />
+                                                    </div>
+                                                    <span className={`text-[11px] transition-colors ${active ? 'text-gray-200' : 'text-gray-500'}`}>{label}</span>
+                                                </label>
+                                            )
+                                        })}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* IMAGENS */}
+                            <div className="mt-4 pt-4 border-t border-gray-800">
+                                <div className="flex items-center justify-between mb-2">
+                                    <div className="text-[10px] font-semibold text-gray-400 tracking-widest">IMAGENS</div>
+                                    <button
+                                        onClick={handleAddImageBlock}
+                                        className="flex items-center gap-0.5 px-1.5 py-0.5 bg-gray-700 hover:bg-gray-600 text-gray-300 rounded text-[10px] transition-colors"
+                                        title="Adicionar bloco de imagem"
+                                    >
+                                        <Plus size={10} />
+                                    </button>
+                                </div>
+                                {imageBlocks.length === 0 ? (
+                                    <p className="text-[10px] text-gray-600 italic">Nenhuma imagem adicionada.</p>
+                                ) : (
+                                    <div className="space-y-1.5">
+                                        {imageBlocks.map((block, idx) => (
+                                            <div key={block.id} className="flex items-center gap-1.5 bg-gray-800 border border-gray-700/50 rounded-lg px-2 py-1.5">
+                                                {block.url ? (
+                                                    <img src={block.url} alt="" className="w-7 h-7 rounded object-cover flex-shrink-0 border border-gray-700/50" />
+                                                ) : (
+                                                    <div className="w-7 h-7 rounded bg-gray-700 flex items-center justify-center flex-shrink-0">
+                                                        <ImageIcon size={12} className="text-gray-500" />
+                                                    </div>
+                                                )}
+                                                <span className="flex-1 text-[10px] text-gray-400 truncate">Imagem {idx + 1}</span>
+                                                <button
+                                                    onClick={() => {
+                                                        setEditingImageBlockId(block.id)
+                                                        setEditingElement('imageblock')
+                                                        setEditPanelOpen(true)
+                                                    }}
+                                                    className="p-1 hover:bg-gray-700 rounded transition-colors text-gray-400 hover:text-gray-100"
+                                                    title="Editar"
+                                                >
+                                                    <Edit3 size={10} />
+                                                </button>
+                                                <button
+                                                    onClick={() => handleDeleteImageBlock(block.id)}
+                                                    className="p-1 hover:bg-red-500/10 rounded transition-colors text-gray-500 hover:text-red-400"
+                                                    title="Remover"
+                                                >
+                                                    <X size={10} />
+                                                </button>
+                                            </div>
+                                        ))}
                                     </div>
                                 )}
-
-                                {/* IMAGENS */}
-                                <div className="mt-4 pt-4 border-t border-gray-700">
-                                    <div className="flex items-center justify-between mb-2">
-                                        <div className="text-[10px] font-semibold text-gray-400 tracking-widest">IMAGENS</div>
-                                        <button
-                                            onClick={handleAddImageBlock}
-                                            className="flex items-center gap-0.5 px-1.5 py-0.5 bg-gray-700 hover:bg-gray-600 text-gray-300 rounded text-[10px] transition-colors"
-                                            title="Adicionar bloco de imagem"
-                                        >
-                                            <Plus size={10} />
-                                        </button>
-                                    </div>
-                                    {imageBlocks.length === 0 ? (
-                                        <p className="text-[10px] text-gray-600 italic">Nenhuma imagem adicionada.</p>
-                                    ) : (
-                                        <div className="space-y-1.5">
-                                            {imageBlocks.map((block, idx) => (
-                                                <div key={block.id} className="flex items-center gap-1.5 bg-gray-900 border border-gray-700 rounded-lg px-2 py-1.5">
-                                                    {block.url ? (
-                                                        <img src={block.url} alt="" className="w-7 h-7 rounded object-cover flex-shrink-0 border border-gray-700" />
-                                                    ) : (
-                                                        <div className="w-7 h-7 rounded bg-gray-700 flex items-center justify-center flex-shrink-0">
-                                                            <ImageIcon size={12} className="text-gray-500" />
-                                                        </div>
-                                                    )}
-                                                    <span className="flex-1 text-[10px] text-gray-400 truncate">Imagem {idx + 1}</span>
-                                                    <button
-                                                        onClick={() => {
-                                                            setEditingImageBlockId(block.id)
-                                                            setEditingElement('imageblock')
-                                                            setEditPanelOpen(true)
-                                                        }}
-                                                        className="p-1 hover:bg-gray-700 rounded transition-colors text-gray-400 hover:text-gray-100"
-                                                        title="Editar"
-                                                    >
-                                                        <Edit3 size={10} />
-                                                    </button>
-                                                    <button
-                                                        onClick={() => handleDeleteImageBlock(block.id)}
-                                                        className="p-1 hover:bg-red-500/10 rounded transition-colors text-gray-500 hover:text-red-400"
-                                                        title="Remover"
-                                                    >
-                                                        <X size={10} />
-                                                    </button>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    )}
-                                </div>
                             </div>
                         </div>
                     </aside>

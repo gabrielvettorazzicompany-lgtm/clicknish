@@ -52,6 +52,7 @@ export interface CheckoutImageBlock {
     slot: ImageBlockSlot
     width?: 'full' | 'large' | 'medium' | 'small'
     customWidth?: number
+    customHeight?: number
 }
 
 export interface TimerConfig {
@@ -128,6 +129,7 @@ export interface CheckoutDigitalProps {
     imageBlocks?: CheckoutImageBlock[]
     onImageBlockClick?: () => void
     onUpdateImageBlock?: (id: string, updates: Partial<CheckoutImageBlock>) => void
+    onDeleteImageBlock?: (id: string) => void
 }
 
 export type PaymentMethod = 'credit'

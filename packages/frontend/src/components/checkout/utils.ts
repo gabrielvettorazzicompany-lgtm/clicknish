@@ -5,7 +5,10 @@ export const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiO
 // Estilos para Stripe Elements
 export const stripeElementStyle = {
     base: {
-        fontSize: '16px',
+        fontSize: '14px',
+        lineHeight: '1.6',
+        fontFamily: "'Inter', system-ui, sans-serif",
+        fontSmoothing: 'antialiased',
         color: '#1f2937',
         '::placeholder': {
             color: '#9ca3af',

@@ -28,6 +28,7 @@ interface OrderSummaryProps {
   isDragging?: boolean
   draggedComponentType?: string
   onUpdateImageBlock?: (id: string, updates: Partial<CheckoutImageBlock>) => void
+  onDeleteImageBlock?: (id: string) => void
 }
 
 export const OrderSummary: React.FC<OrderSummaryProps> = ({
@@ -52,7 +53,8 @@ export const OrderSummary: React.FC<OrderSummaryProps> = ({
   imageBlocks,
   isDragging,
   draggedComponentType,
-  onUpdateImageBlock
+  onUpdateImageBlock,
+  onDeleteImageBlock
 }) => {
   // ═══════════════════════════════════════════════════════════════════
   // OPTIMISTIC UI: Feedback visual instantâneo ao clicar
@@ -153,12 +155,12 @@ export const OrderSummary: React.FC<OrderSummaryProps> = ({
 
       {/* Image block: above buy button */}
       <ImageDropZone slot="above_button" isPreview={isPreview} isDragging={isDragging} draggedComponentType={draggedComponentType} />
-      <CheckoutImageDisplay imageBlocks={imageBlocks} slot="above_button" className="px-0" isPreview={isPreview} onUpdateImageBlock={onUpdateImageBlock} />
+      <CheckoutImageDisplay imageBlocks={imageBlocks} slot="above_button" className="px-0" isPreview={isPreview} onUpdateImageBlock={onUpdateImageBlock} onDeleteImageBlock={onDeleteImageBlock} />
 
       <button
         onClick={handleOptimisticClick}
-        disabled={processing || isPreview}
-        className={`w-full disabled:opacity-40 disabled:cursor-not-allowed text-white font-medium rounded-lg transition-all duration-200 text-[13px] flex items-center justify-center gap-2 ${isMobile ? 'py-3 mb-4' : 'py-3'} ${optimisticClick ? 'scale-[0.96] bg-opacity-90' : 'hover:scale-[1.02] active:scale-[0.98]'
+        disabled={processing}
+        className={`w-full disabled:opacity-40 disabled:cursor-not-allowed text-white font-medium rounded-lg transition-all duration-200 text-[13px] flex items-center justify-center gap-2 ${isMobile ? 'py-3 mb-4' : 'py-3'} ${isPreview ? 'cursor-default pointer-events-none' : ''} ${optimisticClick ? 'scale-[0.96] bg-opacity-90' : 'hover:scale-[1.02] active:scale-[0.98]'
           }`}
         style={{ backgroundColor: buttonColor, touchAction: 'manipulation', minHeight: '44px' }}
       >
@@ -182,7 +184,7 @@ export const OrderSummary: React.FC<OrderSummaryProps> = ({
 
       {/* Image block: below buy button */}
       <ImageDropZone slot="below_button" isPreview={isPreview} isDragging={isDragging} draggedComponentType={draggedComponentType} />
-      <CheckoutImageDisplay imageBlocks={imageBlocks} slot="below_button" className="px-0" isPreview={isPreview} onUpdateImageBlock={onUpdateImageBlock} />
+      <CheckoutImageDisplay imageBlocks={imageBlocks} slot="below_button" className="px-0" isPreview={isPreview} onUpdateImageBlock={onUpdateImageBlock} onDeleteImageBlock={onDeleteImageBlock} />
 
       {paymentError && (
         <div className={`p-3 bg-red-50 border border-red-100 rounded-lg ${isMobile ? 'mb-4' : 'mt-3'}`}>

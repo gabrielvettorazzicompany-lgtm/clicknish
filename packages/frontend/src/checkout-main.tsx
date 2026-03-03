@@ -1,18 +1,3 @@
-/**
- * ⚡ CHECKOUT ENTRY POINT — Bundle mínimo (~70% menor que main.tsx)
- *
- * Este entry point existe para reduzir drasticamente o JS que o browser
- * precisa baixar e executar para abrir um checkout.
- *
- * NÃO inclui:
- *   • @heroui/react         (~80-100KB gzip) — UI library do dashboard
- *   • @tanstack/react-query (~15KB gzip)     — cliente de cache do dashboard
- *   • ThemeProvider                          — dark/light mode (desnecessário)
- *   • OnboardingProvider                     — onboarding do app (desnecessário)
- *   • HeroUIProvider                         — provider de componentes UI
- *
- * Resultado esperado: ~80-100KB gzip vs 192KB do bundle principal.
- */
 
 import React, { lazy, Suspense } from 'react'
 import ReactDOM from 'react-dom/client'
