@@ -112,6 +112,7 @@ export interface CheckoutDigitalProps {
     trackingParameters?: Record<string, string | null>
     language?: CheckoutLanguage
     buttonColor?: string
+    buttonText?: string
     initialOrderBumps?: OrderBump[]
     initialAppProducts?: any[]
     onPaymentSuccess?: (result?: { purchaseId: string; thankyouToken: string; redirectUrl?: string } | null) => void | Promise<void>

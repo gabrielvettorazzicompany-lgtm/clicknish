@@ -226,7 +226,7 @@ export const PaymentForm: React.FC<PaymentFormProps> = ({
               }
             }}
             label={t.email || t.emailPlaceholder}
-            inputPlaceholder={t.emailPlaceholder}
+            inputPlaceholder="Email"
             autoComplete="email"
             autoCorrect="off"
             autoCapitalize="off"
@@ -243,6 +243,7 @@ export const PaymentForm: React.FC<PaymentFormProps> = ({
               }
             }}
             label={t.phone || 'Telefone'}
+            inputPlaceholder="Phone"
             autoComplete="tel"
             inputMode="tel"
           />

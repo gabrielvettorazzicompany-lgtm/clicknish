@@ -24,6 +24,7 @@ interface OrderSummaryProps {
   isMobile?: boolean
   t: any // translations object
   buttonColor?: string
+  buttonText?: string
   imageBlocks?: CheckoutImageBlock[]
   isDragging?: boolean
   draggedComponentType?: string
@@ -50,6 +51,7 @@ export const OrderSummary: React.FC<OrderSummaryProps> = ({
   isMobile,
   t,
   buttonColor = '#111827',
+  buttonText = 'Complete Purchase',
   imageBlocks,
   isDragging,
   draggedComponentType,
@@ -181,7 +183,7 @@ export const OrderSummary: React.FC<OrderSummaryProps> = ({
         ) : (
           <>
             {optimisticClick && <Loader2 className="w-4 h-4 animate-spin" />}
-            <span>{t.completePurchase}</span>
+            <span>{buttonText}</span>
           </>
         )}
       </button>

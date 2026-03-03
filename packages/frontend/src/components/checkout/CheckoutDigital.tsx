@@ -66,6 +66,7 @@ function CheckoutDigital({
     onProcessPayment,
     onLeadCapture,
     buttonColor = '#111827',
+    buttonText = 'Complete Purchase',
     initialOrderBumps,
     initialAppProducts,
     sessionId,
@@ -318,6 +319,7 @@ function CheckoutDigital({
                             isMobile={false}
                             t={t}
                             buttonColor={buttonColor}
+                            buttonText={buttonText}
                             imageBlocks={imageBlocks}
                             isDragging={isDragging}
                             draggedComponentType={draggedComponentType || undefined}
@@ -348,6 +350,7 @@ function CheckoutDigital({
                         isMobile={true}
                         t={t}
                         buttonColor={buttonColor}
+                        buttonText={buttonText}
                         imageBlocks={imageBlocks}
                         isDragging={isDragging}
                         draggedComponentType={draggedComponentType || undefined}

@@ -8,13 +8,15 @@ interface TimerComponentProps {
     onClick?: () => void
     isPreview?: boolean
     compact?: boolean
+    sticky?: boolean
 }
 
 export const TimerComponent: React.FC<TimerComponentProps> = ({
     config,
     onClick,
     isPreview,
-    compact = false
+    compact = false,
+    sticky = false
 }) => {
     const [timeLeft, setTimeLeft] = useState(config.minutes * 60) // em segundos
     const [isFinished, setIsFinished] = useState(false)
@@ -46,20 +48,25 @@ export const TimerComponent: React.FC<TimerComponentProps> = ({
 
     return (
         <div
-            className={`w-full ${compact ? 'py-2 px-3 gap-2 text-sm' : 'py-4 px-6 gap-3 text-lg'} flex items-center justify-center font-semibold border rounded-md ${isPreview && onClick ? 'cursor-pointer hover:opacity-90 transition-opacity' : ''
-                }`}
+            className={`w-full ${sticky
+                    ? 'py-3 px-4 gap-3 text-base'
+                    : compact
+                        ? 'py-2 px-3 gap-2 text-sm'
+                        : 'py-4 px-6 gap-3 text-lg'
+                } flex items-center justify-center font-semibold ${sticky ? '' : 'border rounded-md'
+                } ${isPreview && onClick ? 'cursor-pointer hover:opacity-90 transition-opacity' : ''}`}
             style={{
                 backgroundColor: config.backgroundColor,
                 color: config.textColor,
-                borderColor: config.textColor
+                ...(sticky ? {} : { borderColor: config.textColor })
             }}
             onClick={onClick}
         >
-            <Clock size={compact ? 16 : 24} className="animate-pulse" />
-            <span className={`${compact ? 'text-base' : 'text-2xl'} font-mono font-bold`}>
+            <Clock size={sticky ? 20 : compact ? 16 : 24} className="animate-pulse flex-shrink-0" />
+            <span className={`${sticky ? 'text-lg sm:text-xl' : compact ? 'text-base' : 'text-2xl'} font-mono font-bold`}>
                 {formatTime(timeLeft)}
             </span>
-            <span className={compact ? 'text-xs' : 'text-base'}>
+            <span className={`${sticky ? 'text-sm sm:text-base' : compact ? 'text-xs' : 'text-base'}`}>
                 {isFinished ? config.finishedText : config.activeText}
             </span>
         </div>

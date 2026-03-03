@@ -57,7 +57,6 @@ export default function CheckoutBuilder() {
 
     const availableComponents: ComponentItem[] = [
         { id: 'timer', name: 'Timer', icon: Clock, type: 'timer' },
-        { id: 'testimonials', name: 'Depoimento', icon: MessageSquare, type: 'testimonials' },
         { id: 'image', name: 'Imagem', icon: ImageIcon, type: 'image' }
     ]
 
@@ -99,6 +98,7 @@ export default function CheckoutBuilder() {
     const [checkoutLanguage, setCheckoutLanguage] = useState<CheckoutLanguage>('en')
 
     const [buttonColor, setButtonColor] = useState('#111827')
+    const [buttonText, setButtonText] = useState('Complete Purchase')
     const [paymentMethodsOverride, setPaymentMethodsOverride] = useState<('credit_card' | 'paypal')[] | null>(null)
     const [utmifyToken, setUtmifyToken] = useState('')
     const [utmifyTokenVisible, setUtmifyTokenVisible] = useState(false)
@@ -212,6 +212,11 @@ export default function CheckoutBuilder() {
                 setButtonColor(customFields.buttonColor)
             }
 
+            // Load button text
+            if (customFields.buttonText) {
+                setButtonText(customFields.buttonText)
+            }
+
             // Load banner image adjustments
             if (customFields.bannerImageScale) {
                 setBannerImageScale(customFields.bannerImageScale)
@@ -293,6 +298,7 @@ export default function CheckoutBuilder() {
                 ...existingFields,
                 timer: timerConfig,
                 buttonColor: buttonColor,
+                buttonText: buttonText.trim() || undefined,
                 utmifyToken: utmifyToken.trim() || undefined,
                 customPixels: customPixels.trim() || undefined,
                 customUtms: customUtms.trim() || undefined,
@@ -859,6 +865,7 @@ export default function CheckoutBuilder() {
                                             onTimerClick={() => handleEditElement('timer')}
                                             draggedComponentType={draggedComponent?.type || null}
                                             buttonColor={buttonColor}
+                                            buttonText={buttonText}
                                             securitySealsEnabled={securitySealsEnabled}
                                             onSecuritySealsClick={() => handleEditElement('seals')}
                                             testimonials={testimonials}
@@ -964,6 +971,20 @@ export default function CheckoutBuilder() {
                                         className="flex-1 px-2 py-1.5 bg-gray-800 border border-gray-700/50 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500/50 text-gray-100 text-xs"
                                     />
                                 </div>
+                            </div>
+
+                            {/* Button Text */}
+                            <div className="mt-4">
+                                <div className="text-[10px] font-semibold text-gray-400 tracking-widest mb-2">
+                                    TEXTO DO BOTÃO
+                                </div>
+                                <input
+                                    type="text"
+                                    value={buttonText}
+                                    onChange={(e) => setButtonText(e.target.value)}
+                                    placeholder="Complete Purchase"
+                                    className="w-full px-2 py-1.5 bg-gray-800 border border-gray-700/50 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500/50 text-gray-100 text-xs"
+                                />
                             </div>
 
                             {/* Pixels Personalizados */}
