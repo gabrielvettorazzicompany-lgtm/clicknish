@@ -14,6 +14,7 @@ interface CheckoutImageDisplayProps {
 
 const widthClassMap: Record<NonNullable<CheckoutImageBlock['width']>, string> = {
     full: 'w-full',
+    xlarge: 'max-w-6xl mx-auto w-full',
     large: 'max-w-2xl mx-auto w-full',
     medium: 'max-w-md mx-auto w-full',
     small: 'max-w-xs mx-auto w-full',

@@ -252,8 +252,8 @@ function CheckoutDigital({
 
             {/* Main Content */}
             <div className={`w-full lg:max-w-7xl lg:mx-auto ${(timerConfig?.enabled || (customBanner && (customBanner.image || customBanner.title || customBanner.subtitle || customBanner.description)))
-                ? 'mt-6 lg:mt-8'
-                : 'mt-6 lg:mt-8'
+                ? 'mt-3 lg:mt-4'
+                : 'mt-3 lg:mt-4'
                 }`}>
 
                 <ProductInfoHeader

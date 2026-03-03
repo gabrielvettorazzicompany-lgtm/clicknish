@@ -43,7 +43,7 @@ const FloatingInput: React.FC<{
   autoCapitalize?: string
   inputMode?: React.HTMLAttributes<HTMLInputElement>['inputMode']
 }> = ({ name, value, onChange, onBlur, label, inputPlaceholder, type = 'text', autoComplete, autoCorrect, autoCapitalize, inputMode }) => (
-  <div className="relative pt-5">
+  <div className="relative pt-4">
     <input
       type={type}
       name={name}
@@ -55,12 +55,12 @@ const FloatingInput: React.FC<{
       autoCorrect={autoCorrect}
       autoCapitalize={autoCapitalize as any}
       inputMode={inputMode}
-      className="w-full px-4 py-2 border border-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500/15 focus:border-blue-400 transition-all text-[14px] bg-white text-gray-800 peer"
+      className="w-full px-3 py-1.5 border border-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500/15 focus:border-blue-400 transition-all text-[13px] bg-white text-gray-800 peer"
       data-placeholder={inputPlaceholder}
       onFocus={e => { if (inputPlaceholder) e.currentTarget.placeholder = inputPlaceholder }}
       onBlurCapture={e => { if (inputPlaceholder && !e.currentTarget.value) e.currentTarget.placeholder = ' ' }}
     />
-    <label className="absolute left-3 top-6 text-[14px] text-gray-400 transition-all duration-200 pointer-events-none peer-focus:top-0.5 peer-focus:left-2 peer-focus:text-[11px] peer-focus:text-blue-500 peer-[:not(:placeholder-shown)]:top-0.5 peer-[:not(:placeholder-shown)]:left-2 peer-[:not(:placeholder-shown)]:text-[11px] peer-[:not(:placeholder-shown)]:text-gray-500">
+    <label className="absolute left-2.5 top-5.5 text-[13px] text-gray-400 transition-all duration-200 pointer-events-none peer-focus:top-0.5 peer-focus:left-2 peer-focus:text-[10px] peer-focus:text-blue-500 peer-[:not(:placeholder-shown)]:top-0.5 peer-[:not(:placeholder-shown)]:left-2 peer-[:not(:placeholder-shown)]:text-[10px] peer-[:not(:placeholder-shown)]:text-gray-500">
       {label}
     </label>
   </div>
@@ -195,8 +195,8 @@ export const PaymentForm: React.FC<PaymentFormProps> = ({
 
   return (
     <form onSubmit={handleSubmit}>
-      {/* Card único limpo */}
-      <div className="bg-white rounded-md mx-4 lg:mx-0 px-5 py-4 shadow-sm border border-gray-100">
+      {/* Formulário sem card */}
+      <div className="mx-4 lg:mx-0">
 
         {/* Nome completo */}
         <FloatingInput
@@ -213,8 +213,8 @@ export const PaymentForm: React.FC<PaymentFormProps> = ({
           autoComplete="name"
         />
 
-        {/* E-mail + Telefone */}
-        <div className="grid grid-cols-2 gap-3 mt-3">
+        {/* E-mail */}
+        <div className="mt-2.5">
           <FloatingInput
             type="email"
             name="email"
@@ -232,6 +232,10 @@ export const PaymentForm: React.FC<PaymentFormProps> = ({
             autoCapitalize="off"
             inputMode="email"
           />
+        </div>
+
+        {/* Telefone */}
+        <div className="mt-2.5">
           <FloatingInput
             type="tel"
             name="phone"
@@ -250,12 +254,12 @@ export const PaymentForm: React.FC<PaymentFormProps> = ({
         </div>
 
         {/* Seletor de método de pagamento */}
-        <div className="flex gap-2 mt-5">
+        <div className="flex gap-2 mt-3.5">
           {selectedPaymentMethods.includes('credit_card') && (
             <button
               type="button"
               onClick={() => setExpandedPaymentMethod(expandedPaymentMethod === 'credit_card' ? null : 'credit_card')}
-              className={`flex-1 rounded-md transition-all p-2.5 ${expandedPaymentMethod === 'credit_card' ? 'bg-blue-50 shadow-sm' : 'bg-gray-50 hover:bg-gray-100'}`}
+              className={`flex-1 rounded-md transition-all p-2 ${expandedPaymentMethod === 'credit_card' ? 'bg-blue-50 shadow-sm' : 'bg-gray-50 hover:bg-gray-100'}`}
             >
               <div className="flex items-center justify-center gap-2">
                 <svg width="38" height="12" viewBox="0 0 38 12">
@@ -273,7 +277,7 @@ export const PaymentForm: React.FC<PaymentFormProps> = ({
                   <path d="M14 4.2c1 .9 1.7 2.3 1.7 3.8s-.7 2.9-1.7 3.8c-1-.9-1.7-2.3-1.7-3.8s.7-2.9 1.7-3.8z" fill="#ff5f00" />
                 </svg>
               </div>
-              <div className="text-xs text-gray-600 mt-2 text-center">
+              <div className="text-[11px] text-gray-600 mt-1.5 text-center">
                 {t.creditCard || 'Cartão de crédito'}
               </div>
             </button>
@@ -283,7 +287,7 @@ export const PaymentForm: React.FC<PaymentFormProps> = ({
             <button
               type="button"
               onClick={() => setExpandedPaymentMethod(expandedPaymentMethod === 'paypal' ? null : 'paypal')}
-              className={`flex-1 rounded-md transition-all p-2.5 ${expandedPaymentMethod === 'paypal' ? 'bg-blue-50 shadow-sm' : 'bg-gray-50 hover:bg-gray-100'}`}
+              className={`flex-1 rounded-md transition-all p-2 ${expandedPaymentMethod === 'paypal' ? 'bg-blue-50 shadow-sm' : 'bg-gray-50 hover:bg-gray-100'}`}
             >
               <div className="flex items-center justify-center">
                 <svg width="60" height="20" viewBox="0 0 124 33" fill="none">
@@ -297,7 +301,7 @@ export const PaymentForm: React.FC<PaymentFormProps> = ({
                   </g>
                 </svg>
               </div>
-              <div className="text-xs text-gray-600 mt-2 text-center">
+              <div className="text-[11px] text-gray-600 mt-1.5 text-center">
                 PayPal
               </div>
             </button>
@@ -306,9 +310,9 @@ export const PaymentForm: React.FC<PaymentFormProps> = ({
 
         {/* Campos do cartão */}
         {expandedPaymentMethod === 'credit_card' && (
-          <div className="mt-4 space-y-3">
-            <div className="relative pt-5">
-              <div className={`w-full px-4 py-2 border rounded-md bg-white transition-all ${cardNumberFocused ? 'border-blue-400 ring-2 ring-blue-500/15' : 'border-gray-200'}`}>
+          <div className="mt-3 space-y-2.5">
+            <div className="relative pt-4">
+              <div className={`w-full px-3 py-1.5 border rounded-md bg-white transition-all ${cardNumberFocused ? 'border-blue-400 ring-2 ring-blue-500/15' : 'border-gray-200'}`}>
                 <CardNumberElement
                   className="w-full"
                   options={{ style: stripeElementStyle }}
@@ -317,14 +321,14 @@ export const PaymentForm: React.FC<PaymentFormProps> = ({
                   onChange={(e) => setCardNumberFilled(!e.empty)}
                 />
               </div>
-              <label className={`absolute top-0.5 left-2 text-[11px] transition-colors duration-200 pointer-events-none ${cardNumberFocused ? 'text-blue-500' : 'text-gray-500'}`}>
+              <label className={`absolute top-0.5 left-2 text-[10px] transition-colors duration-200 pointer-events-none ${cardNumberFocused ? 'text-blue-500' : 'text-gray-500'}`}>
                 {t.cardNumber || 'Número do cartão'}
               </label>
             </div>
 
             <div className="grid grid-cols-2 gap-3">
-              <div className="relative pt-5">
-                <div className={`w-full px-4 py-2 border rounded-md bg-white transition-all ${cardExpiryFocused ? 'border-blue-400 ring-2 ring-blue-500/15' : 'border-gray-200'}`}>
+              <div className="relative pt-4">
+                <div className={`w-full px-3 py-1.5 border rounded-md bg-white transition-all ${cardExpiryFocused ? 'border-blue-400 ring-2 ring-blue-500/15' : 'border-gray-200'}`}>
                   <CardExpiryElement
                     className="w-full"
                     options={{ style: stripeElementStyle }}
@@ -333,12 +337,12 @@ export const PaymentForm: React.FC<PaymentFormProps> = ({
                     onChange={(e) => setCardExpiryFilled(!e.empty)}
                   />
                 </div>
-                <label className={`absolute top-0.5 left-2 text-[11px] transition-colors duration-200 pointer-events-none ${cardExpiryFocused ? 'text-blue-500' : 'text-gray-500'}`}>
+                <label className={`absolute top-0.5 left-2 text-[10px] transition-colors duration-200 pointer-events-none ${cardExpiryFocused ? 'text-blue-500' : 'text-gray-500'}`}>
                   {t.expiryDate || 'Validade'}
                 </label>
               </div>
-              <div className="relative pt-5">
-                <div className={`w-full px-4 py-2 border rounded-md bg-white transition-all ${cardCvcFocused ? 'border-blue-400 ring-2 ring-blue-500/15' : 'border-gray-200'}`}>
+              <div className="relative pt-4">
+                <div className={`w-full px-3 py-1.5 border rounded-md bg-white transition-all ${cardCvcFocused ? 'border-blue-400 ring-2 ring-blue-500/15' : 'border-gray-200'}`}>
                   <CardCvcElement
                     className="w-full"
                     options={{ style: stripeElementStyle }}
@@ -347,42 +351,39 @@ export const PaymentForm: React.FC<PaymentFormProps> = ({
                     onChange={(e) => setCardCvcFilled(!e.empty)}
                   />
                 </div>
-                <label className={`absolute top-0.5 left-2 text-[11px] transition-colors duration-200 pointer-events-none ${cardCvcFocused ? 'text-blue-500' : 'text-gray-500'}`}>
+                <label className={`absolute top-0.5 left-2 text-[10px] transition-colors duration-200 pointer-events-none ${cardCvcFocused ? 'text-blue-500' : 'text-gray-500'}`}>
                   CVV
                 </label>
               </div>
             </div>
 
-            <div className="relative pt-5">
+            <div className="relative pt-4">
               <select
                 value={installments}
                 onChange={(e) => setInstallments(Number(e.target.value))}
-                className="w-full px-4 py-2 pr-8 border border-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500/15 focus:border-blue-400 transition-all text-[14px] bg-white text-gray-800 appearance-none cursor-pointer"
+                className="w-full px-3 py-1.5 pr-8 border border-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500/15 focus:border-blue-400 transition-all text-[13px] bg-white text-gray-800 appearance-none cursor-pointer"
               >
                 {Array.from({ length: getAvailableInstallments() }, (_, i) => i + 1).map(num => {
                   const installmentValue = calculateInstallmentValue(num)
                   const hasInterest = num > 6
                   return (
                     <option key={num} value={num}>
-                      {num === 1
-                        ? `${t.fullPayment} ${formatInstallmentPrice(installmentValue)}`
-                        : `${num}x ${formatInstallmentPrice(installmentValue)}${hasInterest ? t.withInterest : t.interestFree}`
-                      }
+                      {num}x de {formatInstallmentPrice(installmentValue)}
                     </option>
                   )
                 })}
               </select>
-              <label className="absolute top-0.5 left-2 text-[11px] text-gray-500 pointer-events-none">
+              <label className="absolute top-0.5 left-2 text-[10px] text-gray-500 pointer-events-none">
                 {t.installments || 'Parcelas'}
               </label>
-              <ChevronDown size={14} className="absolute right-3 top-[calc(50%+10px)] -translate-y-1/2 text-gray-400 pointer-events-none" />
+              <ChevronDown size={14} className="absolute right-3 top-[calc(50%+8px)] -translate-y-1/2 text-gray-400 pointer-events-none" />
             </div>
           </div>
         )}
 
         {/* PayPal */}
         {expandedPaymentMethod === 'paypal' && (
-          <div className="mt-4">
+          <div className="mt-3">
             {isPreview ? (
               <div className="bg-gray-50 rounded-md p-6 text-center">
                 <p className="text-sm text-gray-500">{t.paypalPreview || 'PayPal payment will be available here'}</p>

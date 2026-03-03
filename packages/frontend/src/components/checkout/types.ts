@@ -50,7 +50,7 @@ export interface CheckoutImageBlock {
     id: string
     url: string
     slot: ImageBlockSlot
-    width?: 'full' | 'large' | 'medium' | 'small'
+    width?: 'full' | 'xlarge' | 'large' | 'medium' | 'small'
     customWidth?: number
     customHeight?: number
 }

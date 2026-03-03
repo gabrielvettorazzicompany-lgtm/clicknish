@@ -93,36 +93,36 @@ export const OrderSummary: React.FC<OrderSummaryProps> = ({
     }
   }
   const containerClass = isMobile
-    ? "bg-white rounded-xl mx-4 my-4 px-4 py-5 shadow-sm border border-gray-100"
-    : "bg-white rounded-xl p-5 lg:p-6 shadow-sm border border-gray-100 sticky top-24"
+    ? "mx-4 mt-0 mb-4"
+    : "sticky top-24"
 
   return (
     <div className={containerClass}>
-      <h3 className="text-[13px] font-semibold text-gray-900 mb-4">{t.orderSummary}</h3>
+      <h3 className="text-[12px] font-semibold text-gray-900 mb-3">{t.orderSummary}</h3>
 
       {/* Produto */}
       {isMobile && productImage ? (
-        <div className="flex gap-3 pb-3 mb-3 border-b border-gray-100">
+        <div className="flex gap-2.5 pb-2.5 mb-2.5 border-b border-gray-100">
           <img
             src={productImage}
             alt={productName}
-            className="w-14 h-14 object-cover rounded-lg flex-shrink-0"
+            className="w-12 h-12 object-cover rounded-lg flex-shrink-0"
           />
           <div className="flex-1 min-w-0">
-            <h4 className="text-[13px] font-medium text-gray-900 truncate">{productName}</h4>
+            <h4 className="text-[12px] font-medium text-gray-900 truncate">{productName}</h4>
             {productDescription && (
               <p className="text-[11px] text-gray-400 mt-0.5 line-clamp-2">{productDescription}</p>
             )}
           </div>
         </div>
       ) : (
-        <div className="pb-3 mb-3 border-b border-gray-100">
-          <h3 className="font-medium text-gray-900 text-[13px]">{productName}</h3>
+        <div className="pb-2.5 mb-2.5 border-b border-gray-100">
+          <h3 className="font-medium text-gray-900 text-[12px]">{productName}</h3>
         </div>
       )}
 
-      <div className="space-y-2 mb-3">
-        <div className="flex justify-between text-[13px]">
+      <div className="space-y-1.5 mb-2.5">
+        <div className="flex justify-between text-[12px]">
           <span className="text-gray-400">{t.subtotal}</span>
           <span className="text-gray-700">{formatPrice(productPrice, productCurrency)}</span>
         </div>
@@ -135,7 +135,7 @@ export const OrderSummary: React.FC<OrderSummaryProps> = ({
               if (!bump) return null
               const price = bump.custom_price || bump.offer_product_price
               return (
-                <div key={bumpId} className="flex justify-between text-[13px]">
+                <div key={bumpId} className="flex justify-between text-[12px]">
                   <span className="text-gray-400">{bump.offer_product_name}</span>
                   <span className="text-gray-700">{formatPrice(price, bump.offer_product_currency)}</span>
                 </div>
@@ -145,16 +145,16 @@ export const OrderSummary: React.FC<OrderSummaryProps> = ({
         )}
       </div>
 
-      <div className="pt-3 border-t border-gray-100 mb-4">
+      <div className="pt-2.5 border-t border-gray-100 mb-3">
         <div className="flex justify-between items-baseline">
-          <span className="text-[13px] font-medium text-gray-900">{t.total}</span>
-          <span className={`font-semibold text-gray-900 ${isMobile ? 'text-xl' : 'text-lg'}`}>
+          <span className="text-[12px] font-medium text-gray-900">{t.total}</span>
+          <span className={`font-semibold text-gray-900 ${isMobile ? 'text-lg' : 'text-base'}`}>
             {formatPrice(totalWithBumps, productCurrency)}
           </span>
         </div>
         {paymentMethod === 'credit' && installments > 1 && (
           <div className="text-[11px] text-gray-400 text-right mt-0.5">
-            {t.installmentLabel(installments, formatPrice(calculateInstallmentValue(totalWithBumps, installments), productCurrency))}{installments <= 6 ? t.interestFree : t.withInterest}
+            {t.installmentLabel(installments, formatPrice(calculateInstallmentValue(totalWithBumps, installments), productCurrency))}
           </div>
         )}
       </div>
@@ -166,9 +166,9 @@ export const OrderSummary: React.FC<OrderSummaryProps> = ({
       <button
         onClick={handleOptimisticClick}
         disabled={processing}
-        className={`w-full disabled:opacity-40 disabled:cursor-not-allowed text-white font-medium rounded-lg transition-all duration-200 text-[13px] flex items-center justify-center gap-2 ${isMobile ? 'py-3 mb-4' : 'py-3'} ${isPreview ? 'cursor-default pointer-events-none' : ''} ${optimisticClick ? 'scale-[0.96] bg-opacity-90' : 'hover:scale-[1.02] active:scale-[0.98]'
+        className={`w-full disabled:opacity-40 disabled:cursor-not-allowed text-white font-medium rounded-lg transition-all duration-200 text-[13px] flex items-center justify-center gap-2 ${isMobile ? 'py-2.5 mb-4' : 'py-2.5'} ${isPreview ? 'cursor-default pointer-events-none' : ''} ${optimisticClick ? 'scale-[0.96] bg-opacity-90' : 'hover:scale-[1.02] active:scale-[0.98]'
           }`}
-        style={{ backgroundColor: buttonColor, touchAction: 'manipulation', minHeight: '44px' }}
+        style={{ backgroundColor: buttonColor, touchAction: 'manipulation', minHeight: '42px' }}
       >
         {processing ? (
           <>
