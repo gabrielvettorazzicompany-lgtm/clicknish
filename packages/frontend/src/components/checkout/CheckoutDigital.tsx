@@ -80,6 +80,7 @@ function CheckoutDigital({
     onDeleteImageBlock
 }: CheckoutDigitalProps) {
     const [showPrivacyPolicy, setShowPrivacyPolicy] = useState(false)
+    const [activePaymentMethod, setActivePaymentMethod] = useState<'credit_card' | 'paypal'>(defaultPaymentMethod as 'credit_card' | 'paypal')
 
     const t = getTranslations(language)
     const { t: i18nT } = useI18n()
@@ -277,6 +278,7 @@ function CheckoutDigital({
                             onInstallmentsChange={setInstallments}
                             isPreview={isPreview}
                             onLeadCapture={onLeadCapture}
+                            onPaymentMethodChange={setActivePaymentMethod}
                             t={t}
                             imageBlocks={imageBlocks}
                             isDragging={isDragging}
@@ -307,6 +309,7 @@ function CheckoutDigital({
                             selectedBumps={selectedBumps}
                             totalWithBumps={totalWithBumps}
                             installments={installments}
+                            paymentMethod={activePaymentMethod}
                             onSubmit={handleSubmit}
                             processing={paymentState.processing}
                             paymentSuccess={paymentState.success}
@@ -336,6 +339,7 @@ function CheckoutDigital({
                         selectedBumps={selectedBumps}
                         totalWithBumps={totalWithBumps}
                         installments={installments}
+                        paymentMethod={activePaymentMethod}
                         onSubmit={handleSubmit}
                         processing={paymentState.processing}
                         paymentSuccess={paymentState.success}

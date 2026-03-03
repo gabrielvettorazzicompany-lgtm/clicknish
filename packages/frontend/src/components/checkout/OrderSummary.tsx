@@ -16,7 +16,7 @@ interface OrderSummaryProps {
   totalWithBumps: number
   installments?: number
   paymentMethod?: string
-  onSubmit: () => void
+  onSubmit: (e?: any, data?: any) => void
   processing: boolean
   paymentSuccess: boolean
   paymentError: string | null
@@ -70,7 +70,11 @@ export const OrderSummary: React.FC<OrderSummaryProps> = ({
     // Limpar o estado após 300ms (ou quando processing iniciar de verdade)
     setTimeout(() => setOptimisticClick(false), 300)
 
-    onSubmit()
+    if (paymentMethod === 'paypal') {
+      onSubmit(undefined, { paymentMethod: 'paypal' })
+    } else {
+      onSubmit()
+    }
   }
 
   // Calcular valor da parcela com juros se aplicavel

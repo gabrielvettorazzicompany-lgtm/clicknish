@@ -199,6 +199,15 @@ textarea {
     margin: 0;
 }
 
+/* Previne zoom automático do iOS ao focar inputs (iOS faz zoom quando font-size < 16px) */
+@media screen and (max-width: 768px) {
+    input,
+    select,
+    textarea {
+        font-size: 16px !important;
+    }
+}
+
 input[type="text"],
 input[type="email"],
 input[type="tel"] {

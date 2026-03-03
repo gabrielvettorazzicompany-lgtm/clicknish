@@ -21,6 +21,7 @@ interface PaymentFormProps {
   onInstallmentsChange?: (installments: number) => void
   isPreview?: boolean
   onLeadCapture?: (data: { email: string; name: string; phone: string }) => void
+  onPaymentMethodChange?: (method: 'credit_card' | 'paypal') => void
   t: any // translations object
   imageBlocks?: CheckoutImageBlock[]
   isDragging?: boolean
@@ -79,6 +80,7 @@ export const PaymentForm: React.FC<PaymentFormProps> = ({
   onInstallmentsChange,
   isPreview,
   onLeadCapture,
+  onPaymentMethodChange,
   t,
   imageBlocks,
   isDragging,
@@ -86,7 +88,13 @@ export const PaymentForm: React.FC<PaymentFormProps> = ({
   onUpdateImageBlock,
   onDeleteImageBlock
 }) => {
-  const [expandedPaymentMethod, setExpandedPaymentMethod] = useState<'credit_card' | 'paypal' | null>(defaultPaymentMethod)
+  const [expandedPaymentMethod, setExpandedPaymentMethodRaw] = useState<'credit_card' | 'paypal' | null>(defaultPaymentMethod)
+
+  const setExpandedPaymentMethod = (method: 'credit_card' | 'paypal' | null) => {
+    setExpandedPaymentMethodRaw(method)
+    if (method && onPaymentMethodChange) onPaymentMethodChange(method)
+  }
+
   const [installments, setInstallments] = useState(1)
   const [cardNumberFocused, setCardNumberFocused] = useState(false)
   const [cardNumberFilled, setCardNumberFilled] = useState(false)
@@ -380,20 +388,9 @@ export const PaymentForm: React.FC<PaymentFormProps> = ({
               </div>
             ) : (
               <div className="bg-gray-50 rounded-md p-4">
-                <p className="text-[13px] text-gray-600 mb-3">
-                  {t.paypalDescription || 'Click continue to be redirected to PayPal to complete your payment securely.'}
+                <p className="text-[13px] text-gray-600">
+                  {t.paypalDescription || 'Click the button below to be redirected to PayPal to complete your payment securely.'}
                 </p>
-                <button
-                  type="button"
-                  onClick={() => {
-                    const formDataWithPaymentMethod = { ...formData, paymentMethod: 'paypal' }
-                    console.log('💙 PayPal button clicked:', formDataWithPaymentMethod)
-                    onSubmit(undefined, formDataWithPaymentMethod)
-                  }}
-                  className="w-full bg-blue-600 text-white text-center py-3 px-4 rounded-md font-medium hover:bg-blue-700 transition-colors text-[13px]"
-                >
-                  {t.continueWithPaypal || 'Continue with PayPal'}
-                </button>
               </div>
             )}
           </div>

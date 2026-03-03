@@ -43,6 +43,15 @@ code {
   min-height: 100vh;
 }
 
+/* Previne zoom automático do iOS ao focar inputs (iOS faz zoom quando font-size < 16px) */
+@media screen and (max-width: 768px) {
+  input,
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+}
+
 /* Scrollbar personalizada */
 ::-webkit-scrollbar {
   width: 6px;
