@@ -55,12 +55,12 @@ const FloatingInput: React.FC<{
       autoCorrect={autoCorrect}
       autoCapitalize={autoCapitalize as any}
       inputMode={inputMode}
-      className="w-full px-3 py-1.5 border border-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500/15 focus:border-blue-400 transition-all text-[13px] bg-white text-gray-800 peer"
+      className="w-full px-3 py-1.5 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500/15 focus:border-blue-400 transition-all text-[13px] bg-white text-gray-900 peer"
       data-placeholder={inputPlaceholder}
       onFocus={e => { if (inputPlaceholder) e.currentTarget.placeholder = inputPlaceholder }}
       onBlurCapture={e => { if (inputPlaceholder && !e.currentTarget.value) e.currentTarget.placeholder = ' ' }}
     />
-    <label className="absolute left-2.5 top-5.5 text-[13px] text-gray-400 transition-all duration-200 pointer-events-none peer-focus:top-0.5 peer-focus:left-2 peer-focus:text-[10px] peer-focus:text-blue-500 peer-[:not(:placeholder-shown)]:top-0.5 peer-[:not(:placeholder-shown)]:left-2 peer-[:not(:placeholder-shown)]:text-[10px] peer-[:not(:placeholder-shown)]:text-gray-500">
+    <label className="absolute left-2.5 top-5.5 text-[13px] text-gray-600 transition-all duration-200 pointer-events-none peer-focus:top-0.5 peer-focus:left-2 peer-focus:text-[10px] peer-focus:text-blue-500 peer-[:not(:placeholder-shown)]:top-0.5 peer-[:not(:placeholder-shown)]:left-2 peer-[:not(:placeholder-shown)]:text-[10px] peer-[:not(:placeholder-shown)]:text-gray-700">
       {label}
     </label>
   </div>
@@ -312,7 +312,7 @@ export const PaymentForm: React.FC<PaymentFormProps> = ({
         {expandedPaymentMethod === 'credit_card' && (
           <div className="mt-3 space-y-2.5">
             <div className="relative pt-4">
-              <div className={`w-full px-3 py-1.5 border rounded-md bg-white transition-all ${cardNumberFocused ? 'border-blue-400 ring-2 ring-blue-500/15' : 'border-gray-200'}`}>
+              <div className={`w-full px-3 py-1.5 border rounded-md bg-white transition-all ${cardNumberFocused ? 'border-blue-400 ring-2 ring-blue-500/15' : 'border-gray-300'}`}>
                 <CardNumberElement
                   className="w-full"
                   options={{ style: stripeElementStyle }}
@@ -321,14 +321,14 @@ export const PaymentForm: React.FC<PaymentFormProps> = ({
                   onChange={(e) => setCardNumberFilled(!e.empty)}
                 />
               </div>
-              <label className={`absolute top-0.5 left-2 text-[10px] transition-colors duration-200 pointer-events-none ${cardNumberFocused ? 'text-blue-500' : 'text-gray-500'}`}>
+              <label className={`absolute top-0.5 left-2 text-[10px] transition-colors duration-200 pointer-events-none ${cardNumberFocused ? 'text-blue-500' : 'text-gray-700'}`}>
                 {t.cardNumber || 'Número do cartão'}
               </label>
             </div>
 
             <div className="grid grid-cols-2 gap-3">
               <div className="relative pt-4">
-                <div className={`w-full px-3 py-1.5 border rounded-md bg-white transition-all ${cardExpiryFocused ? 'border-blue-400 ring-2 ring-blue-500/15' : 'border-gray-200'}`}>
+                <div className={`w-full px-3 py-1.5 border rounded-md bg-white transition-all ${cardExpiryFocused ? 'border-blue-400 ring-2 ring-blue-500/15' : 'border-gray-300'}`}>
                   <CardExpiryElement
                     className="w-full"
                     options={{ style: stripeElementStyle }}
@@ -337,12 +337,12 @@ export const PaymentForm: React.FC<PaymentFormProps> = ({
                     onChange={(e) => setCardExpiryFilled(!e.empty)}
                   />
                 </div>
-                <label className={`absolute top-0.5 left-2 text-[10px] transition-colors duration-200 pointer-events-none ${cardExpiryFocused ? 'text-blue-500' : 'text-gray-500'}`}>
+                <label className={`absolute top-0.5 left-2 text-[10px] transition-colors duration-200 pointer-events-none ${cardExpiryFocused ? 'text-blue-500' : 'text-gray-700'}`}>
                   {t.expiryDate || 'Validade'}
                 </label>
               </div>
               <div className="relative pt-4">
-                <div className={`w-full px-3 py-1.5 border rounded-md bg-white transition-all ${cardCvcFocused ? 'border-blue-400 ring-2 ring-blue-500/15' : 'border-gray-200'}`}>
+                <div className={`w-full px-3 py-1.5 border rounded-md bg-white transition-all ${cardCvcFocused ? 'border-blue-400 ring-2 ring-blue-500/15' : 'border-gray-300'}`}>
                   <CardCvcElement
                     className="w-full"
                     options={{ style: stripeElementStyle }}
@@ -351,7 +351,7 @@ export const PaymentForm: React.FC<PaymentFormProps> = ({
                     onChange={(e) => setCardCvcFilled(!e.empty)}
                   />
                 </div>
-                <label className={`absolute top-0.5 left-2 text-[10px] transition-colors duration-200 pointer-events-none ${cardCvcFocused ? 'text-blue-500' : 'text-gray-500'}`}>
+                <label className={`absolute top-0.5 left-2 text-[10px] transition-colors duration-200 pointer-events-none ${cardCvcFocused ? 'text-blue-500' : 'text-gray-700'}`}>
                   CVV
                 </label>
               </div>
@@ -361,7 +361,7 @@ export const PaymentForm: React.FC<PaymentFormProps> = ({
               <select
                 value={installments}
                 onChange={(e) => setInstallments(Number(e.target.value))}
-                className="w-full px-3 py-1.5 pr-8 border border-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500/15 focus:border-blue-400 transition-all text-[13px] bg-white text-gray-800 appearance-none cursor-pointer"
+                className="w-full px-3 py-1.5 pr-8 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500/15 focus:border-blue-400 transition-all text-[13px] bg-white text-gray-900 appearance-none cursor-pointer"
               >
                 {Array.from({ length: getAvailableInstallments() }, (_, i) => i + 1).map(num => {
                   const installmentValue = calculateInstallmentValue(num)
@@ -373,10 +373,10 @@ export const PaymentForm: React.FC<PaymentFormProps> = ({
                   )
                 })}
               </select>
-              <label className="absolute top-0.5 left-2 text-[10px] text-gray-500 pointer-events-none">
+              <label className="absolute top-0.5 left-2 text-[10px] text-gray-700 pointer-events-none">
                 {t.installments || 'Parcelas'}
               </label>
-              <ChevronDown size={14} className="absolute right-3 top-[calc(50%+8px)] -translate-y-1/2 text-gray-400 pointer-events-none" />
+              <ChevronDown size={14} className="absolute right-3 top-[calc(50%+8px)] -translate-y-1/2 text-gray-600 pointer-events-none" />
             </div>
           </div>
         )}

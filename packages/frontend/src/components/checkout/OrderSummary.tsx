@@ -106,7 +106,7 @@ export const OrderSummary: React.FC<OrderSummaryProps> = ({
           </span>
         </div>
         {paymentMethod === 'credit' && installments > 1 && (
-          <div className="text-[11px] text-gray-400 text-right mt-0.5">
+          <div className="text-[11px] text-gray-600 text-right mt-0.5">
             {t.installmentLabel(installments, formatPrice(calculateInstallmentValue(totalWithBumps, installments), productCurrency))}
           </div>
         )}

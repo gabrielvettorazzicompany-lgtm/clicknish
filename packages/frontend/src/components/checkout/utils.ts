@@ -9,9 +9,9 @@ export const stripeElementStyle = {
         lineHeight: '1.5',
         fontFamily: "'Inter', system-ui, sans-serif",
         fontSmoothing: 'antialiased',
-        color: '#1f2937',
+        color: '#111827',
         '::placeholder': {
-            color: '#9ca3af',
+            color: '#6b7280',
         },
     },
     invalid: {
