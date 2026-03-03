@@ -74,6 +74,8 @@ function CheckoutDigital({
     securitySealsEnabled = false,
     onSecuritySealsClick,
     testimonials = [],
+    testimonialsCarouselMode = false,
+    testimonialsHorizontalMode = false,
     onTestimonialsClick,
     imageBlocks = [],
     onImageBlockClick,
@@ -279,6 +281,7 @@ function CheckoutDigital({
                             currency={productCurrency}
                             onInstallmentsChange={setInstallments}
                             isPreview={isPreview}
+                            viewDevice={viewDevice}
                             onLeadCapture={onLeadCapture}
                             onPaymentMethodChange={setActivePaymentMethod}
                             t={t}
@@ -322,10 +325,14 @@ function CheckoutDigital({
                             buttonColor={buttonColor}
                             buttonText={buttonText}
                             imageBlocks={imageBlocks}
+                            testimonials={testimonials}
+                            testimonialsCarouselMode={testimonialsCarouselMode}
+                            testimonialsHorizontalMode={testimonialsHorizontalMode}
                             isDragging={isDragging}
                             draggedComponentType={draggedComponentType || undefined}
                             onUpdateImageBlock={onUpdateImageBlock}
                             onDeleteImageBlock={onDeleteImageBlock}
+                            onTestimonialsClick={onTestimonialsClick}
                         />
                     </div>
                 </div>
@@ -353,10 +360,14 @@ function CheckoutDigital({
                         buttonColor={buttonColor}
                         buttonText={buttonText}
                         imageBlocks={imageBlocks}
+                        testimonials={testimonials}
+                        testimonialsCarouselMode={testimonialsCarouselMode}
+                        testimonialsHorizontalMode={testimonialsHorizontalMode}
                         isDragging={isDragging}
                         draggedComponentType={draggedComponentType || undefined}
                         onUpdateImageBlock={onUpdateImageBlock}
                         onDeleteImageBlock={onDeleteImageBlock}
+                        onTestimonialsClick={onTestimonialsClick}
                     />
                 </div>
             </div>

@@ -9,6 +9,8 @@ export interface CustomBanner {
     imagePosition?: { x: number; y: number }
 }
 
+export type TestimonialSlot = 'below_button'
+
 export interface Testimonial {
     id: string
     photo?: string
@@ -18,6 +20,7 @@ export interface Testimonial {
     backgroundColor: string
     textColor: string
     horizontalMode: boolean
+    slot: TestimonialSlot
 }
 
 export interface OrderBump {
@@ -126,6 +129,8 @@ export interface CheckoutDigitalProps {
     securitySealsEnabled?: boolean
     onSecuritySealsClick?: () => void
     testimonials?: Testimonial[]
+    testimonialsCarouselMode?: boolean
+    testimonialsHorizontalMode?: boolean
     onTestimonialsClick?: (id?: string) => void
     imageBlocks?: CheckoutImageBlock[]
     onImageBlockClick?: () => void

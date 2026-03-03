@@ -100,7 +100,9 @@ function buildInitialState(raw: any) {
         timerConfig,
         buttonColor: customFields.buttonColor || '#111827',
         securitySealsEnabled: customFields.securitySealsEnabled || false,
-        testimonials: customFields.testimonials || [],
+        testimonials: (customFields.testimonials || []).map((t: any) => ({ ...t, slot: t.slot || 'below_button' })),
+        testimonialsCarouselMode: customFields.testimonialsCarouselMode || false,
+        testimonialsHorizontalMode: customFields.testimonialsHorizontalMode || false,
         imageBlocks: customFields.imageBlocks || [],
         customPixels: customFields.customPixels || '',
         customUtms: customFields.customUtms || '',
@@ -151,6 +153,8 @@ export default function CheckoutPublic() {
     const [customUtms, setCustomUtms] = useState(snap?.customUtms ?? '')
     const [securitySealsEnabled, setSecuritySealsEnabled] = useState(snap?.securitySealsEnabled ?? false)
     const [testimonials, setTestimonials] = useState<any[]>(snap?.testimonials ?? [])
+    const [testimonialsCarouselMode, setTestimonialsCarouselMode] = useState(snap?.testimonialsCarouselMode ?? false)
+    const [testimonialsHorizontalMode, setTestimonialsHorizontalMode] = useState(snap?.testimonialsHorizontalMode ?? false)
     const [imageBlocks, setImageBlocks] = useState<any[]>(snap?.imageBlocks ?? [])
     const [preloadedRedirect, setPreloadedRedirect] = useState<{ url: string | null } | null>(snap?.preloadedRedirect ?? null)
     const [initialOrderBumps, setInitialOrderBumps] = useState<any[] | undefined>(snap?.initialOrderBumps)
@@ -308,7 +312,13 @@ export default function CheckoutPublic() {
                         setSecuritySealsEnabled(customFields.securitySealsEnabled)
                     }
                     if (customFields.testimonials) {
-                        setTestimonials(customFields.testimonials)
+                        setTestimonials(customFields.testimonials.map((t: any) => ({ ...t, slot: t.slot || 'below_button' })))
+                    }
+                    if (customFields.testimonialsCarouselMode !== undefined) {
+                        setTestimonialsCarouselMode(customFields.testimonialsCarouselMode)
+                    }
+                    if (customFields.testimonialsHorizontalMode !== undefined) {
+                        setTestimonialsHorizontalMode(customFields.testimonialsHorizontalMode)
                     }
                     if (customFields.imageBlocks) {
                         setImageBlocks(customFields.imageBlocks)
@@ -540,7 +550,13 @@ export default function CheckoutPublic() {
 
             // Load testimonials and image blocks
             if (customFields.testimonials) {
-                setTestimonials(customFields.testimonials)
+                setTestimonials(customFields.testimonials.map((t: any) => ({ ...t, slot: t.slot || 'below_button' })))
+            }
+            if (customFields.testimonialsCarouselMode !== undefined) {
+                setTestimonialsCarouselMode(customFields.testimonialsCarouselMode)
+            }
+            if (customFields.testimonialsHorizontalMode !== undefined) {
+                setTestimonialsHorizontalMode(customFields.testimonialsHorizontalMode)
             }
             if (customFields.imageBlocks) {
                 setImageBlocks(customFields.imageBlocks)
@@ -935,6 +951,8 @@ export default function CheckoutPublic() {
                 buttonColor={buttonColor}
                 securitySealsEnabled={securitySealsEnabled}
                 testimonials={testimonials}
+                testimonialsCarouselMode={testimonialsCarouselMode}
+                testimonialsHorizontalMode={testimonialsHorizontalMode}
                 imageBlocks={imageBlocks}
                 onProcessPayment={handleProcessPayment}
                 onLeadCapture={(data) => {

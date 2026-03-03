@@ -1,9 +1,11 @@
 import React, { useState } from 'react'
 import { Loader2, CheckCircle } from 'lucide-react'
-import { OrderBump, CheckoutImageBlock } from './types'
+import { OrderBump, CheckoutImageBlock, Testimonial } from './types'
 import { formatPrice, calculateInstallmentValue } from './utils'
 import CheckoutImageDisplay from './components/CheckoutImageDisplay'
 import ImageDropZone from './components/ImageDropZone'
+import TestimonialDropZone from './components/TestimonialDropZone'
+import TestimonialDisplay from './components/TestimonialDisplay'
 
 interface OrderSummaryProps {
   productName: string
@@ -26,10 +28,14 @@ interface OrderSummaryProps {
   buttonColor?: string
   buttonText?: string
   imageBlocks?: CheckoutImageBlock[]
+  testimonials?: Testimonial[]
+  testimonialsCarouselMode?: boolean
+  testimonialsHorizontalMode?: boolean
   isDragging?: boolean
   draggedComponentType?: string
   onUpdateImageBlock?: (id: string, updates: Partial<CheckoutImageBlock>) => void
   onDeleteImageBlock?: (id: string) => void
+  onTestimonialsClick?: (id?: string) => void
 }
 
 export const OrderSummary: React.FC<OrderSummaryProps> = ({
@@ -53,10 +59,14 @@ export const OrderSummary: React.FC<OrderSummaryProps> = ({
   buttonColor = '#111827',
   buttonText = 'Complete Purchase',
   imageBlocks,
+  testimonials,
+  testimonialsCarouselMode = false,
+  testimonialsHorizontalMode = false,
   isDragging,
   draggedComponentType,
   onUpdateImageBlock,
-  onDeleteImageBlock
+  onDeleteImageBlock,
+  onTestimonialsClick
 }) => {
   // ═══════════════════════════════════════════════════════════════════
   // OPTIMISTIC UI: Feedback visual instantâneo ao clicar
@@ -144,6 +154,12 @@ export const OrderSummary: React.FC<OrderSummaryProps> = ({
       {/* Image block: below buy button */}
       <ImageDropZone slot="below_button" isPreview={isPreview} isDragging={isDragging} draggedComponentType={draggedComponentType} />
       <CheckoutImageDisplay imageBlocks={imageBlocks} slot="below_button" className="px-0" isPreview={isPreview} onUpdateImageBlock={onUpdateImageBlock} onDeleteImageBlock={onDeleteImageBlock} />
+
+      {/* Testimonial: below buy button */}
+      {!testimonialsCarouselMode && (
+        <TestimonialDropZone slot="below_button" isPreview={isPreview} isDragging={isDragging} draggedComponentType={draggedComponentType} />
+      )}
+      <TestimonialDisplay testimonials={testimonials} slot="below_button" className="px-0" isPreview={isPreview} onClick={onTestimonialsClick} carouselMode={testimonialsCarouselMode} horizontalMode={testimonialsHorizontalMode} />
 
       {paymentError && (
         <div className={`p-3 bg-red-50 border border-red-100 rounded-lg ${isMobile ? 'mb-4' : 'mt-3'}`}>

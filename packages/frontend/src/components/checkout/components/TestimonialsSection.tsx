@@ -106,8 +106,13 @@ function TestimonialCard({ testimonial }: { testimonial: Testimonial }) {
 export default function TestimonialsSection({ testimonials, isPreview, onClick, imageBlocks, onPreviewAdd, isDragging, draggedComponentType, onUpdateImageBlock, onDeleteImageBlock }: TestimonialsSectionProps) {
     if (!testimonials || testimonials.length === 0) return null
 
-    const hasHorizontal = testimonials.some(t => t.horizontalMode)
-    const hasVertical = testimonials.some(t => !t.horizontalMode)
+    // Filter out testimonials with slot (they are shown in OrderSummary)
+    const sectionTestimonials = testimonials.filter(t => !t.slot)
+    
+    if (sectionTestimonials.length === 0) return null
+
+    const hasHorizontal = sectionTestimonials.some(t => t.horizontalMode)
+    const hasVertical = sectionTestimonials.some(t => !t.horizontalMode)
 
     const wrapCard = (t: Testimonial) => (
         <div
@@ -123,14 +128,14 @@ export default function TestimonialsSection({ testimonials, isPreview, onClick, 
         <div className="w-full px-4 py-6">
             {/* Vertical cards grid */}
             {hasVertical && (
-                <div className={`grid gap-4 ${testimonials.filter(t => !t.horizontalMode).length === 1
+                <div className={`grid gap-4 ${sectionTestimonials.filter(t => !t.horizontalMode).length === 1
                     ? 'grid-cols-1 max-w-sm mx-auto'
-                    : testimonials.filter(t => !t.horizontalMode).length === 2
+                    : sectionTestimonials.filter(t => !t.horizontalMode).length === 2
                         ? 'grid-cols-2'
                         : 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3'
                     } ${hasHorizontal ? 'mb-4' : ''}`}
                 >
-                    {testimonials.filter(t => !t.horizontalMode).map(wrapCard)}
+                    {sectionTestimonials.filter(t => !t.horizontalMode).map(wrapCard)}
                 </div>
             )}
 
@@ -141,7 +146,7 @@ export default function TestimonialsSection({ testimonials, isPreview, onClick, 
             {/* Horizontal cards */}
             {hasHorizontal && (
                 <div className="flex flex-col gap-4">
-                    {testimonials.filter(t => t.horizontalMode).map(wrapCard)}
+                    {sectionTestimonials.filter(t => t.horizontalMode).map(wrapCard)}
                 </div>
             )}
         </div>

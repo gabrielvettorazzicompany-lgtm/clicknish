@@ -20,6 +20,7 @@ interface PaymentFormProps {
   currency?: string
   onInstallmentsChange?: (installments: number) => void
   isPreview?: boolean
+  viewDevice?: 'mobile' | 'desktop'
   onLeadCapture?: (data: { email: string; name: string; phone: string }) => void
   onPaymentMethodChange?: (method: 'credit_card' | 'paypal') => void
   t: any // translations object
@@ -79,6 +80,7 @@ export const PaymentForm: React.FC<PaymentFormProps> = ({
   currency = 'USD',
   onInstallmentsChange,
   isPreview,
+  viewDevice = 'desktop',
   onLeadCapture,
   onPaymentMethodChange,
   t,
@@ -194,9 +196,9 @@ export const PaymentForm: React.FC<PaymentFormProps> = ({
       : 'top-7 left-3 text-[14px] text-gray-400'
 
   return (
-    <form onSubmit={handleSubmit}>
+    <form onSubmit={handleSubmit} className={viewDevice === 'mobile' || isPreview ? 'px-4' : 'px-4 lg:px-0'}>
       {/* Formulário sem card */}
-      <div className="mx-4 lg:mx-0">
+      <div>
 
         {/* Nome completo */}
         <FloatingInput
@@ -406,13 +408,13 @@ export const PaymentForm: React.FC<PaymentFormProps> = ({
 
       {/* Error and Success Messages */}
       {paymentError && (
-        <div className="mx-4 lg:mx-0 mt-3 p-3 bg-red-50 border border-red-100 rounded-lg">
+        <div className="mt-3 p-3 bg-red-50 border border-red-100 rounded-lg">
           <p className="text-[13px] text-red-600">{paymentError}</p>
         </div>
       )}
 
       {paymentSuccess && (
-        <div className="mx-4 lg:mx-0 mt-3 p-3 bg-green-50 border border-green-100 rounded-lg">
+        <div className="mt-3 p-3 bg-green-50 border border-green-100 rounded-lg">
           <p className="text-[13px] text-green-600">{t.accessGranted}</p>
         </div>
       )}

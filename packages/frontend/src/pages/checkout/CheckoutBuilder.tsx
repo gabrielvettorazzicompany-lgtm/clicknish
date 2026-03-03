@@ -57,7 +57,8 @@ export default function CheckoutBuilder() {
 
     const availableComponents: ComponentItem[] = [
         { id: 'timer', name: 'Timer', icon: Clock, type: 'timer' },
-        { id: 'image', name: 'Imagem', icon: ImageIcon, type: 'image' }
+        { id: 'image', name: 'Imagem', icon: ImageIcon, type: 'image' },
+        { id: 'testimonials', name: 'Depoimentos', icon: MessageSquare, type: 'testimonials' }
     ]
 
     const [product, setProduct] = useState<Product | null>(null)
@@ -90,6 +91,8 @@ export default function CheckoutBuilder() {
     const [testimonials, setTestimonials] = useState<Testimonial[]>([])
     const [editingTestimonialId, setEditingTestimonialId] = useState<string | null>(null)
     const [testimonialPhotoInput, setTestimonialPhotoInput] = useState<string>('')
+    const [testimonialsCarouselMode, setTestimonialsCarouselMode] = useState(false)
+    const [testimonialsHorizontalMode, setTestimonialsHorizontalMode] = useState(false)
 
     // Image blocks state
     const [imageBlocks, setImageBlocks] = useState<CheckoutImageBlock[]>([])
@@ -250,7 +253,22 @@ export default function CheckoutBuilder() {
 
             // Load testimonials
             if (customFields.testimonials) {
-                setTestimonials(customFields.testimonials)
+                // Garantir que testimonials antigos tenham slot padrão
+                const testimonialsWithSlot = customFields.testimonials.map((t: any) => ({
+                    ...t,
+                    slot: t.slot || 'below_button'
+                }))
+                setTestimonials(testimonialsWithSlot)
+            }
+            
+            // Load testimonials carousel mode
+            if (customFields.testimonialsCarouselMode !== undefined) {
+                setTestimonialsCarouselMode(customFields.testimonialsCarouselMode)
+            }
+            
+            // Load testimonials horizontal mode
+            if (customFields.testimonialsHorizontalMode !== undefined) {
+                setTestimonialsHorizontalMode(customFields.testimonialsHorizontalMode)
             }
 
             // Load image blocks
@@ -306,6 +324,8 @@ export default function CheckoutBuilder() {
                 bannerImagePosition: bannerImagePosition,
                 securitySealsEnabled: securitySealsEnabled,
                 testimonials: testimonials.length > 0 ? testimonials : undefined,
+                testimonialsCarouselMode: testimonialsCarouselMode,
+                testimonialsHorizontalMode: testimonialsHorizontalMode,
                 imageBlocks: imageBlocks.length > 0 ? imageBlocks : undefined,
                 paymentMethods: paymentMethodsOverride ?? undefined
             }
@@ -482,7 +502,7 @@ export default function CheckoutBuilder() {
         }
     }
 
-    const handleAddTestimonial = () => {
+    const handleAddTestimonial = (slot: 'below_button' = 'below_button') => {
         const newTestimonial: Testimonial = {
             id: `t-${Date.now()}`,
             photo: '',
@@ -491,7 +511,8 @@ export default function CheckoutBuilder() {
             name: 'John Doe',
             backgroundColor: '#ffffff',
             textColor: '#111827',
-            horizontalMode: false
+            horizontalMode: false,
+            slot: slot
         }
         setTestimonials(prev => [...prev, newTestimonial])
         setEditingTestimonialId(newTestimonial.id)
@@ -567,7 +588,7 @@ export default function CheckoutBuilder() {
                 setSecuritySealsEnabled(true)
                 handleEditElement('seals')
             } else if (draggedComponent.type === 'testimonials') {
-                handleAddTestimonial()
+                handleAddTestimonial('below_button')
             } else if (draggedComponent.type === 'image') {
                 // Mapear drop zones para slots de imagem
                 const validImageSlots: ImageBlockSlot[] = [
@@ -869,6 +890,8 @@ export default function CheckoutBuilder() {
                                             securitySealsEnabled={securitySealsEnabled}
                                             onSecuritySealsClick={() => handleEditElement('seals')}
                                             testimonials={testimonials}
+                                            testimonialsCarouselMode={testimonialsCarouselMode}
+                                            testimonialsHorizontalMode={testimonialsHorizontalMode}
                                             onTestimonialsClick={(id) => {
                                                 setEditingElement('testimonials')
                                                 setEditPanelOpen(true)
@@ -1300,6 +1323,29 @@ export default function CheckoutBuilder() {
                                                 Novo
                                             </button>
                                         </div>
+                                        
+                                        {/* Carousel mode toggle */}
+                                        <div className="mb-2 flex items-center justify-between p-2 bg-gray-950 border border-gray-700 rounded-lg">
+                                            <label className="text-xs font-medium text-gray-300">Modo Carrossel</label>
+                                            <button
+                                                onClick={() => setTestimonialsCarouselMode(!testimonialsCarouselMode)}
+                                                className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${testimonialsCarouselMode ? 'bg-blue-500' : 'bg-gray-800'}`}
+                                            >
+                                                <span className={`inline-block h-3 w-3 transform rounded-full bg-white shadow transition-transform ${testimonialsCarouselMode ? 'translate-x-5' : 'translate-x-1'}`} />
+                                            </button>
+                                        </div>
+                                        
+                                        {/* Horizontal mode toggle */}
+                                        <div className="mb-2 flex items-center justify-between p-2 bg-gray-950 border border-gray-700 rounded-lg">
+                                            <label className="text-xs font-medium text-gray-300">Modo Horizontal</label>
+                                            <button
+                                                onClick={() => setTestimonialsHorizontalMode(!testimonialsHorizontalMode)}
+                                                className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${testimonialsHorizontalMode ? 'bg-blue-500' : 'bg-gray-800'}`}
+                                            >
+                                                <span className={`inline-block h-3 w-3 transform rounded-full bg-white shadow transition-transform ${testimonialsHorizontalMode ? 'translate-x-5' : 'translate-x-1'}`} />
+                                            </button>
+                                        </div>
+                                        
                                         <div className="flex flex-col gap-1">
                                             {testimonials.map(t => (
                                                 <div
@@ -1440,16 +1486,6 @@ export default function CheckoutBuilder() {
                                             </div>
                                         </div>
 
-                                        {/* Horizontal mode toggle */}
-                                        <div className="flex items-center justify-between">
-                                            <label className="text-sm font-medium text-gray-300">Modo horizontal</label>
-                                            <button
-                                                onClick={() => handleUpdateTestimonial(testimonial.id, { horizontalMode: !testimonial.horizontalMode })}
-                                                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${testimonial.horizontalMode ? 'bg-blue-500' : 'bg-gray-800'}`}
-                                            >
-                                                <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${testimonial.horizontalMode ? 'translate-x-6' : 'translate-x-1'}`} />
-                                            </button>
-                                        </div>
                                     </div>
                                 </div>
                             )
