@@ -67,11 +67,6 @@ export default function Login() {
         if (authError) throw authError
 
         if (data.user) {
-          // Nota: O Supabase envia automaticamente um email de confirmação
-          // Se quiser usar um template customizado, configure no painel do Supabase
-          // ou descomente o código abaixo para enviar via Resend
-
-          /*
           // Enviar email customizado via Resend
           try {
             await fetch('https://api.clicknich.com/api/send-confirmation-email', {
@@ -89,7 +84,6 @@ export default function Login() {
             console.error('Error sending custom email:', emailError)
             // Não falhar o signup se o email customizado falhar
           }
-          */
 
           // Mostrar mensagem de sucesso e pedir para verificar email
           setSignUpSuccess(true)
