@@ -728,6 +728,139 @@ export async function handleSuperadmin(request: Request, env: any, pathSegments:
             })
         }
 
+        // GET /api/superadmin/withdrawals
+        if (request.method === 'GET' && pathSegments[0] === 'withdrawals') {
+            const page = parseInt(url.searchParams.get('page') || '1')
+            const limit = parseInt(url.searchParams.get('limit') || '50')
+            const offset = (page - 1) * limit
+            const statusFilter = url.searchParams.get('status') || ''
+            const userFilter = url.searchParams.get('user_id') || ''
+
+            let query = supabase
+                .from('withdrawal_requests')
+                .select('*', { count: 'exact' })
+                .order('created_at', { ascending: false })
+                .range(offset, offset + limit - 1)
+
+            if (statusFilter) query = query.eq('status', statusFilter)
+            if (userFilter) query = query.eq('user_id', userFilter)
+
+            const { data, count, error } = await query
+            if (error) throw error
+
+            // Enriquecer com email do usuário
+            const enriched = await Promise.all(
+                (data || []).map(async (row: any) => {
+                    try {
+                        const { data: authUser } = await supabase.auth.admin.getUserById(row.user_id)
+                        return { ...row, user_email: authUser?.user?.email || row.user_id }
+                    } catch {
+                        return { ...row, user_email: row.user_id }
+                    }
+                })
+            )
+
+            return new Response(JSON.stringify({ data: enriched, total: count, page, limit }), {
+                headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+            })
+        }
+
+        // PATCH /api/superadmin/withdrawals/:id
+        if (request.method === 'PATCH' && pathSegments[0] === 'withdrawals' && pathSegments[1]) {
+            const withdrawalId = pathSegments[1]
+            const body: any = await request.json()
+            const allowedFields = ['status', 'notes', 'completed_at']
+            const updates: any = {}
+            for (const field of allowedFields) {
+                if (body[field] !== undefined) updates[field] = body[field]
+            }
+            if (updates.status === 'completed' && !updates.completed_at) {
+                updates.completed_at = new Date().toISOString()
+            }
+
+            const { data, error } = await supabase
+                .from('withdrawal_requests')
+                .update(updates)
+                .eq('id', withdrawalId)
+                .select()
+                .single()
+
+            if (error) throw error
+
+            const { data: authUser } = await supabase.auth.admin.getUserById(userId)
+            await logAudit(supabase, userId, authUser?.user?.email || '', 'update_withdrawal', 'withdrawal', withdrawalId, updates)
+
+            return new Response(JSON.stringify(data), {
+                headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+            })
+        }
+
+        // GET /api/superadmin/anticipations
+        if (request.method === 'GET' && pathSegments[0] === 'anticipations') {
+            const page = parseInt(url.searchParams.get('page') || '1')
+            const limit = parseInt(url.searchParams.get('limit') || '50')
+            const offset = (page - 1) * limit
+            const statusFilter = url.searchParams.get('status') || ''
+            const userFilter = url.searchParams.get('user_id') || ''
+
+            let query = supabase
+                .from('anticipation_requests')
+                .select('*', { count: 'exact' })
+                .order('created_at', { ascending: false })
+                .range(offset, offset + limit - 1)
+
+            if (statusFilter) query = query.eq('status', statusFilter)
+            if (userFilter) query = query.eq('user_id', userFilter)
+
+            const { data, count, error } = await query
+            if (error) throw error
+
+            const enriched = await Promise.all(
+                (data || []).map(async (row: any) => {
+                    try {
+                        const { data: authUser } = await supabase.auth.admin.getUserById(row.user_id)
+                        return { ...row, user_email: authUser?.user?.email || row.user_id }
+                    } catch {
+                        return { ...row, user_email: row.user_id }
+                    }
+                })
+            )
+
+            return new Response(JSON.stringify({ data: enriched, total: count, page, limit }), {
+                headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+            })
+        }
+
+        // PATCH /api/superadmin/anticipations/:id
+        if (request.method === 'PATCH' && pathSegments[0] === 'anticipations' && pathSegments[1]) {
+            const anticipationId = pathSegments[1]
+            const body: any = await request.json()
+            const allowedFields = ['status', 'notes', 'completed_at']
+            const updates: any = {}
+            for (const field of allowedFields) {
+                if (body[field] !== undefined) updates[field] = body[field]
+            }
+            if (updates.status === 'completed' && !updates.completed_at) {
+                updates.completed_at = new Date().toISOString()
+            }
+
+            const { data, error } = await supabase
+                .from('anticipation_requests')
+                .update(updates)
+                .eq('id', anticipationId)
+                .select()
+                .single()
+
+            if (error) throw error
+
+            const { data: authUser } = await supabase.auth.admin.getUserById(userId)
+            await logAudit(supabase, userId, authUser?.user?.email || '', 'update_anticipation', 'anticipation', anticipationId, updates)
+
+            return new Response(JSON.stringify(data), {
+                headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+            })
+        }
+
         return new Response(JSON.stringify({ error: 'Endpoint não encontrado' }), {
             status: 404,
             headers: { ...corsHeaders, 'Content-Type': 'application/json' }

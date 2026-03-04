@@ -1,45 +1,55 @@
 import { useState, useMemo } from 'react'
-import { Search } from 'lucide-react'
+import { ChevronDown } from 'lucide-react'
 import { DateRange } from 'react-day-picker'
 import { Chip, Spinner, Pagination } from '@heroui/react'
 import Sidebar from '@/components/Sidebar'
 import Header from '@/components/Header'
 import FinanceCard from '@/components/finance/FinanceCard'
-import FinanceTable from '@/components/finance/FinanceTable'
+import WithdrawalTable from '@/components/finance/WithdrawalTable'
 import TransfersTable from '@/components/finance/TransfersTable'
 import AnticipationsTable from '@/components/finance/AnticipationsTable'
-import FinanceFilters from '@/components/finance/FinanceFilters'
+import WithdrawModal from '@/components/finance/WithdrawModal'
+import AnticipationModal from '@/components/finance/AnticipationModal'
 import { useFinance } from '@/hooks/useFinance'
 import { useI18n } from '@/i18n'
-import { useDebounce } from '@/hooks/useDebounce'
+import { supabase } from '@/services/supabase'
+import type { PayoutSchedule } from '@/components/finance/WithdrawModal'
 
-type TabType = 'extract' | 'transfers' | 'anticipations'
+type TabType = 'withdrawals' | 'transfers' | 'anticipations'
+
+const PAYOUT_SCHEDULES: PayoutSchedule[] = ['D+2', 'D+5', 'D+12']
 
 export default function Finance() {
     const { t } = useI18n()
     const [sidebarOpen, setSidebarOpen] = useState(false)
-    const [activeTab, setActiveTab] = useState<TabType>('extract')
-    const [searchQuery, setSearchQuery] = useState('')
-    const debouncedSearchQuery = useDebounce(searchQuery, 300)
-    const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined)
-    const [selectedCurrency, setSelectedCurrency] = useState('all')
+    const [activeTab, setActiveTab] = useState<TabType>('withdrawals')
+    const [selectedSchedule, setSelectedSchedule] = useState<PayoutSchedule>('D+2')
+    const [scheduleOpen, setScheduleOpen] = useState(false)
+    const [withdrawModalOpen, setWithdrawModalOpen] = useState(false)
+    const [anticipationModalOpen, setAnticipationModalOpen] = useState(false)
     const [currentPage, setCurrentPage] = useState(1)
     const ITEMS_PER_PAGE = 9
 
-    const { transactions, transfers, anticipations, loading, stats, statsByCurrency } = useFinance({
+    const dateRange: DateRange | undefined = undefined
+    const { withdrawals, transfers, anticipations, loading, stats, statsByCurrency, refresh } = useFinance({
         tab: activeTab,
-        searchQuery: debouncedSearchQuery,
+        searchQuery: '',
         dateRange,
-        selectedCurrency
+        selectedCurrency: 'all'
     })
 
-    const activeItems = activeTab === 'extract' ? transactions : activeTab === 'transfers' ? transfers : anticipations
+    const activeItems = activeTab === 'withdrawals' ? withdrawals : activeTab === 'transfers' ? transfers : anticipations
     const totalPages = Math.max(1, Math.ceil(activeItems.length / ITEMS_PER_PAGE))
 
-    const paginatedTransactions = useMemo(() => {
+    const filteredWithdrawals = useMemo(() =>
+        withdrawals.filter(w => w.payoutSchedule === selectedSchedule),
+        [withdrawals, selectedSchedule]
+    )
+
+    const paginatedWithdrawals = useMemo(() => {
         const start = (currentPage - 1) * ITEMS_PER_PAGE
-        return transactions.slice(start, start + ITEMS_PER_PAGE)
-    }, [transactions, currentPage])
+        return filteredWithdrawals.slice(start, start + ITEMS_PER_PAGE)
+    }, [filteredWithdrawals, currentPage])
 
     const paginatedTransfers = useMemo(() => {
         const start = (currentPage - 1) * ITEMS_PER_PAGE
@@ -52,7 +62,7 @@ export default function Finance() {
     }, [anticipations, currentPage])
 
     const tabs: { id: TabType; label: string; count: number }[] = [
-        { id: 'extract', label: t('finance.tabs.extract'), count: transactions.length },
+        { id: 'withdrawals', label: 'Pedidos de Saque', count: withdrawals.length },
         { id: 'transfers', label: t('finance.tabs.transfers'), count: transfers.length },
         { id: 'anticipations', label: t('finance.tabs.anticipations'), count: anticipations.length }
     ]
@@ -60,6 +70,43 @@ export default function Finance() {
     const handleTabChange = (tab: TabType) => {
         setActiveTab(tab)
         setCurrentPage(1)
+    }
+
+    const handleWithdrawConfirm = async (amount: number, schedule: PayoutSchedule) => {
+        const { data: { user } } = await supabase.auth.getUser()
+        if (!user) throw new Error('Não autenticado')
+
+        const response = await fetch('https://api.clicknich.com/api/finance/withdraw', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                userId: user.id,
+                amount,
+                schedule,
+                currency: 'USD',
+            }),
+        })
+
+        const data = await response.json()
+        if (!response.ok) throw new Error(data.error || 'Erro ao solicitar saque')
+
+        await refresh()
+    }
+
+    const handleAnticipationConfirm = async (amount: number) => {
+        const { data: { user } } = await supabase.auth.getUser()
+        if (!user) throw new Error('Não autenticado')
+
+        const response = await fetch('https://api.clicknich.com/api/finance/anticipate', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ userId: user.id, amount, currency: 'USD' }),
+        })
+
+        const data = await response.json()
+        if (!response.ok) throw new Error(data.error || 'Erro ao solicitar antecipação')
+
+        await refresh()
     }
 
     return (
@@ -70,6 +117,24 @@ export default function Finance() {
                 <div className="absolute bottom-[10%] left-[5%] w-[350px] h-[350px] rounded-full bg-violet-600/10 blur-[100px]" />
             </div>
             <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+
+            {/* Modal de saque */}
+            <WithdrawModal
+                isOpen={withdrawModalOpen}
+                onClose={() => setWithdrawModalOpen(false)}
+                availableBalance={stats.availableBalance}
+                currency="USD"
+                onConfirm={handleWithdrawConfirm}
+            />
+
+            {/* Modal de antecipação */}
+            <AnticipationModal
+                isOpen={anticipationModalOpen}
+                onClose={() => setAnticipationModalOpen(false)}
+                pendingBalance={stats.pendingBalance}
+                currency="USD"
+                onConfirm={handleAnticipationConfirm}
+            />
 
             <div className="flex-1 flex flex-col min-w-0">
                 <Header onMenuClick={() => setSidebarOpen(true)} />
@@ -85,49 +150,21 @@ export default function Finance() {
                         </div>
 
                         {/* Cards de Saldo */}
-                        {selectedCurrency === 'all' ? (
+                        {Object.keys(statsByCurrency).length > 0 ? (
                             <div className="space-y-4 mb-8">
                                 {Object.entries(statsByCurrency).map(([currency, currStats]) => (
                                     <div key={currency} className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                        <FinanceCard
-                                            type="available"
-                                            value={currStats.availableBalance}
-                                            currency={currency}
-                                            onAction={() => { }}
-                                        />
-                                        <FinanceCard
-                                            type="pending"
-                                            value={currStats.pendingBalance}
-                                            currency={currency}
-                                            onAction={() => { }}
-                                        />
-                                        <FinanceCard
-                                            type="anticipation"
-                                            value={currStats.awaitingAnticipation}
-                                            currency={currency}
-                                        />
+                                        <FinanceCard type="available" value={currStats.availableBalance} currency={currency} onAction={() => setWithdrawModalOpen(true)} />
+                                        <FinanceCard type="pending" value={currStats.pendingBalance} currency={currency} onAction={() => setAnticipationModalOpen(true)} />
+                                        <FinanceCard type="anticipation" value={currStats.awaitingAnticipation} currency={currency} />
                                     </div>
                                 ))}
                             </div>
                         ) : (
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-                                <FinanceCard
-                                    type="available"
-                                    value={stats.availableBalance}
-                                    currency={selectedCurrency}
-                                    onAction={() => { }}
-                                />
-                                <FinanceCard
-                                    type="pending"
-                                    value={stats.pendingBalance}
-                                    currency={selectedCurrency}
-                                    onAction={() => { }}
-                                />
-                                <FinanceCard
-                                    type="anticipation"
-                                    value={stats.awaitingAnticipation}
-                                    currency={selectedCurrency}
-                                />
+                                <FinanceCard type="available" value={stats.availableBalance} currency="USD" onAction={() => setWithdrawModalOpen(true)} />
+                                <FinanceCard type="pending" value={stats.pendingBalance} currency="USD" onAction={() => setAnticipationModalOpen(true)} />
+                                <FinanceCard type="anticipation" value={stats.awaitingAnticipation} currency="USD" />
                             </div>
                         )}
 
@@ -138,7 +175,7 @@ export default function Finance() {
                                     <button
                                         key={tab.id}
                                         onClick={() => handleTabChange(tab.id)}
-                                        className={`pb-3 px-1 border-b-2 transition-colors flex items-center gap-2 ${activeTab === tab.id
+                                        className={`pb-3 px-1 border-b-2 transition-colors flex items-center gap-2 whitespace-nowrap ${activeTab === tab.id
                                             ? 'border-blue-500 text-gray-900 dark:text-gray-100'
                                             : 'border-transparent text-gray-700 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
                                             }`}
@@ -152,24 +189,31 @@ export default function Finance() {
                             </div>
                         </div>
 
-                        {/* Search + Filtros */}
-                        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 mb-6">
-                            <div className="flex-1 relative">
-                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-600 pointer-events-none" />
-                                <input
-                                    type="text"
-                                    placeholder={t('finance.search_placeholder')}
-                                    value={searchQuery}
-                                    onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1) }}
-                                    className="w-full pl-9 pr-3 py-2 bg-gray-100 dark:bg-white/5 border border-gray-300 dark:border-white/10 rounded-lg text-sm text-gray-900 dark:text-gray-200 placeholder-gray-600 dark:placeholder-gray-600 focus:outline-none focus:border-blue-400 dark:focus:border-white/20"
-                                />
+                        {/* Seletor de prazo D+2/D+5/D+12 */}
+                        <div className="mb-5 flex items-center gap-3">
+                            <span className="text-xs text-gray-500 dark:text-gray-400">Selecionar prazo de liberação</span>
+                            <div className="relative">
+                                <button
+                                    onClick={() => setScheduleOpen(!scheduleOpen)}
+                                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gray-100 dark:bg-white/5 border border-gray-200 dark:border-white/10 text-sm font-medium text-gray-900 dark:text-gray-100 hover:bg-gray-200 dark:hover:bg-white/10 transition-colors"
+                                >
+                                    {selectedSchedule}
+                                    <ChevronDown className="w-3.5 h-3.5 text-gray-400" />
+                                </button>
+                                {scheduleOpen && (
+                                    <div className="absolute top-full left-0 mt-1 w-24 bg-white dark:bg-[#0f1420] border border-gray-200 dark:border-white/10 rounded-lg shadow-lg z-10 overflow-hidden">
+                                        {PAYOUT_SCHEDULES.map(s => (
+                                            <button
+                                                key={s}
+                                                onClick={() => { setSelectedSchedule(s); setScheduleOpen(false) }}
+                                                className={`w-full px-3 py-2 text-sm text-left hover:bg-gray-50 dark:hover:bg-white/5 transition-colors ${selectedSchedule === s ? 'text-blue-500 font-semibold' : 'text-gray-700 dark:text-gray-300'}`}
+                                            >
+                                                {s}
+                                            </button>
+                                        ))}
+                                    </div>
+                                )}
                             </div>
-                            <FinanceFilters
-                                dateRange={dateRange}
-                                onDateRangeChange={(r) => { setDateRange(r); setCurrentPage(1) }}
-                                selectedCurrency={selectedCurrency}
-                                onCurrencyChange={(c) => { setSelectedCurrency(c); setCurrentPage(1) }}
-                            />
                         </div>
 
                         {/* Tabela */}
@@ -178,8 +222,8 @@ export default function Finance() {
                                 <div className="p-8 flex justify-center">
                                     <Spinner color="primary" label={t('finance.loading')} labelColor="foreground" />
                                 </div>
-                            ) : activeTab === 'extract' ? (
-                                <FinanceTable transactions={paginatedTransactions} />
+                            ) : activeTab === 'withdrawals' ? (
+                                <WithdrawalTable withdrawals={paginatedWithdrawals} />
                             ) : activeTab === 'transfers' ? (
                                 <TransfersTable transfers={paginatedTransfers} />
                             ) : (

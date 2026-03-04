@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo, useCallback } from 'react'
 import { DateRange } from 'react-day-picker'
 import { supabase } from '@/services/supabase'
+import type { WithdrawalRequest } from '@/components/finance/WithdrawalTable'
 
 export interface Transaction {
     id: string
@@ -27,15 +28,20 @@ export interface Transfer {
 
 export interface Anticipation {
     id: string
-    value: number
+    amount: number
+    currency: string
+    payoutSchedule: string
+    feePercentage: number
+    feeFixed: number
+    feeAmount: number
+    netAmount: number
     status: 'completed' | 'pending' | 'processing' | 'failed'
-    message: string
-    requestDate: string
-    paymentDate: string | null
+    createdAt: string
+    completedAt: string | null
 }
 
 interface UseFinanceParams {
-    tab: 'extract' | 'transfers' | 'anticipations'
+    tab: 'withdrawals' | 'transfers' | 'anticipations'
     searchQuery: string
     dateRange: DateRange | undefined
     selectedCurrency?: string
@@ -49,9 +55,9 @@ export interface FinanceStats {
 }
 
 export function useFinance(params: UseFinanceParams) {
-    const [allTransactions, setAllTransactions] = useState<Transaction[]>([])
+    const [withdrawals, setWithdrawals] = useState<WithdrawalRequest[]>([])
     const [transfers] = useState<Transfer[]>([])
-    const [anticipations] = useState<Anticipation[]>([])
+    const [anticipations, setAnticipations] = useState<Anticipation[]>([])
     const [loading, setLoading] = useState(false)
     const [rawStats, setRawStats] = useState<FinanceStats>({
         availableBalance: 0,
@@ -61,13 +67,11 @@ export function useFinance(params: UseFinanceParams) {
     })
     const [statsByCurrency, setStatsByCurrency] = useState<Record<string, FinanceStats>>({})
 
-    // Memoizar parâmetros que afetam a query do servidor (datas)
     const serverParams = useMemo(() => ({
         fromDate: params.dateRange?.from,
         toDate: params.dateRange?.to,
     }), [params.dateRange?.from, params.dateRange?.to])
 
-    // Fetch do Worker (apenas quando datas mudam)
     const fetchData = useCallback(async () => {
         setLoading(true)
         try {
@@ -88,16 +92,17 @@ export function useFinance(params: UseFinanceParams) {
 
             if (!response.ok) {
                 console.error('Error fetching finance:', data.error)
-                setAllTransactions([])
+                setWithdrawals([])
                 return
             }
 
-            setAllTransactions(data.transactions || [])
+            setWithdrawals(data.withdrawals || [])
+            if (data.anticipations) setAnticipations(data.anticipations)
             setRawStats(data.stats || { availableBalance: 0, pendingBalance: 0, awaitingAnticipation: 0, financialReserve: 0 })
             setStatsByCurrency(data.statsByCurrency || {})
         } catch (err) {
             console.error('Error fetching finance:', err)
-            setAllTransactions([])
+            setWithdrawals([])
         } finally {
             setLoading(false)
         }
@@ -107,30 +112,6 @@ export function useFinance(params: UseFinanceParams) {
         fetchData()
     }, [fetchData])
 
-    // Filtros locais (aplicados no frontend, sem nova requisição)
-    const transactions = useMemo(() => {
-        let filtered = [...allTransactions]
-
-        // Filtro por busca
-        if (params.searchQuery) {
-            const q = params.searchQuery.toLowerCase()
-            filtered = filtered.filter(t =>
-                t.description.toLowerCase().includes(q) ||
-                (t.email ?? '').toLowerCase().includes(q)
-            )
-        }
-
-        // Filtro por moeda
-        if (params.selectedCurrency && params.selectedCurrency !== 'all') {
-            filtered = filtered.filter(t =>
-                t.currency.toUpperCase() === params.selectedCurrency!.toUpperCase()
-            )
-        }
-
-        return filtered
-    }, [allTransactions, params.searchQuery, params.selectedCurrency])
-
-    // Stats filtrados por moeda
     const stats = useMemo(() => {
         if (params.selectedCurrency && params.selectedCurrency !== 'all') {
             return statsByCurrency[params.selectedCurrency.toUpperCase()] || rawStats
@@ -138,5 +119,5 @@ export function useFinance(params: UseFinanceParams) {
         return rawStats
     }, [rawStats, statsByCurrency, params.selectedCurrency])
 
-    return { transactions, transfers, anticipations, loading, stats, statsByCurrency }
+    return { withdrawals, transfers, anticipations, loading, stats, statsByCurrency, refresh: fetchData }
 }

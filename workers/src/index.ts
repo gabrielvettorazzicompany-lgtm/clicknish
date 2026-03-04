@@ -16,7 +16,7 @@ import { handleUtmifyRefunded } from './handlers/utmify-refunded'
 import { handleUtmifyRefused } from './handlers/utmify-refused'
 import { handleDashboardStats } from './handlers/dashboard-stats'
 import { handleOrders } from './handlers/orders'
-import { handleFinance } from './handlers/finance'
+import { handleFinance, handleWithdraw, handleAnticipate } from './handlers/finance'
 import { handleFunnelPageWidget } from './handlers/funnel-page-widget'
 import { handleOfferAnalytics } from './handlers/offer-analytics'
 import { handleOfferWidget } from './handlers/offer-widget'
@@ -197,6 +197,16 @@ async function handleApiRoute(
     // POST /api/finance - Transações financeiras
     if (pathname === '/api/finance' && request.method === 'POST') {
         return handleFinance(request, env, ctx)
+    }
+
+    // POST /api/finance/withdraw - Solicitar saque
+    if (pathname === '/api/finance/withdraw' && request.method === 'POST') {
+        return handleWithdraw(request, env)
+    }
+
+    // POST /api/finance/anticipate - Solicitar antecipação
+    if (pathname === '/api/finance/anticipate' && request.method === 'POST') {
+        return handleAnticipate(request, env)
     }
 
     // GET /api/funnel-page-widget - Widget de funil

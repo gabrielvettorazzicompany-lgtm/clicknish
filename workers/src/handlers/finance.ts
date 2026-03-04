@@ -1,11 +1,10 @@
 // @ts-nocheck
 /**
  * Handler: Finance
- * Lista transações financeiras do usuário com cache
+ * Dados financeiros do produtor: saldo, pedidos de saque, antecipações
  */
 
 import { createClient } from '../lib/supabase'
-import { withCache } from '../utils/cache'
 import type { Env } from '../index'
 
 const corsHeaders = {
@@ -20,18 +19,6 @@ interface FinanceRequest {
     toDate?: string
 }
 
-interface Transaction {
-    id: string
-    description: string
-    type: 'sale' | 'commission' | 'withdrawal' | 'refund' | 'anticipation'
-    amount: number
-    currency: string
-    direction: 'in' | 'out'
-    date: string
-    status: 'completed' | 'pending' | 'processing'
-    paymentMethod?: string
-}
-
 interface FinanceStats {
     availableBalance: number
     pendingBalance: number
@@ -39,27 +26,18 @@ interface FinanceStats {
     financialReserve: number
 }
 
+// Taxas por modelo de payout
+const PAYOUT_FEES: Record<string, { percentage: number; fixed: number }> = {
+    'D+2': { percentage: 8.99, fixed: 0.49 },
+    'D+5': { percentage: 6.49, fixed: 0.49 },
+    'D+12': { percentage: 5.99, fixed: 0.49 },
+}
+
 function jsonResponse(data: any, status = 200): Response {
     return new Response(JSON.stringify(data), {
         status,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })
-}
-
-function mapPaymentStatus(status: string): Transaction['status'] {
-    if (status === 'completed') return 'completed'
-    if (status === 'pending') return 'pending'
-    return 'processing'
-}
-
-function mapTransactionType(status: string): Transaction['type'] {
-    if (status === 'refunded' || status === 'reversed') return 'refund'
-    return 'sale'
-}
-
-function mapDirection(status: string): Transaction['direction'] {
-    if (status === 'refunded' || status === 'reversed') return 'out'
-    return 'in'
 }
 
 export async function handleFinance(
@@ -83,154 +61,288 @@ export async function handleFinance(
             return jsonResponse({ error: 'userId is required' }, 400)
         }
 
-        // Gerar chave de cache
-        const cacheKey = `finance:${userId}:${fromDate || ''}:${toDate || ''}`
+        const supabase = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY)
 
-        const result = await withCache(env, cacheKey, async () => {
-            const supabase = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY)
+        // Preparar filtros de data
+        const fromDateObj = fromDate ? new Date(fromDate) : undefined
+        let endOfDay: Date | undefined
+        if (toDate) {
+            endOfDay = new Date(toDate)
+            endOfDay.setHours(23, 59, 59, 999)
+        }
 
-            // Preparar filtros de data
-            const fromDateObj = fromDate ? new Date(fromDate) : undefined
-            let endOfDay: Date | undefined
-            if (toDate) {
-                endOfDay = new Date(toDate)
-                endOfDay.setHours(23, 59, 59, 999)
-            }
+        // Buscar apps e member_areas do usuário em paralelo
+        const [userAppsResult, userMemberAreasResult] = await Promise.all([
+            supabase.from('applications').select('id, name').eq('owner_id', userId),
+            supabase.from('member_areas').select('id, name, currency').eq('owner_id', userId)
+        ])
 
-            // Buscar apps do usuário
-            const { data: userApps } = await supabase
-                .from('applications')
-                .select('id, name')
-                .eq('owner_id', userId)
-            const appIds = userApps?.map(a => a.id) || []
-            const appNames = new Map(userApps?.map(a => [a.id, a.name]) || [])
+        const appIds = userAppsResult.data?.map((a: any) => a.id) || []
+        const appNames = new Map(userAppsResult.data?.map((a: any) => [a.id, a.name]) || [])
+        const memberAreaIds = userMemberAreasResult.data?.map((m: any) => m.id) || []
+        const memberAreaInfo = new Map(userMemberAreasResult.data?.map((m: any) => [m.id, { name: m.name, currency: m.currency }]) || [])
 
-            // Buscar member_areas do usuário
-            const { data: userMemberAreas } = await supabase
-                .from('member_areas')
-                .select('id, name, currency')
-                .eq('owner_id', userId)
-            const memberAreaIds = userMemberAreas?.map(m => m.id) || []
-            const memberAreaInfo = new Map(userMemberAreas?.map(m => [m.id, { name: m.name, currency: m.currency }]) || [])
+        const emptyResult = () => Promise.resolve({ data: [], error: null })
 
-            // Helper para resultado vazio
-            const emptyResult = () => Promise.resolve({ data: [], error: null })
-
-            // Queries em paralelo
-            let appSalesQuery: any = emptyResult()
-            if (appIds.length > 0) {
-                let query = supabase
+        // Queries em paralelo: vendas de apps + vendas marketplace + pedidos de saque
+        const [appSalesResult, memberSalesResult, withdrawalsResult, anticipationsResult] = await Promise.all([
+            appIds.length > 0 ? (() => {
+                let q = supabase
                     .from('user_product_access')
                     .select('id, payment_id, purchase_price, payment_status, payment_method, created_at, application_id')
                     .in('application_id', appIds)
                     .not('payment_status', 'eq', 'failed')
                     .order('created_at', { ascending: false })
                     .limit(500)
+                if (fromDateObj) q = q.gte('created_at', fromDateObj.toISOString())
+                if (endOfDay) q = q.lte('created_at', endOfDay.toISOString())
+                return q
+            })() : emptyResult(),
 
-                if (fromDateObj) query = query.gte('created_at', fromDateObj.toISOString())
-                if (endOfDay) query = query.lte('created_at', endOfDay.toISOString())
-                appSalesQuery = query
-            }
-
-            let memberSalesQuery: any = emptyResult()
-            if (memberAreaIds.length > 0) {
-                let query = supabase
+            memberAreaIds.length > 0 ? (() => {
+                let q = supabase
                     .from('user_member_area_access')
                     .select('id, member_area_id, purchase_price, payment_status, payment_method, created_at')
                     .in('member_area_id', memberAreaIds)
                     .not('payment_status', 'eq', 'failed')
                     .order('created_at', { ascending: false })
                     .limit(500)
+                if (fromDateObj) q = q.gte('created_at', fromDateObj.toISOString())
+                if (endOfDay) q = q.lte('created_at', endOfDay.toISOString())
+                return q
+            })() : emptyResult(),
 
-                if (fromDateObj) query = query.gte('created_at', fromDateObj.toISOString())
-                if (endOfDay) query = query.lte('created_at', endOfDay.toISOString())
-                memberSalesQuery = query
-            }
+            // Buscar pedidos de saque e antecipações do usuário
+            supabase
+                .from('withdrawal_requests')
+                .select('id, amount, currency, payout_schedule, fee_percentage, fee_fixed, fee_amount, net_amount, status, created_at, completed_at')
+                .eq('user_id', userId)
+                .order('created_at', { ascending: false })
+                .limit(100),
+            supabase
+                .from('anticipation_requests')
+                .select('id, amount, currency, payout_schedule, fee_percentage, fee_fixed, fee_amount, net_amount, status, created_at, completed_at')
+                .eq('user_id', userId)
+                .order('created_at', { ascending: false })
+                .limit(100)
+        ])
 
-            const [appSalesResult, memberSalesResult] = await Promise.all([
-                appSalesQuery, memberSalesQuery
-            ])
+        // Mapear pedidos de saque
+        const withdrawals = (withdrawalsResult.data || []).map((w: any) => ({
+            id: w.id,
+            amount: Number(w.amount),
+            currency: w.currency,
+            payoutSchedule: w.payout_schedule,
+            feePercentage: Number(w.fee_percentage),
+            feeFixed: Number(w.fee_fixed),
+            feeAmount: Number(w.fee_amount),
+            netAmount: Number(w.net_amount),
+            status: w.status,
+            createdAt: w.created_at,
+            completedAt: w.completed_at,
+        }))
 
-            // Mapear vendas de apps (deduplicar por payment_id)
-            const seenAppPayments = new Set<string>()
-            const appTransactions: Transaction[] = (appSalesResult.data ?? []).reduce((acc: Transaction[], row: any) => {
+        // Mapear pedidos de antecipação
+        const anticipations = (anticipationsResult.data || []).map((a: any) => ({
+            id: a.id,
+            amount: Number(a.amount),
+            currency: a.currency,
+            payoutSchedule: a.payout_schedule,
+            feePercentage: Number(a.fee_percentage),
+            feeFixed: Number(a.fee_fixed),
+            feeAmount: Number(a.fee_amount),
+            netAmount: Number(a.net_amount),
+            status: a.status,
+            createdAt: a.created_at,
+            completedAt: a.completed_at,
+        }))
+
+        // Calcular totais de vendas por moeda
+        const salesByCurrency: Record<string, number> = {}
+
+        // Vendas de apps (USD)
+        const seenAppPayments = new Set<string>()
+            ; (appSalesResult.data || []).forEach((row: any) => {
                 const paymentKey = row.payment_id ?? row.id
-                if (seenAppPayments.has(paymentKey)) return acc
+                if (seenAppPayments.has(paymentKey)) return
                 seenAppPayments.add(paymentKey)
-                const productName = appNames.get(row.application_id) ?? 'Produto'
-                const status = row.payment_status ?? 'completed'
-                acc.push({
-                    id: `app-${row.id}`,
-                    description: `Venda - ${productName}`,
-                    type: mapTransactionType(status),
-                    amount: Number(row.purchase_price ?? 0),
-                    currency: 'USD',
-                    direction: mapDirection(status),
-                    date: row.created_at,
-                    status: mapPaymentStatus(status),
-                    paymentMethod: row.payment_method ?? undefined,
-                })
-                return acc
-            }, [])
-
-            // Mapear vendas de member_areas
-            const memberTransactions: Transaction[] = (memberSalesResult.data ?? []).map((row: any) => {
-                const maInfo = memberAreaInfo.get(row.member_area_id)
-                const productName = maInfo?.name ?? 'Produto'
-                const status = row.payment_status ?? 'completed'
-                return {
-                    id: `member-${row.id}`,
-                    description: `Venda - ${productName}`,
-                    type: mapTransactionType(status),
-                    amount: Number(row.purchase_price ?? 0),
-                    currency: (maInfo?.currency ?? 'USD').toUpperCase(),
-                    direction: mapDirection(status),
-                    date: row.created_at,
-                    status: mapPaymentStatus(status),
-                    paymentMethod: row.payment_method ?? undefined,
+                if (row.payment_status === 'completed') {
+                    salesByCurrency['USD'] = (salesByCurrency['USD'] || 0) + Number(row.purchase_price ?? 0)
                 }
             })
 
-            // Combinar e ordenar
-            const transactions = [...appTransactions, ...memberTransactions]
-                .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-
-            // Calcular stats por moeda
-            const uniqueCurrencies = [...new Set(transactions.map(t => t.currency))]
-            const statsByCurrency: Record<string, FinanceStats> = {}
-            for (const currency of uniqueCurrencies) {
-                const currencyTxs = transactions.filter(t => t.currency === currency)
-                statsByCurrency[currency] = {
-                    availableBalance: currencyTxs
-                        .filter(t => t.status === 'completed' && t.direction === 'in')
-                        .reduce((sum, t) => sum + t.amount, 0),
-                    pendingBalance: currencyTxs
-                        .filter(t => t.status === 'pending' && t.direction === 'in')
-                        .reduce((sum, t) => sum + t.amount, 0),
-                    awaitingAnticipation: 0,
-                    financialReserve: 0
+            // Vendas de marketplace
+            ; (memberSalesResult.data || []).forEach((row: any) => {
+                const maInfo = memberAreaInfo.get(row.member_area_id)
+                const currency = (maInfo?.currency ?? 'USD').toUpperCase()
+                if (row.payment_status === 'completed') {
+                    salesByCurrency[currency] = (salesByCurrency[currency] || 0) + Number(row.purchase_price ?? 0)
                 }
-            }
+            })
 
-            // Stats totais
-            const stats: FinanceStats = {
-                availableBalance: transactions
-                    .filter(t => t.status === 'completed' && t.direction === 'in')
-                    .reduce((sum, t) => sum + t.amount, 0),
-                pendingBalance: transactions
-                    .filter(t => t.status === 'pending' && t.direction === 'in')
-                    .reduce((sum, t) => sum + t.amount, 0),
+        // Calcular saldo disponível: vendas completadas - total sacado (completed + processing)
+        const withdrawnByCurrency: Record<string, number> = {}
+        const pendingByCurrency: Record<string, number> = {}
+            ; (withdrawalsResult.data || []).forEach((w: any) => {
+                const cur = w.currency
+                if (w.status === 'completed' || w.status === 'processing') {
+                    withdrawnByCurrency[cur] = (withdrawnByCurrency[cur] || 0) + Number(w.amount)
+                }
+                if (w.status === 'processing') {
+                    pendingByCurrency[cur] = (pendingByCurrency[cur] || 0) + Number(w.amount)
+                }
+            })
+
+        // Calcular stats por moeda
+        const statsByCurrency: Record<string, FinanceStats> = {}
+        for (const currency of new Set([...Object.keys(salesByCurrency), ...Object.keys(withdrawnByCurrency)])) {
+            const totalSales = salesByCurrency[currency] || 0
+            const totalWithdrawn = withdrawnByCurrency[currency] || 0
+            const pending = pendingByCurrency[currency] || 0
+            statsByCurrency[currency] = {
+                availableBalance: Math.max(0, totalSales - totalWithdrawn),
+                pendingBalance: pending,
                 awaitingAnticipation: 0,
-                financialReserve: 0
+                financialReserve: 0,
             }
+        }
 
-            return { transactions, stats, statsByCurrency }
-        }, { ttl: 60 }) // Cache por 60 segundos
+        // Stats globais (USD como padrão)
+        const stats: FinanceStats = statsByCurrency['USD'] || {
+            availableBalance: 0,
+            pendingBalance: 0,
+            awaitingAnticipation: 0,
+            financialReserve: 0,
+        }
 
-        return jsonResponse(result)
+        return jsonResponse({ withdrawals, anticipations, stats, statsByCurrency })
 
     } catch (error: any) {
         console.error('Finance handler error:', error)
+        return jsonResponse({ error: error.message || 'Internal error' }, 500)
+    }
+}
+
+// POST /api/finance/anticipate — Criar pedido de antecipação
+export async function handleAnticipate(
+    request: Request,
+    env: Env,
+): Promise<Response> {
+    if (request.method === 'OPTIONS') {
+        return new Response('ok', { headers: corsHeaders })
+    }
+
+    if (request.method !== 'POST') {
+        return new Response('Method not allowed', { status: 405, headers: corsHeaders })
+    }
+
+    try {
+        const body: any = await request.json()
+        const { userId, amount, currency = 'USD' } = body
+
+        if (!userId || !amount) {
+            return jsonResponse({ error: 'userId e amount são obrigatórios' }, 400)
+        }
+
+        const numAmount = Number(amount)
+        if (isNaN(numAmount) || numAmount <= 0) {
+            return jsonResponse({ error: 'amount inválido' }, 400)
+        }
+
+        const supabase = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY)
+
+        // Taxa de antecipação: 2.5% + $0.49
+        const feePercentage = 2.5
+        const feeFixed = 0.49
+        const feeAmount = numAmount * (feePercentage / 100) + feeFixed
+        const netAmount = Math.max(0, numAmount - feeAmount)
+
+        const { data, error } = await supabase
+            .from('anticipation_requests')
+            .insert({
+                user_id: userId,
+                amount: numAmount,
+                currency,
+                payout_schedule: 'D+2',
+                fee_percentage: feePercentage,
+                fee_fixed: feeFixed,
+                fee_amount: parseFloat(feeAmount.toFixed(2)),
+                net_amount: parseFloat(netAmount.toFixed(2)),
+                status: 'processing',
+            })
+            .select()
+            .single()
+
+        if (error) throw error
+
+        return jsonResponse({ success: true, anticipation: data }, 201)
+
+    } catch (error: any) {
+        console.error('Anticipate handler error:', error)
+        return jsonResponse({ error: error.message || 'Internal error' }, 500)
+    }
+}
+
+// POST /api/finance/withdraw — Criar pedido de saque
+export async function handleWithdraw(
+    request: Request,
+    env: Env,
+): Promise<Response> {
+    if (request.method === 'OPTIONS') {
+        return new Response('ok', { headers: corsHeaders })
+    }
+
+    if (request.method !== 'POST') {
+        return new Response('Method not allowed', { status: 405, headers: corsHeaders })
+    }
+
+    try {
+        const body: any = await request.json()
+        const { userId, amount, schedule, currency = 'USD', destination } = body
+
+        if (!userId || !amount || !schedule) {
+            return jsonResponse({ error: 'userId, amount e schedule são obrigatórios' }, 400)
+        }
+
+        if (!['D+2', 'D+5', 'D+12'].includes(schedule)) {
+            return jsonResponse({ error: 'schedule inválido. Use D+2, D+5 ou D+12' }, 400)
+        }
+
+        const numAmount = Number(amount)
+        if (isNaN(numAmount) || numAmount <= 0) {
+            return jsonResponse({ error: 'amount inválido' }, 400)
+        }
+
+        const supabase = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY)
+
+        // Calcular taxa
+        const fee = PAYOUT_FEES[schedule as keyof typeof PAYOUT_FEES]
+        const feeAmount = numAmount * (fee.percentage / 100) + fee.fixed
+        const netAmount = Math.max(0, numAmount - feeAmount)
+
+        const { data, error } = await supabase
+            .from('withdrawal_requests')
+            .insert({
+                user_id: userId,
+                amount: numAmount,
+                currency,
+                payout_schedule: schedule,
+                fee_percentage: fee.percentage,
+                fee_fixed: fee.fixed,
+                fee_amount: parseFloat(feeAmount.toFixed(2)),
+                net_amount: parseFloat(netAmount.toFixed(2)),
+                status: 'processing',
+                destination: destination || null,
+            })
+            .select()
+            .single()
+
+        if (error) throw error
+
+        return jsonResponse({ success: true, withdrawal: data }, 201)
+
+    } catch (error: any) {
+        console.error('Withdraw handler error:', error)
         return jsonResponse({ error: error.message || 'Internal error' }, 500)
     }
 }
