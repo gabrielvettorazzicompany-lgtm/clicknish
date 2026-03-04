@@ -272,7 +272,7 @@ export default function AppGeneralTab({
                         <div className="w-10 h-10 bg-gradient-to-br from-blue-50 via-blue-50 to-blue-100 rounded-lg border-2 border-blue-200 flex items-center justify-center mb-2">
                             <div className="w-5 h-5 bg-white rounded shadow-sm border border-gray-200" />
                         </div>
-                        <span className="text-xs font-medium text-gray-100">{getTranslation(currentLanguage, 'light')}</span>
+                        <span className="text-xs font-medium text-gray-900 dark:text-gray-100">{getTranslation(currentLanguage, 'light')}</span>
                     </button>
 
                     <button
@@ -286,7 +286,7 @@ export default function AppGeneralTab({
                         <div className="w-10 h-10 bg-gradient-to-br from-[#050608] via-[#0f1520] to-[#1a4a6c] rounded-lg border-2 border-[#2a4060] flex items-center justify-center mb-2">
                             <div className="w-5 h-5 bg-[#151825] rounded border border-[#252941]" />
                         </div>
-                        <span className="text-xs font-medium text-gray-100">{getTranslation(currentLanguage, 'dark')}</span>
+                        <span className="text-xs font-medium text-gray-900 dark:text-gray-100">{getTranslation(currentLanguage, 'dark')}</span>
                     </button>
                 </div>
                 <p className="text-xs text-gray-500 mt-2">

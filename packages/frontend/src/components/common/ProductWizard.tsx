@@ -1,5 +1,6 @@
-import { Smartphone, BookOpen, CheckCircle, Check } from 'lucide-react'
+import { Smartphone, BookOpen, Check } from 'lucide-react'
 import { useState } from 'react'
+import { useI18n } from '@/i18n'
 
 interface FormData {
     name: string
@@ -35,10 +36,8 @@ interface ProductWizardProps {
     parseCurrency: (value: string) => number
 }
 
-const STEP_LABELS = ['Tipo', 'Informações', 'Suporte', 'Pagamento']
-
-function StepIndicator({ currentStep, maxSteps }: { currentStep: number; maxSteps: number }) {
-    const steps = STEP_LABELS.slice(0, maxSteps - 1)
+function StepIndicator({ currentStep, maxSteps, stepLabels }: { currentStep: number; maxSteps: number; stepLabels: string[] }) {
+    const steps = stepLabels.slice(0, maxSteps - 1)
     return (
         <div className="flex items-center justify-center w-full mb-6">
             {steps.map((label, idx) => {
@@ -88,36 +87,127 @@ export default function ProductWizard({
     handleCurrencyInput,
     parseCurrency
 }: ProductWizardProps) {
+    const { t } = useI18n()
     const [priceDisplay, setPriceDisplay] = useState<string>('')
     const [triedToAdvance, setTriedToAdvance] = useState(false)
     const [showCountryDropdown, setShowCountryDropdown] = useState(false)
     const [selectedCountry, setSelectedCountry] = useState({ flag: '🇧🇷', code: '+55', name: 'Brasil' })
 
+    const stepLabels = [
+        t('components.product_wizard.step_type'),
+        t('components.product_wizard.step_info'),
+        t('components.product_wizard.step_support'),
+        t('components.product_wizard.step_payment')
+    ]
+
     const countries = [
+        // Países lusófonos
         { flag: '🇧🇷', code: '+55', name: 'Brasil' },
-        { flag: '🇺🇸', code: '+1', name: 'Estados Unidos' },
         { flag: '🇵🇹', code: '+351', name: 'Portugal' },
         { flag: '🇦🇴', code: '+244', name: 'Angola' },
         { flag: '🇲🇿', code: '+258', name: 'Moçambique' },
+        { flag: '🇨🇻', code: '+238', name: 'Cabo Verde' },
+        { flag: '🇬🇼', code: '+245', name: 'Guiné-Bissau' },
+        { flag: '🇸🇹', code: '+239', name: 'São Tomé e Príncipe' },
+        { flag: '🇹🇱', code: '+670', name: 'Timor-Leste' },
+
+        // América Latina (espanhol)
         { flag: '🇦🇷', code: '+54', name: 'Argentina' },
+        { flag: '🇧🇴', code: '+591', name: 'Bolívia' },
         { flag: '🇨🇱', code: '+56', name: 'Chile' },
         { flag: '🇨🇴', code: '+57', name: 'Colômbia' },
-        { flag: '🇲🇽', code: '+52', name: 'México' },
-        { flag: '🇵🇪', code: '+51', name: 'Peru' },
-        { flag: '🇺🇾', code: '+598', name: 'Uruguai' },
-        { flag: '🇵🇾', code: '+595', name: 'Paraguai' },
-        { flag: '🇧🇴', code: '+591', name: 'Bolívia' },
-        { flag: '🇻🇪', code: '+58', name: 'Venezuela' },
+        { flag: '🇨🇷', code: '+506', name: 'Costa Rica' },
+        { flag: '🇨🇺', code: '+53', name: 'Cuba' },
+        { flag: '🇩🇴', code: '+1-809', name: 'República Dominicana' },
         { flag: '🇪🇨', code: '+593', name: 'Equador' },
-        { flag: '🇬🇧', code: '+44', name: 'Reino Unido' },
-        { flag: '🇩🇪', code: '+49', name: 'Alemanha' },
-        { flag: '🇫🇷', code: '+33', name: 'França' },
-        { flag: '🇪🇸', code: '+34', name: 'Espanha' },
-        { flag: '🇮🇹', code: '+39', name: 'Itália' },
-        { flag: '🇨🇭', code: '+41', name: 'Suíça' },
+        { flag: '🇸🇻', code: '+503', name: 'El Salvador' },
+        { flag: '🇬🇹', code: '+502', name: 'Guatemala' },
+        { flag: '🇭🇳', code: '+504', name: 'Honduras' },
+        { flag: '🇲🇽', code: '+52', name: 'México' },
+        { flag: '🇳🇮', code: '+505', name: 'Nicarágua' },
+        { flag: '🇵🇦', code: '+507', name: 'Panamá' },
+        { flag: '🇵🇾', code: '+595', name: 'Paraguai' },
+        { flag: '🇵🇪', code: '+51', name: 'Peru' },
+        { flag: '🇵🇷', code: '+1-787', name: 'Porto Rico' },
+        { flag: '🇺🇾', code: '+598', name: 'Uruguai' },
+        { flag: '🇻🇪', code: '+58', name: 'Venezuela' },
+
+        // América do Norte
+        { flag: '🇺🇸', code: '+1', name: 'Estados Unidos' },
         { flag: '🇨🇦', code: '+1', name: 'Canadá' },
-        { flag: '🇦🇺', code: '+61', name: 'Austrália' },
+
+        // Europa Ocidental
+        { flag: '🇪🇸', code: '+34', name: 'Espanha' },
+        { flag: '🇫🇷', code: '+33', name: 'França' },
+        { flag: '🇩🇪', code: '+49', name: 'Alemanha' },
+        { flag: '🇮🇹', code: '+39', name: 'Itália' },
+        { flag: '🇬🇧', code: '+44', name: 'Reino Unido' },
+        { flag: '🇨🇭', code: '+41', name: 'Suíça' },
+        { flag: '🇧🇪', code: '+32', name: 'Bélgica' },
+        { flag: '🇳🇱', code: '+31', name: 'Holanda' },
+        { flag: '🇦🇹', code: '+43', name: 'Áustria' },
+        { flag: '🇮🇪', code: '+353', name: 'Irlanda' },
+        { flag: '🇱🇺', code: '+352', name: 'Luxemburgo' },
+
+        // Europa do Norte
+        { flag: '🇸🇪', code: '+46', name: 'Suécia' },
+        { flag: '🇳🇴', code: '+47', name: 'Noruega' },
+        { flag: '🇩🇰', code: '+45', name: 'Dinamarca' },
+        { flag: '🇫🇮', code: '+358', name: 'Finlândia' },
+        { flag: '🇮🇸', code: '+354', name: 'Islândia' },
+
+        // Europa do Sul
+        { flag: '🇬🇷', code: '+30', name: 'Grécia' },
+        { flag: '🇹🇷', code: '+90', name: 'Turquia' },
+
+        // Europa do Leste
+        { flag: '🇵🇱', code: '+48', name: 'Polônia' },
+        { flag: '🇨🇿', code: '+420', name: 'República Tcheca' },
+        { flag: '🇭🇺', code: '+36', name: 'Hungria' },
+        { flag: '🇷🇴', code: '+40', name: 'Romênia' },
+        { flag: '🇧🇬', code: '+359', name: 'Bulgária' },
+        { flag: '🇷🇺', code: '+7', name: 'Rússia' },
+        { flag: '🇺🇦', code: '+380', name: 'Ucrânia' },
+
+        // Ásia
         { flag: '🇯🇵', code: '+81', name: 'Japão' },
+        { flag: '🇨🇳', code: '+86', name: 'China' },
+        { flag: '🇰🇷', code: '+82', name: 'Coreia do Sul' },
+        { flag: '🇮🇳', code: '+91', name: 'Índia' },
+        { flag: '🇮🇩', code: '+62', name: 'Indonésia' },
+        { flag: '🇹🇭', code: '+66', name: 'Tailândia' },
+        { flag: '🇻🇳', code: '+84', name: 'Vietnã' },
+        { flag: '🇵🇭', code: '+63', name: 'Filipinas' },
+        { flag: '🇲🇾', code: '+60', name: 'Malásia' },
+        { flag: '🇸🇬', code: '+65', name: 'Singapura' },
+        { flag: '🇦🇪', code: '+971', name: 'Emirados Árabes' },
+        { flag: '🇸🇦', code: '+966', name: 'Arábia Saudita' },
+        { flag: '🇮🇱', code: '+972', name: 'Israel' },
+        { flag: '🇵🇰', code: '+92', name: 'Paquistão' },
+        { flag: '🇧🇩', code: '+880', name: 'Bangladesh' },
+
+        // Oceania
+        { flag: '🇦🇺', code: '+61', name: 'Austrália' },
+        { flag: '🇳🇿', code: '+64', name: 'Nova Zelândia' },
+
+        // África
+        { flag: '🇿🇦', code: '+27', name: 'África do Sul' },
+        { flag: '🇪🇬', code: '+20', name: 'Egito' },
+        { flag: '🇳🇬', code: '+234', name: 'Nigéria' },
+        { flag: '🇰🇪', code: '+254', name: 'Quênia' },
+        { flag: '🇬🇭', code: '+233', name: 'Gana' },
+        { flag: '🇪🇹', code: '+251', name: 'Etiópia' },
+        { flag: '🇹🇿', code: '+255', name: 'Tanzânia' },
+        { flag: '🇺🇬', code: '+256', name: 'Uganda' },
+        { flag: '🇲🇦', code: '+212', name: 'Marrocos' },
+        { flag: '🇩🇿', code: '+213', name: 'Argélia' },
+        { flag: '🇹🇳', code: '+216', name: 'Tunísia' },
+
+        // Caribe
+        { flag: '🇯🇲', code: '+1-876', name: 'Jamaica' },
+        { flag: '🇹🇹', code: '+1-868', name: 'Trinidad e Tobago' },
+        { flag: '🇧🇸', code: '+1-242', name: 'Bahamas' },
+        { flag: '🇧🇧', code: '+1-246', name: 'Barbados' },
     ]
 
     if (!isOpen) return null
@@ -166,10 +256,10 @@ export default function ProductWizard({
 
     const namePlaceholder =
         formData.delivery_type === 'app'
-            ? 'Nome do seu app'
+            ? t('components.product_wizard.app_name_placeholder')
             : formData.delivery_type === 'community'
-                ? 'Nome da área de membros'
-                : 'Nome do produto'
+                ? t('components.product_wizard.members_area_name_placeholder')
+                : t('components.product_wizard.product_name_placeholder')
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm">
@@ -178,7 +268,7 @@ export default function ProductWizard({
                 {/* Step indicator — oculto na tela de sucesso */}
                 {currentStep < maxSteps && (
                     <div className="px-6 pt-6 pb-0">
-                        <StepIndicator currentStep={currentStep} maxSteps={maxSteps} />
+                        <StepIndicator currentStep={currentStep} maxSteps={maxSteps} stepLabels={stepLabels} />
                     </div>
                 )}
 
@@ -189,7 +279,7 @@ export default function ProductWizard({
                         <div>
                             <div className="text-center mb-5">
                                 <h2 className="text-base font-semibold text-white leading-snug">
-                                    Qual <span className="text-blue-400">tipo de produto</span> você vai criar?
+                                    {t('components.product_wizard.question_title')} <span className="text-blue-400">{t('components.product_wizard.product_type')}</span> {t('components.product_wizard.question_subtitle')}
                                 </h2>
                             </div>
 
@@ -204,10 +294,10 @@ export default function ProductWizard({
                                 >
                                     <Smartphone className={`w-5 h-5 mb-2 ${formData.delivery_type === 'app' ? 'text-blue-400' : 'text-gray-500'}`} />
                                     <h3 className={`font-semibold text-xs mb-1 ${formData.delivery_type === 'app' ? 'text-blue-400' : 'text-white'}`}>
-                                        Aplicativo
+                                        {t('components.product_wizard.app_title')}
                                     </h3>
                                     <p className={`text-[11px] leading-relaxed ${formData.delivery_type === 'app' ? 'text-blue-400/60' : 'text-gray-600'}`}>
-                                        App com temas, cores e gestão de usuários.
+                                        {t('components.product_wizard.app_description')}
                                     </p>
                                 </button>
 
@@ -221,17 +311,17 @@ export default function ProductWizard({
                                 >
                                     <BookOpen className={`w-5 h-5 mb-2 ${formData.delivery_type === 'community' ? 'text-blue-400' : 'text-gray-500'}`} />
                                     <h3 className={`font-semibold text-xs mb-1 ${formData.delivery_type === 'community' ? 'text-blue-400' : 'text-white'}`}>
-                                        Área de Membros
+                                        {t('components.product_wizard.members_area_title')}
                                     </h3>
                                     <p className={`text-[11px] leading-relaxed ${formData.delivery_type === 'community' ? 'text-blue-400/60' : 'text-gray-600'}`}>
-                                        Módulos, aulas e conteúdo organizado.
+                                        {t('components.product_wizard.members_area_description')}
                                     </p>
                                 </button>
                             </div>
 
                             <div className="flex gap-2">
                                 <button type="button" onClick={handleClose} className="flex-1 py-2 text-xs text-gray-500 border border-[#1e2433] rounded-xl hover:bg-[#111522] transition-colors">
-                                    Cancelar
+                                    {t('components.product_wizard.cancel')}
                                 </button>
                                 <button
                                     type="button"
@@ -239,7 +329,7 @@ export default function ProductWizard({
                                     disabled={!formData.delivery_type}
                                     className="flex-1 py-2 text-xs bg-blue-500 text-white font-semibold rounded-xl hover:bg-blue-600 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
                                 >
-                                    Continuar
+                                    {t('components.product_wizard.continue')}
                                 </button>
                             </div>
                         </div>
@@ -250,9 +340,9 @@ export default function ProductWizard({
                         <div>
                             <div className="text-center mb-5">
                                 <h2 className="text-base font-semibold text-white leading-snug">
-                                    Informações do seu{' '}
+                                    {t('components.product_wizard.info_title')}{' '}
                                     <span className="text-blue-400">
-                                        {formData.delivery_type === 'app' ? 'app' : 'produto'}
+                                        {formData.delivery_type === 'app' ? t('components.product_wizard.info_app') : t('components.product_wizard.info_product')}
                                     </span>
                                 </h2>
                             </div>
@@ -270,25 +360,25 @@ export default function ProductWizard({
                                 </div>
 
                                 <div>
-                                    <label className="block text-[11px] font-medium text-gray-500 mb-1.5">Categoria</label>
+                                    <label className="block text-[11px] font-medium text-gray-500 mb-1.5">{t('components.product_wizard.category')}</label>
                                     <select
                                         value={formData.category}
                                         onChange={(e) => setFormData({ ...formData, category: e.target.value })}
                                         className="w-full px-3 py-2.5 text-xs bg-[#111522] text-white border border-[#1e2433] rounded-xl focus:outline-none focus:border-blue-500/60 appearance-none transition-colors"
                                     >
-                                        <option value="">Selecione a categoria</option>
-                                        <option value="education">Educação</option>
-                                        <option value="health">Saúde</option>
-                                        <option value="finance">Finanças</option>
-                                        <option value="technology">Tecnologia</option>
-                                        <option value="fitness">Fitness</option>
-                                        <option value="business">Negócios</option>
-                                        <option value="other">Outros</option>
+                                        <option value="">{t('components.product_wizard.select_category')}</option>
+                                        <option value="education">{t('components.product_wizard.education')}</option>
+                                        <option value="health">{t('components.product_wizard.health')}</option>
+                                        <option value="finance">{t('components.product_wizard.finance')}</option>
+                                        <option value="technology">{t('components.product_wizard.technology')}</option>
+                                        <option value="fitness">{t('components.product_wizard.fitness')}</option>
+                                        <option value="business">{t('components.product_wizard.business')}</option>
+                                        <option value="other">{t('components.product_wizard.others')}</option>
                                     </select>
                                 </div>
 
                                 <div>
-                                    <label className="block text-[11px] font-medium text-gray-500 mb-1.5">Descrição</label>
+                                    <label className="block text-[11px] font-medium text-gray-500 mb-1.5">{t('components.product_wizard.description')}</label>
                                     <textarea
                                         value={formData.description}
                                         onChange={(e) => {
@@ -301,11 +391,11 @@ export default function ProductWizard({
                                             ? 'border-red-500/60 focus:border-red-500'
                                             : 'border-[#1e2433] focus:border-blue-500/60'
                                             }`}
-                                        placeholder="Descreva seu produto (mínimo 40 caracteres)"
+                                        placeholder={t('components.product_wizard.describe_product')}
                                     />
                                     <div className="flex items-center justify-between mt-1">
                                         {triedToAdvance && (formData.description || '').length < 40 ? (
-                                            <p className="text-[10px] text-red-400">Faltam {40 - (formData.description || '').length} caracteres</p>
+                                            <p className="text-[10px] text-red-400">{t('components.product_wizard.characters_missing', { count: 40 - (formData.description || '').length })}</p>
                                         ) : (
                                             <span />
                                         )}
@@ -314,20 +404,20 @@ export default function ProductWizard({
                                 </div>
 
                                 <div>
-                                    <label className="block text-[11px] font-medium text-gray-500 mb-1.5">Página de vendas</label>
+                                    <label className="block text-[11px] font-medium text-gray-500 mb-1.5">{t('components.product_wizard.sales_page')}</label>
                                     <input
                                         type="text"
                                         value={formData.sales_page_url}
                                         onChange={(e) => setFormData({ ...formData, sales_page_url: e.target.value })}
                                         className="w-full px-3 py-2.5 text-xs bg-[#111522] text-white border border-[#1e2433] rounded-xl focus:outline-none focus:border-blue-500/60 placeholder-gray-700 transition-colors"
-                                        placeholder="https://suapagina.com"
+                                        placeholder={t('components.product_wizard.sales_page_placeholder')}
                                     />
                                 </div>
                             </div>
 
                             <div className="flex gap-2 mt-5">
                                 <button type="button" onClick={prevStep} className="flex-1 py-2 text-xs text-gray-500 border border-[#1e2433] rounded-xl hover:bg-[#111522] transition-colors">
-                                    Voltar
+                                    {t('components.product_wizard.back')}
                                 </button>
                                 <button
                                     type="button"
@@ -335,7 +425,7 @@ export default function ProductWizard({
                                     disabled={!formData.name}
                                     className="flex-1 py-2 text-xs bg-blue-500 text-white font-semibold rounded-xl hover:bg-blue-600 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
                                 >
-                                    Avançar
+                                    {t('components.product_wizard.advance')}
                                 </button>
                             </div>
                         </div>
@@ -346,25 +436,25 @@ export default function ProductWizard({
                         <div>
                             <div className="text-center mb-5">
                                 <h2 className="text-base font-semibold text-white leading-snug">
-                                    Como seus clientes entram em{' '}
-                                    <span className="text-blue-400">contato?</span>
+                                    {t('components.product_wizard.support_title')}{' '}
+                                    <span className="text-blue-400">{t('components.product_wizard.contact')}</span>
                                 </h2>
                             </div>
 
                             <div className="space-y-3">
                                 <div>
-                                    <label className="block text-[11px] font-medium text-gray-500 mb-1.5">E-mail de suporte</label>
+                                    <label className="block text-[11px] font-medium text-gray-500 mb-1.5">{t('components.product_wizard.support_email')}</label>
                                     <input
                                         type="email"
                                         value={formData.support_email || ''}
                                         onChange={(e) => setFormData({ ...formData, support_email: e.target.value })}
                                         className="w-full px-3 py-2.5 text-xs bg-[#111522] text-white border border-[#1e2433] rounded-xl focus:outline-none focus:border-blue-500/60 placeholder-gray-700 transition-colors"
-                                        placeholder="suporte@seudominio.com"
+                                        placeholder={t('components.product_wizard.email_placeholder')}
                                     />
                                 </div>
 
                                 <div>
-                                    <label className="block text-[11px] font-medium text-gray-500 mb-1.5">WhatsApp de suporte</label>
+                                    <label className="block text-[11px] font-medium text-gray-500 mb-1.5">{t('components.product_wizard.support_whatsapp')}</label>
                                     <div className="flex relative">
                                         <button
                                             type="button"
@@ -396,7 +486,7 @@ export default function ProductWizard({
                                             value={formData.support_whatsapp || ''}
                                             onChange={(e) => setFormData({ ...formData, support_whatsapp: e.target.value })}
                                             className="flex-1 px-3 py-2.5 text-xs bg-[#111522] text-white border border-[#1e2433] rounded-r-xl focus:outline-none focus:border-blue-500/60 placeholder-gray-700 transition-colors"
-                                            placeholder="DDD + Número"
+                                            placeholder={t('components.product_wizard.whatsapp_placeholder')}
                                         />
                                     </div>
                                 </div>
@@ -404,14 +494,14 @@ export default function ProductWizard({
 
                             <div className="flex gap-2 mt-5">
                                 <button type="button" onClick={prevStep} className="flex-1 py-2 text-xs text-gray-500 border border-[#1e2433] rounded-xl hover:bg-[#111522] transition-colors">
-                                    Voltar
+                                    {t('components.product_wizard.back')}
                                 </button>
                                 <button
                                     type="button"
                                     onClick={nextStep}
                                     className="flex-1 py-2 text-xs bg-blue-500 text-white font-semibold rounded-xl hover:bg-blue-600 transition-colors"
                                 >
-                                    Avançar
+                                    {t('components.product_wizard.advance')}
                                 </button>
                             </div>
                         </div>
@@ -425,18 +515,18 @@ export default function ProductWizard({
                         }}>
                             <div className="text-center mb-5">
                                 <h2 className="text-base font-semibold text-white leading-snug">
-                                    Defina o <span className="text-blue-400">preço</span> do seu produto
+                                    {t('components.product_wizard.price_title')} <span className="text-blue-400">{t('components.product_wizard.price_section')}</span> {t('components.product_wizard.price_subtitle')}
                                 </h2>
                             </div>
 
                             {/* Badge de tipo de pagamento */}
                             <div className="flex items-center gap-2 px-3 py-2.5 bg-blue-500/8 border border-blue-500/20 rounded-xl mb-4">
                                 <div className="w-1.5 h-1.5 rounded-full bg-blue-400 flex-shrink-0" />
-                                <span className="text-xs text-blue-300 font-medium">Pagamento único</span>
+                                <span className="text-xs text-blue-300 font-medium">{t('components.product_wizard.single_payment')}</span>
                             </div>
 
                             <div>
-                                <label className="block text-[11px] font-medium text-gray-500 mb-1.5">Valor da oferta principal</label>
+                                <label className="block text-[11px] font-medium text-gray-500 mb-1.5">{t('components.product_wizard.main_offer_value')}</label>
                                 <div className="flex">
                                     <input
                                         type="text"
@@ -463,43 +553,16 @@ export default function ProductWizard({
 
                             <div className="flex gap-2 mt-5">
                                 <button type="button" onClick={prevStep} className="flex-1 py-2 text-xs text-gray-500 border border-[#1e2433] rounded-xl hover:bg-[#111522] transition-colors">
-                                    Voltar
+                                    {t('components.product_wizard.back')}
                                 </button>
                                 <button
                                     type="submit"
                                     className="flex-1 py-2 text-xs bg-blue-500 text-white font-semibold rounded-xl hover:bg-blue-600 transition-colors"
                                 >
-                                    {formData.delivery_type === 'app' ? 'Criar App' : 'Criar produto'}
+                                    {formData.delivery_type === 'app' ? t('components.product_wizard.create_app') : t('components.product_wizard.create_product')}
                                 </button>
                             </div>
                         </form>
-                    )}
-
-                    {/* ── Step 5: Sucesso ── */}
-                    {currentStep === 5 && (
-                        <div className="text-center py-4">
-                            <div className="flex justify-center mb-4">
-                                <div className="w-14 h-14 rounded-full bg-blue-500/10 border border-blue-500/25 flex items-center justify-center">
-                                    <CheckCircle className="w-7 h-7 text-blue-400" />
-                                </div>
-                            </div>
-
-                            <h2 className="text-base font-semibold text-white mb-1">
-                                Produto enviado para <span className="text-blue-400">análise!</span>
-                            </h2>
-                            <p className="text-xs text-gray-500 mb-6 leading-relaxed">
-                                Seu produto foi criado com sucesso e está em processo de revisão.
-                                Você será notificado quando ele for aprovado.
-                            </p>
-
-                            <button
-                                type="button"
-                                onClick={handleClose}
-                                className="w-full py-2 text-xs bg-blue-500 text-white font-semibold rounded-xl hover:bg-blue-600 transition-colors"
-                            >
-                                Fechar
-                            </button>
-                        </div>
                     )}
 
                 </div>

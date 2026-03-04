@@ -170,7 +170,7 @@ export default function AppPreviewPanel({ appData }: Props) {
                                                 : 'bg-white border-gray-200'
                                                 } border rounded-lg overflow-hidden shadow-xl shadow-black/10`}
                                         >
-                                            <div className="h-16 bg-gradient-to-br from-blue-400 via-blue-500 to-pink-500" />
+                                            <div className="h-16 bg-blue-500" />
                                             {appData.showNames && (
                                                 <div className="p-2">
                                                     <p className={`text-xs font-semibold truncate ${isDark ? 'text-white' : 'text-gray-800'}`}>

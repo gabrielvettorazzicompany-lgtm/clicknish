@@ -48,16 +48,39 @@ export default function CheckoutManager({
 
     const [checkoutForm, setCheckoutForm] = useState({
         name: '',
-        custom_price: product.price,
+        custom_price: product.price || 0,
         is_default: false
     })
 
+    const [priceDisplay, setPriceDisplay] = useState('')
     const [editModal, setEditModal] = useState<{ id: string; name: string; price: number } | null>(null)
     const [duplicating, setDuplicating] = useState<string | null>(null)
 
     useEffect(() => {
         fetchCheckouts()
     }, [product.id])
+
+    const handlePriceInput = (value: string) => {
+        let cleaned = value.replace(/[^\d,]/g, '')
+        const parts = cleaned.split(',')
+        if (parts.length > 2) {
+            cleaned = parts[0] + ',' + parts.slice(1).join('')
+        }
+        if (parts.length === 2 && parts[1].length > 2) {
+            cleaned = parts[0] + ',' + parts[1].substring(0, 2)
+        }
+        const [intPart, decPart] = cleaned.split(',')
+        let formatted = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, '.')
+        if (cleaned.includes(',')) {
+            formatted += ',' + (decPart || '')
+        }
+        setPriceDisplay(formatted)
+        const numValue = parseFloat(cleaned.replace(/\./g, '').replace(',', '.')) || 0
+
+        // Limitar a 99.999.999,99 (máximo para numeric(10,2))
+        const limitedValue = Math.min(numValue, 99999999.99)
+        setCheckoutForm({ ...checkoutForm, custom_price: limitedValue })
+    }
 
     const fetchCheckouts = async () => {
         try {
@@ -85,19 +108,25 @@ export default function CheckoutManager({
     const handleCreateCheckout = async (e: React.FormEvent) => {
         e.preventDefault()
         try {
+            // Arredondar para 2 casas decimais e garantir que está dentro do limite
+            const roundedPrice = Math.min(
+                Math.round((checkoutForm.custom_price || 0) * 100) / 100,
+                99999999.99
+            )
+
             // Criar objeto de insert baseado no tipo (app ou produto)
             const insertData = isApplication
                 ? {
                     application_id: product.id,
                     name: checkoutForm.name || `Checkout ${checkouts.length + 1}`,
-                    custom_price: checkoutForm.custom_price,
+                    custom_price: roundedPrice,
                     is_default: checkoutForm.is_default,
                     banner_title: product.name
                 }
                 : {
                     member_area_id: product.id,
                     name: checkoutForm.name || `Checkout ${checkouts.length + 1}`,
-                    custom_price: checkoutForm.custom_price,
+                    custom_price: roundedPrice,
                     is_default: checkoutForm.is_default,
                     banner_title: product.name
                 }
@@ -111,12 +140,7 @@ export default function CheckoutManager({
             if (error) throw error
 
             setCheckouts([data, ...checkouts])
-            setShowCreateModal(false)
-            setCheckoutForm({
-                name: '',
-                custom_price: product.price,
-                is_default: false
-            })
+            handleCloseCreateModal()
 
             alert(t('components.checkout_manager.created_success'))
         } catch (error) {
@@ -163,18 +187,24 @@ export default function CheckoutManager({
         try {
             setDuplicating(checkout.id)
 
+            const price = checkout.custom_price || product.price || 0
+            const roundedPrice = Math.min(
+                Math.round(price * 100) / 100,
+                99999999.99
+            )
+
             const insertData = isApplication
                 ? {
                     application_id: product.id,
                     name: `${checkout.name} (copy)`,
-                    custom_price: checkout.custom_price || product.price,
+                    custom_price: roundedPrice,
                     is_default: false,
                     custom_fields: checkout.custom_fields
                 }
                 : {
                     member_area_id: product.id,
                     name: `${checkout.name} (copy)`,
-                    custom_price: checkout.custom_price || product.price,
+                    custom_price: roundedPrice,
                     is_default: false,
                     custom_fields: checkout.custom_fields
                 }
@@ -201,16 +231,21 @@ export default function CheckoutManager({
         if (!editModal) return
 
         try {
+            const roundedPrice = Math.min(
+                Math.round((editModal.price || 0) * 100) / 100,
+                99999999.99
+            )
+
             const { error } = await supabase
                 .from('checkouts')
-                .update({ name: editModal.name, custom_price: editModal.price })
+                .update({ name: editModal.name, custom_price: roundedPrice })
                 .eq('id', editModal.id)
 
             if (error) throw error
 
             setCheckouts(checkouts.map(c =>
                 c.id === editModal.id
-                    ? { ...c, name: editModal.name, custom_price: editModal.price }
+                    ? { ...c, name: editModal.name, custom_price: roundedPrice }
                     : c
             ))
             setEditModal(null)
@@ -279,36 +314,18 @@ export default function CheckoutManager({
         }
     }
 
+    const handleCloseCreateModal = () => {
+        setShowCreateModal(false)
+        setPriceDisplay('')
+        setCheckoutForm({
+            name: '',
+            custom_price: product.price || 0,
+            is_default: false
+        })
+    }
+
     return (
         <div className="space-y-3">
-            {/* Review Status Warning */}
-            {product.review_status && product.review_status !== 'approved' && (
-                <div className={`rounded-lg border p-3 ${product.review_status === 'pending_review'
-                    ? 'bg-yellow-500/10 border-yellow-500/20'
-                    : 'bg-red-500/10 border-red-500/20'
-                    }`}>
-                    <div className="flex items-start gap-2">
-                        <div className={`w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5 ${product.review_status === 'pending_review' ? 'bg-yellow-500' : 'bg-red-500'
-                            }`}>
-                            <span className="text-white text-xs font-bold">!</span>
-                        </div>
-                        <div>
-                            <h3 className="text-xs font-semibold mb-1 ${
-                                product.review_status === 'pending_review' ? 'text-yellow-500' : 'text-red-500'
-                            }">
-                                {product.review_status === 'pending_review' ? t('components.checkout_manager.pending_approval') : t('components.checkout_manager.product_rejected')}
-                            </h3>
-                            <p className="text-[10px] text-gray-400">
-                                {product.review_status === 'pending_review'
-                                    ? t('components.checkout_manager.pending_approval_msg')
-                                    : t('components.checkout_manager.rejected_msg')
-                                }
-                            </p>
-                        </div>
-                    </div>
-                </div>
-            )}
-
             {/* Header */}
             <div className="bg-white dark:bg-[#1a1d2e] rounded-lg shadow-xl shadow-black/5 dark:shadow-black/10 border border-gray-200 dark:border-[#1e2139] p-3">
                 <div className="flex items-center justify-between mb-1.5">
@@ -450,7 +467,7 @@ export default function CheckoutManager({
                             <div className="flex items-center justify-between mb-4">
                                 <h3 className="text-base font-semibold text-gray-900 dark:text-gray-100">{t('components.checkout_manager.create_new')}</h3>
                                 <button
-                                    onClick={() => setShowCreateModal(false)}
+                                    onClick={handleCloseCreateModal}
                                     className="text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-300"
                                 >
                                     ✕
@@ -472,12 +489,11 @@ export default function CheckoutManager({
                                 <div>
                                     <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1.5">{t('common.price')}</label>
                                     <input
-                                        type="number"
-                                        step="0.01"
-                                        min="0"
-                                        value={checkoutForm.custom_price}
-                                        onChange={(e) => setCheckoutForm({ ...checkoutForm, custom_price: parseFloat(e.target.value) || 0 })}
+                                        type="text"
+                                        value={priceDisplay || (checkoutForm.custom_price > 0 ? checkoutForm.custom_price.toFixed(2).replace('.', ',') : '')}
+                                        onChange={(e) => handlePriceInput(e.target.value)}
                                         className="w-full px-3 py-2 bg-white dark:bg-[#0f1117] text-gray-900 dark:text-gray-100 text-sm border border-gray-300 dark:border-[#252941]/30 rounded-lg focus:ring-1 focus:ring-blue-500/50 focus:border-blue-500/50 focus:outline-none"
+                                        placeholder="0,00"
                                     />
                                 </div>
 
@@ -497,7 +513,7 @@ export default function CheckoutManager({
                                 <div className="flex gap-2 pt-3">
                                     <button
                                         type="button"
-                                        onClick={() => setShowCreateModal(false)}
+                                        onClick={handleCloseCreateModal}
                                         className="flex-1 px-3 py-2 text-sm text-gray-400 border border-[#252941]/30 rounded-lg hover:bg-[#0f1117] transition-colors"
                                     >
                                         {t('common.cancel')}

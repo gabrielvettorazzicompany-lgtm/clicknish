@@ -149,9 +149,9 @@ function Dashboard() {
                 loading={loadingStats}
               />
               <StatCard
-                title={t('dashboard.to_receive')}
-                value={formatCurrency(stats.pendingAmount)}
-                subtitle={t('dashboard.processing_payments')}
+                title={t('dashboard.completed_sales')}
+                value={hideValues ? '•••' : stats.salesCount.toString()}
+                subtitle={t('dashboard.total_completed')}
                 color="emerald"
                 loading={loadingStats}
               />

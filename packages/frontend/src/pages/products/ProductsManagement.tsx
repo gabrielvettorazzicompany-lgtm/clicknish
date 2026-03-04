@@ -279,8 +279,7 @@ export default function ProductsManagement({ embedded = false }: { embedded?: bo
                         currency: dataToSave.currency,
                         payment_type: dataToSave.payment_type,
                         recurrence_period: dataToSave.payment_type === 'recurrent' ? dataToSave.recurrence_period : null,
-                        review_status: 'draft',
-                        status: 'draft'
+                        review_status: 'draft'
                     })
                 })
 
@@ -303,7 +302,8 @@ export default function ProductsManagement({ embedded = false }: { embedded?: bo
                     }
 
                     await fetchProducts()
-                    setCurrentStep(5)
+                    setShowWizard(false)
+                    setCurrentStep(1)
                 } else {
                     const errorData = await response.json()
                     console.error('Error creating app:', errorData)
@@ -396,7 +396,8 @@ export default function ProductsManagement({ embedded = false }: { embedded?: bo
                     }
 
                     await fetchProducts()
-                    setCurrentStep(5)
+                    setShowWizard(false)
+                    setCurrentStep(1)
                 } else {
                     const errorData = await response.json()
                     console.error('Error creating product:', errorData)
