@@ -1,8 +1,8 @@
-import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useState, useEffect } from 'react'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { supabase } from '@/services/supabase'
 import { useAuthStore } from '@/stores/authStore'
-import { Mail, Lock, AlertCircle, Loader, Download, Eye, EyeOff, User, Globe } from 'lucide-react'
+import { Mail, Lock, AlertCircle, Loader, Download, Eye, EyeOff, User, Globe, CheckCircle } from 'lucide-react'
 import InstallAppModal from '@/components/InstallAppModal'
 import { useI18n } from '@/i18n'
 import { prefetchPriorityRoutes } from '@/hooks/usePrefetch'
@@ -10,6 +10,7 @@ import { prefetchPriorityRoutes } from '@/hooks/usePrefetch'
 export default function Login() {
   const navigate = useNavigate()
   const { setUser } = useAuthStore()
+  const [searchParams] = useSearchParams()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
@@ -22,7 +23,15 @@ export default function Login() {
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [signUpSuccess, setSignUpSuccess] = useState(false)
+  const [emailConfirmed, setEmailConfirmed] = useState(false)
   const { t, language } = useI18n()
+
+  useEffect(() => {
+    // Verificar se vem da confirmação de email
+    if (searchParams.get('confirmed') === 'true') {
+      setEmailConfirmed(true)
+    }
+  }, [searchParams])
 
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -104,6 +113,31 @@ export default function Login() {
         if (authError) throw authError
 
         if (data.user) {
+          // Criar admin_profile se não existir (usuário confirmou email mas ainda não tem perfil)
+          try {
+            const { data: existingProfile } = await supabase
+              .from('admin_profiles')
+              .select('user_id')
+              .eq('user_id', data.user.id)
+              .single()
+
+            if (!existingProfile) {
+              const { error: profileError } = await supabase
+                .from('admin_profiles')
+                .insert({
+                  user_id: data.user.id,
+                  created_at: new Date().toISOString(),
+                  updated_at: new Date().toISOString()
+                })
+
+              if (profileError) {
+                console.error('Error creating admin_profile:', profileError)
+              }
+            }
+          } catch (err) {
+            console.error('Error checking admin_profile:', err)
+          }
+
           setUser(data.user)
           // Salvar email no localStorage para uso no perfil
           if (data.user.email) {
@@ -157,6 +191,23 @@ export default function Login() {
                   </p>
                   <p className="text-xs text-gray-400">
                     Didn't receive the email? Check your spam folder.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Success Message - Email Confirmed */}
+          {emailConfirmed && !isSignUp && (
+            <div className="mb-4 p-4 bg-green-500/10 border border-green-500/30 rounded-lg">
+              <div className="flex items-start gap-3">
+                <CheckCircle className="w-5 h-5 text-green-400 mt-0.5 flex-shrink-0" />
+                <div>
+                  <h3 className="text-sm font-semibold text-green-400 mb-1">
+                    Email confirmed!
+                  </h3>
+                  <p className="text-xs text-gray-300 leading-relaxed">
+                    Your account is now verified. Please sign in with your email and password.
                   </p>
                 </div>
               </div>
