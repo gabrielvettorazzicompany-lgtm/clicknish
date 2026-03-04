@@ -66,8 +66,8 @@ function Dashboard() {
     selectedCurrency
   )
 
-  // Conectar aos dados de vendas com localização da tabela sale_locations (filtrado por moeda)
-  const { countries, loading: loadingGeolocation } = useSalesGeolocation(user?.id, selectedCurrency)
+  // Conectar aos dados de vendas com localização da tabela sale_locations (filtrado por moeda e data)
+  const { countries, loading: loadingGeolocation } = useSalesGeolocation(user?.id, selectedCurrency, dateRange)
 
   const formatCurrency = (value: number) => {
     if (hideValues) return `${selectedCurrency} •••`

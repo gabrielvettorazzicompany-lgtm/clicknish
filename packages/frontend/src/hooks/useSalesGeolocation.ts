@@ -1,6 +1,7 @@
 // hooks/useSalesGeolocation.ts
 // Hook simplificado para buscar vendas com localização da tabela sale_locations
 import { useState, useEffect, useMemo, useCallback } from 'react'
+import { DateRange } from 'react-day-picker'
 import { supabase } from '@/services/supabase'
 
 interface CountryData {
@@ -17,7 +18,7 @@ interface SalesGeolocationData {
     totalRevenue: number
 }
 
-export function useSalesGeolocation(userId?: string, currency?: string): SalesGeolocationData {
+export function useSalesGeolocation(userId?: string, currency?: string, dateRange?: DateRange): SalesGeolocationData {
     const [rawData, setRawData] = useState<{
         countries: CountryData[]
         totalSales: number
@@ -42,11 +43,24 @@ export function useSalesGeolocation(userId?: string, currency?: string): SalesGe
             setError(null)
 
             // Buscar todas as vendas com localização
-            const { data: sales, error: salesError } = await supabase
+            let query = supabase
                 .from('sale_locations')
                 .select('country, amount, city, customer_ip, sale_date, currency')
                 .eq('user_id', userId)
-                .order('sale_date', { ascending: false })
+
+            // Aplicar filtro de data se fornecido
+            if (dateRange?.from) {
+                query = query.gte('sale_date', dateRange.from.toISOString())
+            }
+            if (dateRange?.to) {
+                const endOfDay = new Date(dateRange.to)
+                endOfDay.setHours(23, 59, 59, 999)
+                query = query.lte('sale_date', endOfDay.toISOString())
+            }
+
+            query = query.order('sale_date', { ascending: false })
+
+            const { data: sales, error: salesError } = await query
 
             if (salesError) throw salesError
 
@@ -96,9 +110,9 @@ export function useSalesGeolocation(userId?: string, currency?: string): SalesGe
         } finally {
             setLoading(false)
         }
-    }, [userId, currency])
+    }, [userId, currency, dateRange])
 
-    // useEffect para executar fetch quando userId mudar
+    // useEffect para executar fetch quando userId ou dateRange mudarem
     useEffect(() => {
         fetchSalesData()
     }, [fetchSalesData])
