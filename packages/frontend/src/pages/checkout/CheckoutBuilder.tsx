@@ -260,12 +260,12 @@ export default function CheckoutBuilder() {
                 }))
                 setTestimonials(testimonialsWithSlot)
             }
-            
+
             // Load testimonials carousel mode
             if (customFields.testimonialsCarouselMode !== undefined) {
                 setTestimonialsCarouselMode(customFields.testimonialsCarouselMode)
             }
-            
+
             // Load testimonials horizontal mode
             if (customFields.testimonialsHorizontalMode !== undefined) {
                 setTestimonialsHorizontalMode(customFields.testimonialsHorizontalMode)
@@ -750,6 +750,8 @@ export default function CheckoutBuilder() {
                             >
                                 <option value="en">🇺🇸 EN</option>
                                 <option value="es">🇪🇸 ES</option>
+                                <option value="pt">🇧🇷 PT</option>
+                                <option value="nl">🇳🇱 NL</option>
                             </select>
 
                             {/* Preview Button */}
@@ -1323,7 +1325,7 @@ export default function CheckoutBuilder() {
                                                 Novo
                                             </button>
                                         </div>
-                                        
+
                                         {/* Carousel mode toggle */}
                                         <div className="mb-2 flex items-center justify-between p-2 bg-gray-950 border border-gray-700 rounded-lg">
                                             <label className="text-xs font-medium text-gray-300">Modo Carrossel</label>
@@ -1334,7 +1336,7 @@ export default function CheckoutBuilder() {
                                                 <span className={`inline-block h-3 w-3 transform rounded-full bg-white shadow transition-transform ${testimonialsCarouselMode ? 'translate-x-5' : 'translate-x-1'}`} />
                                             </button>
                                         </div>
-                                        
+
                                         {/* Horizontal mode toggle */}
                                         <div className="mb-2 flex items-center justify-between p-2 bg-gray-950 border border-gray-700 rounded-lg">
                                             <label className="text-xs font-medium text-gray-300">Modo Horizontal</label>
@@ -1345,7 +1347,7 @@ export default function CheckoutBuilder() {
                                                 <span className={`inline-block h-3 w-3 transform rounded-full bg-white shadow transition-transform ${testimonialsHorizontalMode ? 'translate-x-5' : 'translate-x-1'}`} />
                                             </button>
                                         </div>
-                                        
+
                                         <div className="flex flex-col gap-1">
                                             {testimonials.map(t => (
                                                 <div

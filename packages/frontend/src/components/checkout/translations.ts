@@ -1,4 +1,4 @@
-export type CheckoutLanguage = 'en' | 'es' | 'pt'
+export type CheckoutLanguage = 'en' | 'es' | 'pt' | 'nl'
 
 interface CheckoutTranslations {
     // Header
@@ -291,7 +291,77 @@ const pt: CheckoutTranslations = {
     paymentFailed: 'Falha no processamento do pagamento',
 }
 
-const translations: Record<CheckoutLanguage, CheckoutTranslations> = { en, es, pt }
+const nl: CheckoutTranslations = {
+    back: 'Terug',
+    youArePurchasing: 'JE KOOPT:',
+    personalInformation: 'Persoonlijke Informatie',
+    email: 'E-mail',
+    emailPlaceholder: 'jouw@email.com',
+    emailHelper: 'Je ontvangt toegang tot het product op dit e-mailadres',
+    fullName: 'Volledige naam',
+    fullNamePlaceholder: 'Je volledige naam',
+    phone: 'Telefoon',
+    phonePlaceholder: '(00) 00000-0000',
+    paymentMethod: 'Betaalmethode',
+    paymentMethodHelper: 'Kies hieronder je betaalmethode',
+    creditCard: 'Creditcard',
+    cardNumber: 'Kaartnummer',
+    expiryDate: 'Vervaldatum',
+    cvv: 'CVV',
+    installments: 'Termijnen',
+    installmentLabel: (count, amount) => `${count}x van ${amount}`,
+    fullPayment: ' volledige betaling',
+    interestFree: ' rentevrij',
+    withInterest: ' met rente',
+    interestWarning: 'Termijnen boven 6x hebben 2,5% maandelijkse rente',
+    noInterest: 'Rentevrij!',
+    limitedOffers: 'Beperkte aanbiedingen',
+    addToOrder: 'Toevoegen aan bestelling',
+    added: 'Toegevoegd',
+    defaultOrderBumpAccept: 'JA, IK WIL DIT SPECIALE AANBOD!',
+    defaultOrderBumpButton: 'Toevoegen aan aankoop',
+    orderSummary: 'Besteloverzicht',
+    subtotal: 'Subtotaal',
+    total: 'Totaal',
+    installmentsSummary: (count, amount) => `of ${count}x van ${amount} rentevrij`,
+    processing: 'Verwerken...',
+    paymentSuccessful: 'Betaling succesvol!',
+    completePurchase: 'AANKOOP VOLTOOIEN',
+    accessGranted: 'Toegang verleend! Controleer je e-mail.',
+    securePurchase: '100% Veilige Aankoop',
+    dataProtected: 'Je gegevens zijn beschermd',
+    paymentProcessedBy: 'BETALING VERWERKT DOOR:',
+    footerCopyright: 'Deze aankoop wordt verwerkt door: ClickNich © 2026 - Alle rechten voorbehouden.',
+    footerConsent: 'Door verder te gaan met deze aankoop, ga je akkoord met de',
+    termsOfPurchase: 'Aankoopvoorwaarden',
+    and: 'en',
+    privacyTerms: 'Privacyvoorwaarden',
+    privacyPolicy: 'Privacybeleid',
+    privacyLastUpdated: 'Laatst bijgewerkt: 19/01/2024',
+    privacySection1Title: '1. Verzamelde Persoonlijke Informatie:',
+    privacySection1Text: 'We verzamelen persoonlijke informatie die je vrijwillig verstrekt bij het doen van een aankoop, waaronder naam, e-mailadres en betalingsinformatie. We kunnen ook informatie verzamelen over je apparaat en hoe je met onze diensten omgaat.',
+    privacySection2Title: '2. Gebruik van Persoonlijke Informatie:',
+    privacySection2Text: 'We gebruiken je persoonlijke informatie om transacties te verwerken, notificaties te verzenden die verband houden met je aankoop, klantenondersteuning te bieden en onze diensten te verbeteren. We verkopen je persoonlijke informatie niet aan derden.',
+    privacySection3Title: '3. Cookies en Soortgelijke Technologieën:',
+    privacySection3Text: 'We gebruiken cookies en soortgelijke technologieën om de gebruikerservaring te verbeteren, verkeer te analyseren en inhoud te personaliseren. Je kunt cookievoorkeuren beheren via je browserinstellingen.',
+    privacySection4Title: '4. Gegevensbeveiliging:',
+    privacySection4Text: 'We implementeren passende beveiligingsmaatregelen om je persoonlijke informatie te beschermen tegen ongeautoriseerde toegang, wijziging, openbaarmaking of vernietiging. Betalingsverwerking wordt afgehandeld door gecertificeerde externe providers.',
+    privacySection5Title: '5. Gebruikersrechten:',
+    privacySection5Text: 'Je hebt het recht om toegang te krijgen tot, te corrigeren of te verwijderen je persoonlijke informatie. Om deze rechten uit te oefenen, neem contact op met ons ondersteuningsteam. We zullen binnen een redelijke termijn op je verzoek reageren.',
+    close: 'Sluiten',
+    limitedTimeOffer: 'Tijdelijk aanbod',
+    offerEnded: 'Aanbod beëindigd',
+    loadingCheckout: 'Checkout laden...',
+    checkoutNotFound: 'Checkout niet gevonden',
+    checkoutNotFoundDescription: 'De link die je hebt geopend is mogelijk onjuist of verlopen.',
+    paymentSystemNotAvailable: 'Betalingssysteem niet beschikbaar',
+    off: 'KORTING',
+    fillRequiredFields: 'Vul alstublieft alle verplichte velden in',
+    invalidEmail: 'Voer alstublieft een geldig e-mailadres in',
+    paymentFailed: 'Betalingsverwerking mislukt',
+}
+
+const translations: Record<CheckoutLanguage, CheckoutTranslations> = { en, es, pt, nl }
 
 export function getTranslations(lang: CheckoutLanguage = 'en'): CheckoutTranslations {
     return translations[lang] || translations.en
