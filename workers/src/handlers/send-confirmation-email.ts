@@ -74,7 +74,7 @@ export async function handleSendConfirmationEmail(request: Request, env: Env): P
                           <table width="100%" cellpadding="0" cellspacing="0" style="margin: 30px 0;">
                             <tr>
                               <td align="center">
-                                <a href="${confirmationUrl}" style="display: inline-block; padding: 14px 32px; background: linear-gradient(to right, #06b6d4, #2563eb); color: #ffffff; text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 16px;">
+                                <a href="${confirmationUrl}" style="display: inline-block; padding: 14px 32px; background: #111827; color: #ffffff; text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 16px;">
                                   Confirm Email Address
                                 </a>
                               </td>
