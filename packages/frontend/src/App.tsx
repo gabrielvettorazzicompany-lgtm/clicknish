@@ -17,6 +17,7 @@ const PageLoader = () => (
 // Pages - Autenticação (sempre carregadas imediatamente)
 import Login from './pages/auth/Login'
 import ResetPassword from './pages/auth/ResetPassword'
+import EmailConfirmation from './pages/auth/EmailConfirmation'
 
 // Pages - Dashboard e Core (lazy loaded)
 const Dashboard = lazy(() => import('./pages/Dashboard'))
@@ -200,6 +201,7 @@ export default function App() {
           <Route path="/login" element={<Login />} />
           <Route path="/auth/reset-password" element={<ResetPassword />} />
           <Route path="/auth/login" element={<Login />} />
+          <Route path="/auth/confirm" element={<EmailConfirmation />} />
           <Route path="/admin-login" element={<SuperAdminLogin />} />
           <Route path="/super-login" element={<SuperAdminLogin />} />
           <Route path="/super-login/forgot-password" element={<SuperAdminForgotPassword />} />

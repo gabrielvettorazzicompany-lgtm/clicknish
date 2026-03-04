@@ -21,6 +21,7 @@ export default function Login() {
   const [showInstallModal, setShowInstallModal] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
+  const [signUpSuccess, setSignUpSuccess] = useState(false)
   const { t, language } = useI18n()
 
   const handleAuth = async (e: React.FormEvent) => {
@@ -59,13 +60,18 @@ export default function Login() {
               full_name: fullName,
               country: country
             },
-           emailRedirectTo: `${window.location.origin}/auth/confirm`
+            emailRedirectTo: `${window.location.origin}/auth/confirm`
           }
         })
 
         if (authError) throw authError
 
         if (data.user) {
+          // Nota: O Supabase envia automaticamente um email de confirmação
+          // Se quiser usar um template customizado, configure no painel do Supabase
+          // ou descomente o código abaixo para enviar via Resend
+
+          /*
           // Enviar email customizado via Resend
           try {
             await fetch('https://api.clicknich.com/api/send-confirmation-email', {
@@ -83,52 +89,19 @@ export default function Login() {
             console.error('Error sending custom email:', emailError)
             // Não falhar o signup se o email customizado falhar
           }
+          */
 
-          // Aguardar um pouco para garantir que a sessão está estabelecida
-          await new Promise(resolve => setTimeout(resolve, 1000))
+          // Mostrar mensagem de sucesso e pedir para verificar email
+          setSignUpSuccess(true)
+          setLoading(false)
 
-          // Criar admin_profile básico para novos usuários do painel administrativo
-          try {
-            const { error: profileError } = await supabase
-              .from('admin_profiles')
-              .upsert({ // Usar upsert para evitar conflitos
-                user_id: data.user.id,
-                created_at: new Date().toISOString(),
-                updated_at: new Date().toISOString()
-              }, {
-                onConflict: 'user_id' // Ignorar se já existe
-              })
-
-            if (profileError) {
-              console.error('Erro ao criar admin_profile:', profileError)
-              setError(`Conta criada, mas houve um problema ao configurar o perfil. Entre em contato com o suporte. Erro: ${profileError.message}`)
-              setLoading(false)
-              return
-            }
-          } catch (profileErr: any) {
-            console.error('Fetch error ao criar admin_profile:', profileErr)
-            setError('Conta criada, mas houve um problema ao configurar o perfil. Tente fazer login.')
-            setLoading(false)
-            return
-          }
-
-          setUser(data.user)
-
-          // Salvar email no localStorage para uso no perfil
-          if (data.user.email) {
-            localStorage.setItem('userEmail', data.user.email)
-          }
-
-          // Verificar se precisa confirmar email
-          if (!data.session) {
-            setError('Conta criada com sucesso! Por favor, verifique seu email para confirmar a conta antes de fazer login.')
-            setLoading(false)
-            return
-          }
-
-          // Prefetch rotas prioritárias em background
-          prefetchPriorityRoutes()
-          navigate('/dashboard')
+          // Limpar campos do formulário
+          setEmail('')
+          setPassword('')
+          setConfirmPassword('')
+          setFullName('')
+          setCountry('+351')
+          return
         }
       } else {
         // Processo de login
@@ -175,7 +148,27 @@ export default function Login() {
               Create your ClickNich account
             </h2>
           )}
-          
+
+          {/* Success Message - Email Verification */}
+          {signUpSuccess && (
+            <div className="mb-4 p-4 bg-green-500/10 border border-green-500/30 rounded-lg">
+              <div className="flex items-start gap-3">
+                <Mail className="w-5 h-5 text-green-400 mt-0.5 flex-shrink-0" />
+                <div>
+                  <h3 className="text-sm font-semibold text-green-400 mb-1">
+                    Check your email!
+                  </h3>
+                  <p className="text-xs text-gray-300 leading-relaxed mb-2">
+                    We've sent a confirmation link to your email address. Please click the link to verify your account and complete the registration.
+                  </p>
+                  <p className="text-xs text-gray-400">
+                    Didn't receive the email? Check your spam folder.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
           {error && (
             <div className="mb-4 p-2.5 bg-red-500/10 border border-red-500/30 rounded-lg flex items-center gap-2">
               <AlertCircle className="w-4 h-4 text-red-400" />
@@ -360,6 +353,7 @@ export default function Login() {
                   onClick={() => {
                     setIsSignUp(false)
                     setError('')
+                    setSignUpSuccess(false)
                   }}
                   className="text-blue-400 hover:text-blue-300 font-medium transition-colors"
                 >
@@ -371,6 +365,7 @@ export default function Login() {
                 onClick={() => {
                   setIsSignUp(true)
                   setError('')
+                  setSignUpSuccess(false)
                 }}
                 className="text-gray-400 hover:text-blue-400 text-xs font-medium transition-colors"
               >
