@@ -44,14 +44,14 @@ const Sidebar = memo(function Sidebar({ isOpen, onClose }: SidebarProps) {
 
     const menuItems = [
         { path: '/dashboard', icon: Home, label: t('sidebar.dashboard') },
-        { path: '/customers', icon: Users, label: t('sidebar.customers') },
-        { path: '/orders', icon: ShoppingCart, label: t('sidebar.orders') },
         { path: '/products', icon: Package, label: t('sidebar.products') },
-        { path: '/checkouts', icon: CreditCard, label: t('sidebar.checkouts') },
         { path: '/funnels', icon: Zap, label: t('sidebar.funnels') },
+        { path: '/orders', icon: ShoppingCart, label: t('sidebar.orders') },
+        { path: '/customers', icon: Users, label: t('sidebar.customers') },
         { path: '/finance', icon: DollarSign, label: t('sidebar.finance') },
         { path: '/taxes', icon: Percent, label: t('sidebar.taxes') },
         { path: '/integrations', icon: UtmifyIcon, label: t('sidebar.integrations') },
+        { path: '/checkouts', icon: CreditCard, label: t('sidebar.checkouts') },
     ]
 
     const salesChannels = [
