@@ -1,0 +1,11 @@
+{
+  "build": {
+    "command": "cd packages/frontend && npm install && npm run build",
+    "destination": "packages/frontend/dist",
+    "root_dir": "/"
+  },
+  "deployment": {
+    "compatibility_date": "2024-01-01",
+    "compatibility_flags": []
+  }
+}
