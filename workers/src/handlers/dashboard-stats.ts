@@ -102,23 +102,21 @@ export async function handleDashboardStats(
         let appPending: any[] = []
         let marketplaceRefunds: any[] = []
         let appRefunds: any[] = []
+        let marketplaceAttempts: any[] = []
+        let appAttempts: any[] = []
 
-        // 1. Vendas marketplace (tabela separada: user_member_area_access)
+        // 1. Tentativas de pagamento marketplace (todos os status exceto refunded/reversed)
         if (shouldFetchMarketplace) {
             let q = supabase
                 .from('user_member_area_access')
-                .select('purchase_price, created_at, member_area_id, payment_method')
-                .eq('payment_status', 'completed')
+                .select('purchase_price, created_at, member_area_id, payment_method, payment_status')
+                .not('payment_status', 'in', '(refunded,reversed)')
 
-            if (selectedMarketplace) {
-                console.log('Filtering by member_area_id:', selectedMarketplace)
-                q = q.eq('member_area_id', selectedMarketplace)
-            }
+            if (selectedMarketplace) q = q.eq('member_area_id', selectedMarketplace)
             if (fromDateObj) q = q.gte('created_at', fromDateObj.toISOString())
             if (endOfDay) q = q.lte('created_at', endOfDay.toISOString())
 
             const result = await q
-            console.log('Marketplace sales raw count:', result.data?.length || 0)
 
             // Filtrar por owner_id via member_areas
             if (result.data && result.data.length > 0) {
@@ -133,29 +131,33 @@ export async function handleDashboardStats(
                     const validIds = new Set((maResult.data || []).map((ma: any) => ma.id))
                     const priceMap = new Map((maResult.data || []).map((ma: any) => [ma.id, ma.price]))
 
-                    marketplaceSales = result.data
+                    marketplaceAttempts = result.data
                         .filter((s: any) => validIds.has(s.member_area_id))
                         .map((s: any) => ({
                             ...s,
                             price: priceMap.get(s.member_area_id) || s.purchase_price || 0
                         }))
+
+                    // Separar apenas as completadas para vendas
+                    marketplaceSales = marketplaceAttempts.filter((s: any) => s.payment_status === 'completed')
                 }
             }
         }
 
-        // 2. Vendas apps
+        // 2. Tentativas de pagamento apps (todos os status exceto refunded/reversed)
         if (shouldFetchApps) {
             let q = supabase
                 .from('user_product_access')
-                .select('purchase_price, created_at, payment_method')
-                .eq('payment_status', 'completed')
+                .select('purchase_price, created_at, payment_method, payment_status')
+                .not('payment_status', 'in', '(refunded,reversed)')
                 .in('application_id', appIds)
 
             if (fromDateObj) q = q.gte('created_at', fromDateObj.toISOString())
             if (endOfDay) q = q.lte('created_at', endOfDay.toISOString())
 
             const result = await q
-            appSales = result.data || []
+            appAttempts = result.data || []
+            appSales = appAttempts.filter((s: any) => s.payment_status === 'completed')
         }
 
         // 3. Checkouts marketplace
@@ -291,6 +293,7 @@ export async function handleDashboardStats(
         const allCheckouts = [...marketplaceCheckouts, ...appCheckouts]
         const allPending = [...marketplacePending, ...appPending]
         const allRefunds = [...marketplaceRefunds, ...appRefunds]
+        const allAttempts = [...marketplaceAttempts, ...appAttempts]
 
         const totalSales = allSales.reduce((sum, sale) => {
             const price = sale.price || sale.purchase_price || 0
@@ -298,6 +301,7 @@ export async function handleDashboardStats(
         }, 0)
 
         const salesCount = allSales.length
+        const attemptsCount = allAttempts.length
         const checkoutsCount = allCheckouts.length
         const pendingAmount = allPending.reduce((sum, r) => sum + parseFloat(r.purchase_price || 0), 0)
         const refundCount = allRefunds.length
@@ -322,12 +326,12 @@ export async function handleDashboardStats(
             .sort((a, b) => a.date.localeCompare(b.date))
             .slice(-7)
 
-        // Calcular taxas
-        const conversionRate = checkoutsCount > 0 ? (salesCount / checkoutsCount) * 100 : 0
+        // Calcular taxa de conversão: (Pagamentos Aprovados ÷ Tentativas de Pagamento) × 100
+        const conversionRate = attemptsCount > 0 ? (salesCount / attemptsCount) * 100 : 0
         const refundRate = salesCount > 0 ? (refundCount / salesCount) * 100 : 0
         const abandonedCheckouts = checkoutsCount - salesCount
 
-        // Agrupar vendas por método de pagamento
+        // Agrupar tentativas e vendas por método de pagamento
         const normalizeMethod = (m: string | null): string => {
             if (!m) return 'card'
             const l = m.toLowerCase()
@@ -344,6 +348,15 @@ export async function handleDashboardStats(
             boleto: 'Boleto',
             bank_transfer: 'Transferência',
         }
+
+        // Contar tentativas por método
+        const attemptsByMethod: Record<string, number> = {}
+        allAttempts.forEach((attempt: any) => {
+            const key = normalizeMethod(attempt.payment_method)
+            attemptsByMethod[key] = (attemptsByMethod[key] || 0) + 1
+        })
+
+        // Agrupar vendas aprovadas por método
         const methodGroups: Record<string, { value: number; count: number }> = {}
         allSales.forEach((sale: any) => {
             const key = normalizeMethod(sale.payment_method)
@@ -351,17 +364,27 @@ export async function handleDashboardStats(
             methodGroups[key].value += parseFloat(sale.price || sale.purchase_price || 0)
             methodGroups[key].count += 1
         })
+
+        // Calcular taxa de conversão por método: (Aprovados ÷ Tentativas) × 100
         const paymentMethods = Object.keys(methodGroups).length > 0
             ? Object.entries(methodGroups).map(([icon, data]) => ({
                 name: METHOD_DISPLAY_NAMES[icon] || icon,
                 icon,
-                conversion: checkoutsCount > 0 ? Math.round((data.count / checkoutsCount) * 10000) / 100 : 0,
+                conversion: attemptsByMethod[icon] > 0
+                    ? Math.round((data.count / attemptsByMethod[icon]) * 10000) / 100
+                    : 0,
                 value: data.value,
             }))
             : [
                 { name: 'Cartão de Crédito', icon: 'card', conversion: conversionRate, value: totalSales },
                 { name: 'PayPal', icon: 'paypal', conversion: 0, value: 0 },
             ]
+
+        // Garantir que PayPal sempre apareça na lista
+        const hasPaypal = paymentMethods.some((m: any) => m.icon === 'paypal')
+        if (!hasPaypal) {
+            paymentMethods.push({ name: 'PayPal', icon: 'paypal', conversion: 0, value: 0 })
+        }
 
         const stats = {
             totalSales,
