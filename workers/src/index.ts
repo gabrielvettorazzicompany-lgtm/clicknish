@@ -36,6 +36,7 @@ import { handleCheckoutSession } from './handlers/checkout-session'
 import { handleCheckoutData } from './handlers/checkout-data'
 import { handleCachePreloader } from './handlers/preloader'
 import { handleCachePurge } from './handlers/purge'
+import { handleSendConfirmationEmail } from './handlers/send-confirmation-email'
 
 export interface Env {
     // Variáveis públicas
@@ -265,6 +266,11 @@ async function handleApiRoute(
     // POST /api/send-email - Enviar email
     if (pathname === '/api/send-email' && request.method === 'POST') {
         return handleSendEmail(request, env)
+    }
+
+    // POST /api/send-confirmation-email - Enviar email de confirmação
+    if (pathname === '/api/send-confirmation-email' && request.method === 'POST') {
+        return handleSendConfirmationEmail(request, env)
     }
 
     // /api/superadmin/* - Painel de super admin
