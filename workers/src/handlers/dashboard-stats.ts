@@ -208,6 +208,8 @@ export async function handleDashboardStats(
                 .eq('payment_status', 'pending')
 
             if (selectedMarketplace) q = q.eq('member_area_id', selectedMarketplace)
+            if (fromDateObj) q = q.gte('created_at', fromDateObj.toISOString())
+            if (endOfDay) q = q.lte('created_at', endOfDay.toISOString())
 
             const result = await q
 
@@ -228,12 +230,16 @@ export async function handleDashboardStats(
 
         // 6. Pendentes apps
         if (shouldFetchApps) {
-            const result = await supabase
+            let q = supabase
                 .from('user_product_access')
                 .select('purchase_price')
                 .eq('payment_status', 'pending')
                 .in('application_id', appIds)
 
+            if (fromDateObj) q = q.gte('created_at', fromDateObj.toISOString())
+            if (endOfDay) q = q.lte('created_at', endOfDay.toISOString())
+
+            const result = await q
             appPending = result.data || []
         }
 
@@ -245,6 +251,8 @@ export async function handleDashboardStats(
                 .in('payment_status', ['refunded', 'reversed'])
 
             if (selectedMarketplace) q = q.eq('member_area_id', selectedMarketplace)
+            if (fromDateObj) q = q.gte('created_at', fromDateObj.toISOString())
+            if (endOfDay) q = q.lte('created_at', endOfDay.toISOString())
 
             const result = await q
 
@@ -265,12 +273,16 @@ export async function handleDashboardStats(
 
         // 8. Reembolsos apps
         if (shouldFetchApps) {
-            const result = await supabase
+            let q = supabase
                 .from('user_product_access')
                 .select('id')
                 .in('payment_status', ['refunded', 'reversed'])
                 .in('application_id', appIds)
 
+            if (fromDateObj) q = q.gte('created_at', fromDateObj.toISOString())
+            if (endOfDay) q = q.lte('created_at', endOfDay.toISOString())
+
+            const result = await q
             appRefunds = result.data || []
         }
 
