@@ -132,7 +132,7 @@ export default function Finance() {
                         )}
 
                         {/* Tabs */}
-                        <div className="border-b border-gray-200 dark:border-gray-800 mb-6">
+                        <div className="border-b border-gray-300 dark:border-gray-800 mb-6">
                             <div className="flex gap-4 sm:gap-6 overflow-x-auto">
                                 {tabs.map((tab) => (
                                     <button
@@ -140,7 +140,7 @@ export default function Finance() {
                                         onClick={() => handleTabChange(tab.id)}
                                         className={`pb-3 px-1 border-b-2 transition-colors flex items-center gap-2 ${activeTab === tab.id
                                             ? 'border-blue-500 text-gray-900 dark:text-gray-100'
-                                            : 'border-transparent text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
+                                            : 'border-transparent text-gray-700 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
                                             }`}
                                     >
                                         <span className="font-medium text-sm">{tab.label}</span>
@@ -155,13 +155,13 @@ export default function Finance() {
                         {/* Search + Filtros */}
                         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 mb-6">
                             <div className="flex-1 relative">
-                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-600 pointer-events-none" />
                                 <input
                                     type="text"
                                     placeholder={t('finance.search_placeholder')}
                                     value={searchQuery}
                                     onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1) }}
-                                    className="w-full pl-9 pr-3 py-2 bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-lg text-sm text-gray-900 dark:text-gray-200 placeholder-gray-400 dark:placeholder-gray-600 focus:outline-none focus:border-blue-400 dark:focus:border-white/20"
+                                    className="w-full pl-9 pr-3 py-2 bg-gray-100 dark:bg-white/5 border border-gray-300 dark:border-white/10 rounded-lg text-sm text-gray-900 dark:text-gray-200 placeholder-gray-600 dark:placeholder-gray-600 focus:outline-none focus:border-blue-400 dark:focus:border-white/20"
                                 />
                             </div>
                             <FinanceFilters
@@ -173,7 +173,7 @@ export default function Finance() {
                         </div>
 
                         {/* Tabela */}
-                        <div className="bg-white dark:bg-white/5 dark:backdrop-blur-xl border border-gray-200 dark:border-white/10 rounded-xl overflow-hidden">
+                        <div className="bg-white dark:bg-white/5 dark:backdrop-blur-xl border border-gray-300 dark:border-white/10 rounded-xl overflow-hidden">
                             {loading ? (
                                 <div className="p-8 flex justify-center">
                                     <Spinner color="primary" label={t('finance.loading')} labelColor="foreground" />

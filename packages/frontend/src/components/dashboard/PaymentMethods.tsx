@@ -64,10 +64,10 @@ export default function PaymentMethods({ methods, loading, hideValues }: Payment
     }
 
     return (
-        <div className="bg-white dark:bg-white/5 dark:backdrop-blur-xl border border-gray-100 dark:border-white/10 rounded-2xl p-5 shadow-sm h-full">
+        <div className="bg-white dark:bg-white/5 dark:backdrop-blur-xl border border-gray-300 dark:border-white/10 rounded-2xl p-5 shadow-sm h-full">
             <div className="flex items-center justify-between mb-5">
-                <h2 className="text-sm font-semibold text-gray-800 dark:text-white">{t('dashboard.payment_methods')}</h2>
-                <span className="text-xs text-gray-400 dark:text-gray-500">{t('dashboard.conversion')}</span>
+                <h2 className="text-sm font-semibold text-gray-900 dark:text-white">{t('dashboard.payment_methods')}</h2>
+                <span className="text-xs text-gray-600 dark:text-gray-500">{t('dashboard.conversion')}</span>
             </div>
 
             {loading ? (
@@ -86,13 +86,13 @@ export default function PaymentMethods({ methods, loading, hideValues }: Payment
                                 <div className="flex items-center justify-between mb-1.5">
                                     <div className="flex items-center gap-2">
                                         {cfg.icon}
-                                        <span className="text-sm font-medium text-gray-700 dark:text-gray-200">{getMethodName(method.icon, method.name)}</span>
+                                        <span className="text-sm font-medium text-gray-900 dark:text-gray-200">{getMethodName(method.icon, method.name)}</span>
                                     </div>
-                                    <span className="text-sm font-semibold text-gray-800 dark:text-gray-100 tabular-nums">
+                                    <span className="text-sm font-semibold text-gray-900 dark:text-gray-100 tabular-nums">
                                         {hideValues ? '••%' : `${method.conversion.toFixed(1)}%`}
                                     </span>
                                 </div>
-                                <div className="w-full h-1.5 bg-gray-100 dark:bg-white/5 rounded-full overflow-hidden">
+                                <div className="w-full h-1.5 bg-gray-200 dark:bg-white/5 rounded-full overflow-hidden">
                                     <div
                                         className={`h-full ${cfg.bar} rounded-full transition-all duration-700`}
                                         style={{ width: `${pct}%` }}

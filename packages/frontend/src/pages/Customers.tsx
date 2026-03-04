@@ -81,13 +81,13 @@ export default function Customers() {
                             <h1 className="text-2xl font-semibold text-gray-900 dark:text-gray-100 mb-1">
                                 {t('customers.title')}
                             </h1>
-                            <p className="text-sm text-gray-600 dark:text-gray-400">
+                            <p className="text-sm text-gray-700 dark:text-gray-400">
                                 {t('customers.subtitle')}
                             </p>
                         </div>
 
                         {/* Tabs */}
-                        <div className="border-b border-gray-200 dark:border-gray-800 mb-6">
+                        <div className="border-b border-gray-300 dark:border-gray-800 mb-6">
                             <div className="flex gap-6">
                                 <button
                                     className="pb-3 px-1 border-b-2 border-blue-500 text-gray-900 dark:text-gray-100 transition-colors flex items-center gap-2"
@@ -111,7 +111,7 @@ export default function Customers() {
                                     variant="bordered"
                                     radius="md"
                                     classNames={{
-                                        inputWrapper: 'bg-white dark:bg-white/5 dark:backdrop-blur-xl border-gray-200 dark:border-white/10 hover:border-primary data-[focus=true]:border-primary',
+                                        inputWrapper: 'bg-white dark:bg-white/5 dark:backdrop-blur-xl border-gray-300 dark:border-white/10 hover:border-primary data-[focus=true]:border-primary',
                                         input: 'text-sm text-gray-900 dark:text-gray-100',
                                     }}
                                 />
@@ -135,22 +135,22 @@ export default function Customers() {
                                         startContent={<Upload className="w-4 h-4" />}
                                         endContent={<ChevronDown className="w-3.5 h-3.5" />}
                                         onPress={() => setShowExportMenu(!showExportMenu)}
-                                        className="border-gray-200 dark:border-white/10 text-gray-700 dark:text-gray-300 bg-white dark:bg-white/5 dark:backdrop-blur-xl"
+                                        className="border-gray-300 dark:border-white/10 text-gray-900 dark:text-gray-300 bg-white dark:bg-white/5 dark:backdrop-blur-xl"
                                     >
                                         {t('customers.actions.export')}
                                     </Button>
                                     {showExportMenu && (
-                                        <div className="absolute right-0 mt-2 w-52 bg-white dark:bg-[#0f1221]/95 dark:backdrop-blur-xl border border-gray-200 dark:border-white/10 rounded-xl shadow-xl z-50 overflow-hidden">
+                                        <div className="absolute right-0 mt-2 w-52 bg-white dark:bg-[#0f1221]/95 dark:backdrop-blur-xl border border-gray-300 dark:border-white/10 rounded-xl shadow-xl z-50 overflow-hidden">
                                             <button
                                                 onClick={() => { handleExportCSV(); setShowExportMenu(false) }}
-                                                className="w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-50 dark:hover:bg-white/5 text-sm text-gray-700 dark:text-gray-300 transition-colors"
+                                                className="w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-100 dark:hover:bg-white/5 text-sm text-gray-900 dark:text-gray-300 transition-colors"
                                             >
                                                 <FileSpreadsheet className="w-4 h-4 text-green-500" />
                                                 <span>{t('customers.actions.export_csv')}</span>
                                             </button>
                                             <button
                                                 onClick={() => { handleExportPDF(); setShowExportMenu(false) }}
-                                                className="w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-50 dark:hover:bg-white/5 text-sm text-gray-700 dark:text-gray-300 transition-colors border-t border-gray-100 dark:border-white/5"
+                                                className="w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-100 dark:hover:bg-white/5 text-sm text-gray-900 dark:text-gray-300 transition-colors border-t border-gray-200 dark:border-white/5"
                                             >
                                                 <FileText className="w-4 h-4 text-red-500" />
                                                 <span>{t('customers.actions.export_pdf')}</span>
@@ -180,7 +180,7 @@ export default function Customers() {
                         />
 
                         {/* Table */}
-                        <div className="bg-white dark:bg-white/5 dark:backdrop-blur-xl border border-gray-200 dark:border-white/10 rounded-xl overflow-hidden">
+                        <div className="bg-white dark:bg-white/5 dark:backdrop-blur-xl border border-gray-300 dark:border-white/10 rounded-xl overflow-hidden">
                             {loading ? (
                                 <div className="p-8 flex justify-center">
                                     <Spinner color="primary" label={t('customers.loading')} labelColor="foreground" />

@@ -19,7 +19,7 @@ interface DailySalesChartProps {
 
 const DailySalesChart = memo(function DailySalesChart({ data, loading, formatCurrency, selectedCurrency }: DailySalesChartProps) {
     const { t } = useI18n()
-    const wrapClass = "bg-white dark:bg-white/5 dark:backdrop-blur-xl border border-gray-100 dark:border-white/10 rounded-2xl p-5 shadow-sm"
+    const wrapClass = "bg-white dark:bg-white/5 dark:backdrop-blur-xl border border-gray-300 dark:border-white/10 rounded-2xl p-5 shadow-sm"
 
     const totalValue = data.reduce((sum, d) => sum + d.value, 0)
     const bestDay = data.length > 0 ? data.reduce((a, b) => (a.value > b.value ? a : b)) : null
@@ -130,7 +130,7 @@ const DailySalesChart = memo(function DailySalesChart({ data, loading, formatCur
     if (loading) {
         return (
             <div className={wrapClass}>
-                <h3 className="text-sm font-semibold text-gray-800 dark:text-white mb-4">{t('dashboard.daily_sales')}</h3>
+                <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-4">{t('dashboard.daily_sales')}</h3>
                 <div className="h-52 flex items-center justify-center">
                     <Spinner size="sm" color="default" />
                 </div>
@@ -141,7 +141,7 @@ const DailySalesChart = memo(function DailySalesChart({ data, loading, formatCur
     if (data.length === 0) {
         return (
             <div className={wrapClass}>
-                <h3 className="text-sm font-semibold text-gray-800 dark:text-white mb-4">{t('dashboard.daily_sales')}</h3>
+                <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-4">{t('dashboard.daily_sales')}</h3>
                 <div className="h-52 flex items-center justify-center">
                     <p className="text-sm text-gray-400">{t('dashboard.no_sales_data')}</p>
                 </div>
@@ -154,19 +154,19 @@ const DailySalesChart = memo(function DailySalesChart({ data, loading, formatCur
             {/* Header */}
             <div className="flex items-start justify-between mb-1">
                 <div>
-                    <h3 className="text-sm font-semibold text-gray-800 dark:text-white">{t('dashboard.daily_sales')}</h3>
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{t('dashboard.days_of_data', { count: data.length })}</p>
+                    <h3 className="text-sm font-semibold text-gray-900 dark:text-white">{t('dashboard.daily_sales')}</h3>
+                    <p className="text-xs text-gray-700 dark:text-gray-400 mt-0.5">{t('dashboard.days_of_data', { count: data.length })}</p>
                 </div>
                 <div className="flex items-center gap-4">
                     <div className="text-right">
-                        <p className="text-xs text-gray-400">{t('dashboard.total')}</p>
+                        <p className="text-xs text-gray-600">{t('dashboard.total')}</p>
                         <p className="text-sm font-semibold text-indigo-400">
                             {formatCurrency(totalValue)}
                         </p>
                     </div>
                     {bestDay && (
                         <div className="text-right">
-                            <p className="text-xs text-gray-400">{t('dashboard.best_day')}</p>
+                            <p className="text-xs text-gray-600">{t('dashboard.best_day')}</p>
                             <p className="text-sm font-semibold text-emerald-400">
                                 {formatCurrency(bestDay.value)}
                             </p>

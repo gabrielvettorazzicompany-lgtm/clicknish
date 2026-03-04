@@ -13,10 +13,10 @@ interface StatCardProps {
 }
 
 const colorMap: Record<CardColor, { bar: string; title: string; action: string }> = {
-    indigo: { bar: 'bg-blue-500', title: 'text-gray-500 dark:text-gray-400', action: 'text-blue-400' },
-    violet: { bar: 'bg-blue-500', title: 'text-gray-500 dark:text-gray-400', action: 'text-blue-400' },
-    emerald: { bar: 'bg-blue-500', title: 'text-gray-500 dark:text-gray-400', action: 'text-blue-400' },
-    amber: { bar: 'bg-blue-500', title: 'text-gray-500 dark:text-gray-400', action: 'text-blue-400' },
+    indigo: { bar: 'bg-blue-500', title: 'text-gray-700 dark:text-gray-400', action: 'text-blue-400' },
+    violet: { bar: 'bg-blue-500', title: 'text-gray-700 dark:text-gray-400', action: 'text-blue-400' },
+    emerald: { bar: 'bg-blue-500', title: 'text-gray-700 dark:text-gray-400', action: 'text-blue-400' },
+    amber: { bar: 'bg-blue-500', title: 'text-gray-700 dark:text-gray-400', action: 'text-blue-400' },
 }
 
 export default function StatCard({
@@ -31,7 +31,7 @@ export default function StatCard({
     const c = colorMap[color]
 
     return (
-        <div className="relative overflow-hidden rounded-xl border border-gray-200 dark:border-white/10 bg-white dark:bg-white/5 dark:backdrop-blur-xl shadow-sm px-4 py-3 flex flex-col gap-1">
+        <div className="relative overflow-hidden rounded-xl border border-gray-300 dark:border-white/10 bg-white dark:bg-white/5 dark:backdrop-blur-xl shadow-sm px-4 py-3 flex flex-col gap-1">
             {/* Barra colorida lateral */}
             <div className={`absolute left-0 top-0 bottom-0 w-[3px] ${c.bar}`} />
 
@@ -59,7 +59,7 @@ export default function StatCard({
                         {actionText} →
                     </p>
                 ) : (
-                    <p className="text-[10px] text-gray-400 dark:text-gray-500">{subtitle}</p>
+                    <p className="text-[10px] text-gray-600 dark:text-gray-500">{subtitle}</p>
                 )
             )}
         </div>

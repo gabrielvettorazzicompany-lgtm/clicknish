@@ -42,9 +42,9 @@ export default function FinancialSummary({
     ]
 
     return (
-        <div className="bg-white dark:bg-white/5 dark:backdrop-blur-xl border border-gray-100 dark:border-white/10 rounded-2xl p-5 shadow-sm">
+        <div className="bg-white dark:bg-white/5 dark:backdrop-blur-xl border border-gray-300 dark:border-white/10 rounded-2xl p-5 shadow-sm">
             <div className="flex items-center justify-between mb-4">
-                <h2 className="text-sm font-semibold text-gray-800 dark:text-white">{t('dashboard.financial_summary')}</h2>
+                <h2 className="text-sm font-semibold text-gray-900 dark:text-white">{t('dashboard.financial_summary')}</h2>
             </div>
 
             {loading ? (
@@ -56,10 +56,10 @@ export default function FinancialSummary({
                     {metrics.map((m, i) => (
                         <div
                             key={i}
-                            className="relative overflow-hidden flex items-center justify-between px-4 py-2.5 rounded-xl bg-gray-50 dark:bg-white/[0.03] border border-gray-100 dark:border-white/5"
+                            className="relative overflow-hidden flex items-center justify-between px-4 py-2.5 rounded-xl bg-gray-100 dark:bg-white/[0.03] border border-gray-300 dark:border-white/5"
                         >
                             <div className={`absolute left-0 top-0 bottom-0 w-[3px] ${m.bar}`} />
-                            <p className="text-[11px] text-gray-500 dark:text-gray-400">{m.label}</p>
+                            <p className="text-[11px] text-gray-700 dark:text-gray-400">{m.label}</p>
                             <p className={`text-sm font-bold tabular-nums ${m.valueColor}`}>{m.value}</p>
                         </div>
                     ))}
