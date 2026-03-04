@@ -30,6 +30,12 @@ export default function Login() {
     // Verificar se vem da confirmação de email
     if (searchParams.get('confirmed') === 'true') {
       setEmailConfirmed(true)
+
+      // Preencher email automaticamente se vier da confirmação
+      const confirmedEmail = searchParams.get('email')
+      if (confirmedEmail) {
+        setEmail(decodeURIComponent(confirmedEmail))
+      }
     }
   }, [searchParams])
 
@@ -204,10 +210,10 @@ export default function Login() {
                 <CheckCircle className="w-5 h-5 text-green-400 mt-0.5 flex-shrink-0" />
                 <div>
                   <h3 className="text-sm font-semibold text-green-400 mb-1">
-                    Email confirmed!
+                    Email confirmed! ✓
                   </h3>
                   <p className="text-xs text-gray-300 leading-relaxed">
-                    Your account is now verified. Please sign in with your email and password.
+                    Your account is verified. Just enter your password to sign in.
                   </p>
                 </div>
               </div>

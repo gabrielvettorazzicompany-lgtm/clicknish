@@ -17,6 +17,13 @@ export default function EmailConfirmation() {
                 const type = hashParams.get('type')
 
                 if (type === 'signup' && accessToken) {
+                    // Precisamos pegar o email do usuário primeiro
+                    const { data, error: authError } = await supabase.auth.getUser(accessToken)
+
+                    if (authError) throw authError
+
+                    const userEmail = data?.user?.email || ''
+
                     // Email confirmado com sucesso!
                     setStatus('success')
                     setMessage('Email confirmed successfully! You can now sign in.')
@@ -24,9 +31,9 @@ export default function EmailConfirmation() {
                     // Fazer logout para garantir que o usuário vai fazer login
                     await supabase.auth.signOut()
 
-                    // Redirecionar para login após 2 segundos
+                    // Redirecionar para login após 2 segundos com email preenchido
                     setTimeout(() => {
-                        navigate('/auth/login?confirmed=true')
+                        navigate(`/auth/login?confirmed=true&email=${encodeURIComponent(userEmail)}`)
                     }, 2000)
                 } else {
                     throw new Error('Invalid confirmation link')
