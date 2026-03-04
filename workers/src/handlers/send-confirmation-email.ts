@@ -24,9 +24,9 @@ export async function handleSendConfirmationEmail(request: Request, env: Env): P
 
     // Enviar email usando Resend
     const confirmationUrl = `${env.FRONTEND_URL}/auth/confirm?token=${token}`
-    
+
     const fromAddress = env.RESEND_FROM || 'noreply@clicknich.com'
-    
+
     const resendResponse = await fetch('https://api.resend.com/emails', {
       method: 'POST',
       headers: {
@@ -54,7 +54,7 @@ export async function handleSendConfirmationEmail(request: Request, env: Env): P
                       <tr>
                         <td style="padding: 40px 40px 20px; text-align: center;">
                           <h1 style="margin: 0; color: #111827; font-size: 24px; font-weight: 600;">
-                            Welcome to ClickNich! 🎉
+                            Welcome to ClickNich!
                           </h1>
                         </td>
                       </tr>
@@ -124,9 +124,9 @@ export async function handleSendConfirmationEmail(request: Request, env: Env): P
 
     return new Response(
       JSON.stringify({ success: true, messageId: result.id }),
-      { 
-        status: 200, 
-        headers: { 'Content-Type': 'application/json' } 
+      {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' }
       }
     )
   } catch (error) {
