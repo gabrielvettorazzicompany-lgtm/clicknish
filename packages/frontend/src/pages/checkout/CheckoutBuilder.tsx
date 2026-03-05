@@ -1025,7 +1025,7 @@ export default function CheckoutBuilder() {
                                 <textarea
                                     value={customPixels}
                                     onChange={(e) => setCustomPixels(e.target.value)}
-                                    placeholder={`<!-- Exemplo: Pixel do Facebook -->\n<script>\n  fbq('init', 'SEU_PIXEL_ID');\n  fbq('track', 'PageView');\n</script>\n\n<!-- Google Analytics -->\n<script async src="https://www.googletagmanager.com/gtag/js?id=GA_ID"></script>\n<script>\n  window.dataLayer = window.dataLayer || [];\n  function gtag(){dataLayer.push(arguments);}\n  gtag('js', new Date());\n  gtag('config', 'GA_ID');\n</script>`}
+                                    placeholder=""
                                     rows={4}
                                     className="w-full px-2 py-2 bg-gray-800 border border-gray-700/50 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500/50 text-gray-300 text-[11px] font-mono resize-y"
                                 />
