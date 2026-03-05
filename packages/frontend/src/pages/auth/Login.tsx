@@ -4,8 +4,10 @@ import { supabase } from '@/services/supabase'
 import { useAuthStore } from '@/stores/authStore'
 import { Mail, Lock, AlertCircle, Loader, Download, Eye, EyeOff, User, Globe, CheckCircle } from 'lucide-react'
 import InstallAppModal from '@/components/InstallAppModal'
-import { useI18n } from '@/i18n'
+import { useI18n, Language } from '@/i18n'
 import { prefetchPriorityRoutes } from '@/hooks/usePrefetch'
+import { useAutoLanguageDetection } from '@/hooks/useLanguageDetection'
+import { SUPPORTED_LANGUAGES } from '@/services/languageDetection'
 
 export default function Login() {
   const navigate = useNavigate()
@@ -24,7 +26,25 @@ export default function Login() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [signUpSuccess, setSignUpSuccess] = useState(false)
   const [emailConfirmed, setEmailConfirmed] = useState(false)
-  const { t, language } = useI18n()
+  const [showLanguageSelector, setShowLanguageSelector] = useState(false)
+  const { t, language, setLanguage } = useI18n()
+
+  // Detecção automática de idioma por IP
+  const { isDetecting: isDetectingLanguage } = useAutoLanguageDetection((detectedLanguage) => {
+    // Só aplicar a detecção se o usuário ainda não interagiu com o seletor
+    const hasUserSelectedLanguage = localStorage.getItem('huskyapp_user_selected_language')
+    if (!hasUserSelectedLanguage && detectedLanguage !== language) {
+      setLanguage(detectedLanguage)
+      console.log(`Idioma detectado automaticamente: ${detectedLanguage}`)
+    }
+  })
+
+  const handleLanguageChange = (newLanguage: Language) => {
+    setLanguage(newLanguage)
+    setShowLanguageSelector(false)
+    // Marcar que o usuário selecionou um idioma manualmente
+    localStorage.setItem('huskyapp_user_selected_language', 'true')
+  }
 
   useEffect(() => {
     // Verificar se vem da confirmação de email
@@ -48,19 +68,19 @@ export default function Login() {
       if (isSignUp) {
         // Validar campos de signup
         if (!fullName.trim()) {
-          setError('Please enter your full name')
+          setError(t('auth.error_full_name_required'))
           setLoading(false)
           return
         }
 
         if (password !== confirmPassword) {
-          setError('Passwords do not match')
+          setError(t('auth.error_passwords_mismatch'))
           setLoading(false)
           return
         }
 
         if (password.length < 6) {
-          setError('Password must be at least 6 characters')
+          setError(t('auth.error_password_too_short'))
           setLoading(false)
           return
         }
@@ -155,7 +175,7 @@ export default function Login() {
         }
       }
     } catch (err: unknown) {
-      const errorMessage = err instanceof Error ? err.message : 'Authentication failed'
+      const errorMessage = err instanceof Error ? err.message : t('auth.error_auth_failed')
       setError(errorMessage)
     } finally {
       setLoading(false)
@@ -164,6 +184,39 @@ export default function Login() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-100 via-gray-200 to-gray-300 dark:from-[#050608] dark:via-[#0a0d14] dark:via-[#0f1520] dark:to-[#1a4a6c] flex items-center justify-center p-4 transition-colors duration-300">
+
+      {/* Language Selector - canto superior direito */}
+      <div className="fixed top-4 right-4 z-50">
+        <button
+          type="button"
+          onClick={() => setShowLanguageSelector(!showLanguageSelector)}
+          className="flex items-center justify-center w-9 h-9 rounded-full border border-gray-300 dark:border-[#252941] bg-white dark:bg-[#0f1117] hover:bg-gray-50 dark:hover:bg-[#1a1d2e] transition-all shadow-md text-lg"
+          disabled={isDetectingLanguage}
+          title={SUPPORTED_LANGUAGES.find(l => l.code === language)?.name}
+        >
+          {isDetectingLanguage
+            ? <Loader className="w-4 h-4 animate-spin text-gray-400" />
+            : SUPPORTED_LANGUAGES.find(l => l.code === language)?.flag
+          }
+        </button>
+
+        {showLanguageSelector && (
+          <div className="absolute top-full right-0 mt-1 bg-white dark:bg-[#0f1117] border border-gray-300 dark:border-[#252941] rounded-md shadow-lg z-50 py-1">
+            {SUPPORTED_LANGUAGES.map((lang) => (
+              <button
+                key={lang.code}
+                onClick={() => handleLanguageChange(lang.code)}
+                className={`w-full flex items-center gap-2 px-3 py-2 text-xs text-left whitespace-nowrap hover:bg-gray-100 dark:hover:bg-[#1a1d2e] transition-colors ${language === lang.code ? 'text-blue-600 dark:text-blue-400 font-medium' : 'text-gray-700 dark:text-gray-300'
+                  }`}
+              >
+                <span className="text-base">{lang.flag}</span> {lang.name}
+                {language === lang.code && <span className="ml-auto pl-2">✓</span>}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+
       <div className="w-full max-w-xs flex flex-col items-center">
         {/* Logo and Header */}
         <div className="text-center mb-4 w-full flex flex-col items-center">
@@ -179,7 +232,7 @@ export default function Login() {
           {/* Title */}
           {isSignUp && (
             <h2 className="text-base font-semibold text-gray-800 dark:text-white mb-4 text-center">
-              Create your ClickNich account
+              {t('auth.create_account_title')}
             </h2>
           )}
 
@@ -190,13 +243,13 @@ export default function Login() {
                 <Mail className="w-5 h-5 text-green-400 mt-0.5 flex-shrink-0" />
                 <div>
                   <h3 className="text-sm font-semibold text-green-400 mb-1">
-                    Check your email!
+                    {t('auth.check_email_title')}
                   </h3>
                   <p className="text-xs text-gray-300 leading-relaxed mb-2">
-                    We've sent a confirmation link to your email address. Please click the link to verify your account and complete the registration.
+                    {t('auth.check_email_body')}
                   </p>
                   <p className="text-xs text-gray-400">
-                    Didn't receive the email? Check your spam folder.
+                    {t('auth.check_spam')}
                   </p>
                 </div>
               </div>
@@ -210,10 +263,10 @@ export default function Login() {
                 <CheckCircle className="w-5 h-5 text-green-400 mt-0.5 flex-shrink-0" />
                 <div>
                   <h3 className="text-sm font-semibold text-green-400 mb-1">
-                    Email confirmed! ✓
+                    {t('auth.email_confirmed_title')}
                   </h3>
                   <p className="text-xs text-gray-300 leading-relaxed">
-                    Your account is verified. Just enter your password to sign in.
+                    {t('auth.email_confirmed_body')}
                   </p>
                 </div>
               </div>
@@ -232,7 +285,7 @@ export default function Login() {
             {isSignUp && (
               <div>
                 <label className="block text-[11px] font-medium text-gray-700 dark:text-gray-300 mb-1 transition-colors duration-200">
-                  Full name
+                  {t('auth.full_name')}
                 </label>
                 <div className="relative">
                   <User className="absolute left-2.5 top-1/2 transform -translate-y-1/2 text-gray-400 dark:text-gray-500 w-3.5 h-3.5 transition-colors duration-200" />
@@ -261,7 +314,7 @@ export default function Login() {
                   onChange={(e) => setEmail(e.target.value)}
                   required
                   className="w-full pl-8 pr-2.5 py-2 text-xs border border-gray-300 dark:border-[#252941] rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all bg-gray-50 dark:bg-[#0f1117] text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500"
-                  placeholder="your@email.com"
+                  placeholder={t('auth.email_placeholder')}
                 />
               </div>
             </div>
@@ -304,7 +357,7 @@ export default function Login() {
             {isSignUp && (
               <div>
                 <label className="block text-[11px] font-medium text-gray-700 dark:text-gray-300 mb-1 transition-colors duration-200">
-                  Confirm password
+                  {t('auth.confirm_password')}
                 </label>
                 <div className="relative">
                   <Lock className="absolute left-2.5 top-1/2 transform -translate-y-1/2 text-gray-400 dark:text-gray-500 w-3.5 h-3.5 transition-colors duration-200" />
@@ -331,7 +384,7 @@ export default function Login() {
             {isSignUp && (
               <div>
                 <label className="block text-[11px] font-medium text-gray-700 dark:text-gray-300 mb-1 transition-colors duration-200">
-                  Country
+                  {t('auth.country')}
                 </label>
                 <div className="relative">
                   <Globe className="absolute left-2.5 top-1/2 transform -translate-y-1/2 text-gray-400 dark:text-gray-500 w-3.5 h-3.5 transition-colors duration-200" />
@@ -384,14 +437,15 @@ export default function Login() {
             {/* Terms and Privacy - Only in Sign Up */}
             {isSignUp && (
               <p className="text-[10px] text-gray-400 dark:text-gray-500 text-center">
-                By creating your account you agree to the ClickNich{' '}
+                {t('auth.terms_prefix')}{' '}
                 <a href="/terms" className="text-blue-400 hover:text-blue-300 transition-colors">
-                  Terms of Service
+                  {t('auth.terms_of_service')}
                 </a>{' '}
-                and{' '}
+                {t('auth.and')}{' '}
                 <a href="/privacy" className="text-blue-400 hover:text-blue-300 transition-colors">
-                  Privacy Policy
-                </a>.
+                  {t('auth.privacy_policy')}
+                </a>
+                {t('auth.clicknich_of') ? ` ${t('auth.clicknich_of')}` : ''}.
               </p>
             )}
           </form>
@@ -400,7 +454,7 @@ export default function Login() {
           <div className="mt-4 text-center">
             {isSignUp ? (
               <p className="text-gray-400 text-xs">
-                Already have an account?{' '}
+                {t('auth.already_have_account_q')}{' '}
                 <button
                   onClick={() => {
                     setIsSignUp(false)
@@ -409,7 +463,7 @@ export default function Login() {
                   }}
                   className="text-blue-400 hover:text-blue-300 font-medium transition-colors"
                 >
-                  Sign in
+                  {t('auth.sign_in_link')}
                 </button>
               </p>
             ) : (

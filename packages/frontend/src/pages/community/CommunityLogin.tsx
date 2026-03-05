@@ -1,13 +1,15 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { Lock, Eye, EyeOff } from 'lucide-react'
+import { Lock, Eye, EyeOff, Languages, Loader } from 'lucide-react'
 import { supabase } from '@/services/supabase'
-import { useI18n } from '@/i18n'
+import { useI18n, Language } from '@/i18n'
+import { useAutoLanguageDetection } from '@/hooks/useLanguageDetection'
+import { SUPPORTED_LANGUAGES } from '@/services/languageDetection'
 
 export default function CommunityLogin() {
     const navigate = useNavigate()
     const { communitySlug, productSlug } = useParams<{ communitySlug?: string; productSlug?: string }>()
-    const { t } = useI18n()
+    const { t, language, setLanguage } = useI18n()
 
     // Determine if it's for community or product
     const isProductLogin = !!productSlug
@@ -20,6 +22,24 @@ export default function CommunityLogin() {
     const [loading, setLoading] = useState(false)
     const [error, setError] = useState('')
     const [product, setProduct] = useState<any>(null)
+    const [showLanguageSelector, setShowLanguageSelector] = useState(false)
+
+    // Detecção automática de idioma por IP
+    const { isDetecting: isDetectingLanguage } = useAutoLanguageDetection((detectedLanguage) => {
+        // Só aplicar a detecção se o usuário ainda não interagiu com o seletor
+        const hasUserSelectedLanguage = localStorage.getItem('huskyapp_user_selected_language')
+        if (!hasUserSelectedLanguage && detectedLanguage !== language) {
+            setLanguage(detectedLanguage)
+            console.log(`Idioma detectado automaticamente: ${detectedLanguage}`)
+        }
+    })
+
+    const handleLanguageChange = (newLanguage: Language) => {
+        setLanguage(newLanguage)
+        setShowLanguageSelector(false)
+        // Marcar que o usuário selecionou um idioma manualmente
+        localStorage.setItem('huskyapp_user_selected_language', 'true')
+    }
 
     // Fetch product data to get image and name
     useEffect(() => {
@@ -131,7 +151,7 @@ export default function CommunityLogin() {
                     </div>
 
                     {/* Logo */}
-                    <div className="text-center mb-8">
+                    <div className="text-center mb-4">
                         {product?.logo_url && (
                             <img
                                 src={product.logo_url}
@@ -145,6 +165,44 @@ export default function CommunityLogin() {
                         <p className="text-gray-400 text-sm">
                             {t('community.login_subtitle')}
                         </p>
+                    </div>
+
+                    {/* Language Selector */}
+                    <div className="w-full mb-6 relative">
+                        <button
+                            type="button"
+                            onClick={() => setShowLanguageSelector(!showLanguageSelector)}
+                            className="w-full flex items-center justify-center gap-2 py-2 px-3 text-xs border border-[#252941] rounded-md bg-[#0f1117] text-gray-300 hover:bg-[#1a1d2e] transition-all"
+                            disabled={isDetectingLanguage}
+                        >
+                            {isDetectingLanguage ? (
+                                <>
+                                    <Loader className="w-3.5 h-3.5 animate-spin" />
+                                    {t('auth.detecting_language') || 'Detectando idioma...'}
+                                </>
+                            ) : (
+                                <>
+                                    <Languages className="w-3.5 h-3.5" />
+                                    {SUPPORTED_LANGUAGES.find(lang => lang.code === language)?.flag} {SUPPORTED_LANGUAGES.find(lang => lang.code === language)?.name}
+                                </>
+                            )}
+                        </button>
+
+                        {showLanguageSelector && (
+                            <div className="absolute top-full left-0 right-0 mt-1 bg-[#0f1117] border border-[#252941] rounded-md shadow-lg z-50 max-h-40 overflow-y-auto">
+                                {SUPPORTED_LANGUAGES.map((lang) => (
+                                    <button
+                                        key={lang.code}
+                                        onClick={() => handleLanguageChange(lang.code)}
+                                        className={`w-full flex items-center gap-2 px-3 py-2 text-xs text-left hover:bg-[#1a1d2e] transition-colors ${language === lang.code ? 'bg-blue-900/20 text-blue-400' : 'text-gray-300'
+                                            }`}
+                                    >
+                                        {lang.flag} {lang.name}
+                                        {language === lang.code && <span className="ml-auto">✓</span>}
+                                    </button>
+                                ))}
+                            </div>
+                        )}
                     </div>
 
                     {/* Login Card */}

@@ -1,11 +1,13 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { supabase } from '@/services/supabase'
-import { useI18n } from '@/i18n'
-import { Mail, Lock, AlertCircle, Loader, CheckCircle, ArrowLeft, Eye, EyeOff } from 'lucide-react'
+import { useI18n, Language } from '@/i18n'
+import { Mail, Lock, AlertCircle, Loader, CheckCircle, ArrowLeft, Eye, EyeOff, Languages } from 'lucide-react'
+import { useAutoLanguageDetection } from '@/hooks/useLanguageDetection'
+import { SUPPORTED_LANGUAGES } from '@/services/languageDetection'
 
 export default function ResetPassword() {
-    const { t } = useI18n()
+    const { t, language, setLanguage } = useI18n()
     const navigate = useNavigate()
     const [searchParams] = useSearchParams()
     const [stage, setStage] = useState<'request' | 'reset'>('request')
@@ -17,6 +19,24 @@ export default function ResetPassword() {
     const [loading, setLoading] = useState(false)
     const [showPassword, setShowPassword] = useState(false)
     const [showConfirmPassword, setShowConfirmPassword] = useState(false)
+    const [showLanguageSelector, setShowLanguageSelector] = useState(false)
+
+    // Detecção automática de idioma por IP
+    const { isDetecting: isDetectingLanguage } = useAutoLanguageDetection((detectedLanguage) => {
+        // Só aplicar a detecção se o usuário ainda não interagiu com o seletor
+        const hasUserSelectedLanguage = localStorage.getItem('huskyapp_user_selected_language')
+        if (!hasUserSelectedLanguage && detectedLanguage !== language) {
+            setLanguage(detectedLanguage)
+            console.log(`Idioma detectado automaticamente: ${detectedLanguage}`)
+        }
+    })
+
+    const handleLanguageChange = (newLanguage: Language) => {
+        setLanguage(newLanguage)
+        setShowLanguageSelector(false)
+        // Marcar que o usuário selecionou um idioma manualmente
+        localStorage.setItem('huskyapp_user_selected_language', 'true')
+    }
 
     const handleRequestReset = async (e: React.FormEvent) => {
         e.preventDefault()
@@ -167,7 +187,7 @@ export default function ResetPassword() {
                                         onChange={(e) => setEmail(e.target.value)}
                                         required
                                         className="w-full pl-8 pr-2.5 py-2 text-xs border border-[#252941] rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all bg-[#0f1117] text-white placeholder-gray-500"
-                                        placeholder="your@email.com"
+                                        placeholder={t('auth.email_placeholder')}
                                     />
                                 </div>
                             </div>
