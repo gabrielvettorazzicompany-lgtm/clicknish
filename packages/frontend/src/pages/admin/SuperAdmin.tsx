@@ -168,6 +168,11 @@ export default function SuperAdmin() {
     const [editingProviderCreds, setEditingProviderCreds] = useState<Record<string, string>>({})
     const [editingProviderName, setEditingProviderName] = useState('')
     const [providerUserSearch, setProviderUserSearch] = useState('')
+    // Mollie methods
+    const [mollieAvailableMethods, setMollieAvailableMethods] = useState<Array<{ id: string; description: string; image?: { svg: string } }>>([])
+    const [mollieEnabledMethods, setMollieEnabledMethods] = useState<string[]>([])
+    const [loadingMollieMethods, setLoadingMollieMethods] = useState(false)
+    const [mollieMethodsProviderId, setMollieMethodsProviderId] = useState<string | null>(null)
     const [providerUserResult, setProviderUserResult] = useState<{ user: { id: string; email: string }; config: any } | null>(null)
     const [providerSearchResults, setProviderSearchResults] = useState<Array<{ id: string; email: string; config: any }> | null>(null)
     const [searchingProviderUser, setSearchingProviderUser] = useState(false)
@@ -896,16 +901,40 @@ export default function SuperAdmin() {
     const handleSaveProviderEdit = async (providerId: string) => {
         setSavingProvider(true)
         try {
+            const payload: any = { name: editingProviderName, credentials: editingProviderCreds }
+            // Incluir enabled_methods se estivermos editando um provedor Mollie
+            if (mollieMethodsProviderId === providerId) {
+                payload.enabled_methods = mollieEnabledMethods
+            }
             const res = await fetch(`https://api.clicknich.com/api/superadmin/providers/${providerId}`, {
                 method: 'PUT',
                 headers: ADMIN_HEADERS,
-                body: JSON.stringify({ name: editingProviderName, credentials: editingProviderCreds })
+                body: JSON.stringify(payload)
             })
             if (res.ok) {
                 setProviders(prev => prev.map(p => p.id === providerId ? { ...p, name: editingProviderName } : p))
                 setEditingProviderId(null)
+                setMollieMethodsProviderId(null)
+                setMollieAvailableMethods([])
+                setMollieEnabledMethods([])
             } else alert('Erro ao salvar provedor')
         } catch (e) { console.error(e) } finally { setSavingProvider(false) }
+    }
+
+    const handleLoadMollieMethods = async (providerId: string) => {
+        setLoadingMollieMethods(true)
+        setMollieMethodsProviderId(providerId)
+        try {
+            const res = await fetch(`https://api.clicknich.com/api/superadmin/providers/${providerId}/mollie-methods`, { headers: ADMIN_HEADERS })
+            if (res.ok) {
+                const d = await res.json()
+                setMollieAvailableMethods(d.available || [])
+                setMollieEnabledMethods(d.enabled || [])
+            } else {
+                const err = await res.json().catch(() => ({}))
+                alert(err.error || 'Erro ao carregar métodos Mollie')
+            }
+        } catch (e) { console.error(e) } finally { setLoadingMollieMethods(false) }
     }
 
     const handleDeleteProvider = async (providerId: string) => {
@@ -3262,8 +3291,64 @@ export default function SuperAdmin() {
                                                                 </div>
                                                             ))}
                                                         </div>
+
+                                                        {/* Métodos Mollie — só aparece quando tipo = mollie */}
+                                                        {provider.type === 'mollie' && (
+                                                            <div className="border border-orange-500/20 rounded-xl p-4 space-y-3 bg-orange-500/5">
+                                                                <div className="flex items-center justify-between">
+                                                                    <div>
+                                                                        <p className="text-sm font-semibold text-orange-300">Métodos de Pagamento Mollie</p>
+                                                                        <p className="text-xs text-gray-500 mt-0.5">Selecione quais métodos estarão disponíveis no checkout</p>
+                                                                    </div>
+                                                                    <button
+                                                                        onClick={() => handleLoadMollieMethods(provider.id)}
+                                                                        disabled={loadingMollieMethods}
+                                                                        className="px-3 py-1.5 bg-orange-500/20 hover:bg-orange-500/30 text-orange-300 rounded-lg text-xs font-medium border border-orange-500/30 transition-colors disabled:opacity-50"
+                                                                    >
+                                                                        {loadingMollieMethods && mollieMethodsProviderId === provider.id
+                                                                            ? <span className="flex items-center gap-1.5"><span className="w-3 h-3 border border-orange-400/40 border-t-orange-300 rounded-full animate-spin inline-block" /> Carregando...</span>
+                                                                            : '🔄 Carregar da Mollie API'
+                                                                        }
+                                                                    </button>
+                                                                </div>
+                                                                {mollieMethodsProviderId === provider.id && mollieAvailableMethods.length > 0 && (
+                                                                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 pt-1">
+                                                                        {mollieAvailableMethods.map(method => {
+                                                                            const isEnabled = mollieEnabledMethods.includes(method.id)
+                                                                            return (
+                                                                                <label
+                                                                                    key={method.id}
+                                                                                    className={`flex items-center gap-2 p-2.5 rounded-lg border cursor-pointer transition-all ${isEnabled ? 'bg-orange-500/15 border-orange-500/40 text-orange-200' : 'bg-white/[0.03] border-white/[0.07] text-gray-400 hover:border-white/[0.15]'}`}
+                                                                                >
+                                                                                    <input
+                                                                                        type="checkbox"
+                                                                                        checked={isEnabled}
+                                                                                        onChange={() => setMollieEnabledMethods(prev =>
+                                                                                            isEnabled ? prev.filter(m => m !== method.id) : [...prev, method.id]
+                                                                                        )}
+                                                                                        className="accent-orange-500 w-3.5 h-3.5 flex-shrink-0"
+                                                                                    />
+                                                                                    {method.image?.svg
+                                                                                        ? <img src={method.image.svg} alt={method.description} className="w-5 h-4 object-contain flex-shrink-0" />
+                                                                                        : <span className="text-base flex-shrink-0">💳</span>
+                                                                                    }
+                                                                                    <span className="text-xs font-medium truncate">{method.description}</span>
+                                                                                </label>
+                                                                            )
+                                                                        })}
+                                                                    </div>
+                                                                )}
+                                                                {mollieMethodsProviderId === provider.id && mollieAvailableMethods.length === 0 && !loadingMollieMethods && (
+                                                                    <p className="text-xs text-gray-600 text-center py-2">Nenhum método disponível. Clique em "Carregar da Mollie API" para buscar.</p>
+                                                                )}
+                                                                {mollieMethodsProviderId !== provider.id && (
+                                                                    <p className="text-xs text-gray-600">Clique em "Carregar da Mollie API" para ver e selecionar os métodos disponíveis na sua conta.</p>
+                                                                )}
+                                                            </div>
+                                                        )}
+
                                                         <div className="flex gap-2">
-                                                            <button onClick={() => setEditingProviderId(null)} className="px-4 py-2 bg-white/[0.05] hover:bg-white/[0.1] text-gray-400 rounded-lg text-sm transition-colors border border-white/[0.08]">Cancelar</button>
+                                                            <button onClick={() => { setEditingProviderId(null); setMollieMethodsProviderId(null); setMollieAvailableMethods([]); setMollieEnabledMethods([]) }} className="px-4 py-2 bg-white/[0.05] hover:bg-white/[0.1] text-gray-400 rounded-lg text-sm transition-colors border border-white/[0.08]">Cancelar</button>
                                                             <button
                                                                 onClick={() => handleSaveProviderEdit(provider.id)}
                                                                 disabled={savingProvider}
@@ -3667,8 +3752,35 @@ export default function SuperAdmin() {
                                                                 </div>
                                                             ))}
                                                         </div>
+                                                        {provider.type === 'mollie' && (
+                                                            <div className="border border-orange-500/20 rounded-xl p-4 space-y-3 bg-orange-500/5">
+                                                                <div className="flex items-center justify-between">
+                                                                    <div>
+                                                                        <p className="text-sm font-semibold text-orange-300">Métodos Mollie</p>
+                                                                        <p className="text-xs text-gray-500 mt-0.5">Selecione os métodos que aparecerão no checkout</p>
+                                                                    </div>
+                                                                    <button onClick={() => handleLoadMollieMethods(provider.id)} disabled={loadingMollieMethods} className="px-3 py-1.5 bg-orange-500/20 hover:bg-orange-500/30 text-orange-300 rounded-lg text-xs font-medium border border-orange-500/30 transition-colors disabled:opacity-50">
+                                                                        {loadingMollieMethods && mollieMethodsProviderId === provider.id ? '⏳ Carregando...' : '🔄 Carregar da Mollie API'}
+                                                                    </button>
+                                                                </div>
+                                                                {mollieMethodsProviderId === provider.id && mollieAvailableMethods.length > 0 && (
+                                                                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 pt-1">
+                                                                        {mollieAvailableMethods.map(method => {
+                                                                            const isEnabled = mollieEnabledMethods.includes(method.id)
+                                                                            return (
+                                                                                <label key={method.id} className={`flex items-center gap-2 p-2.5 rounded-lg border cursor-pointer transition-all ${isEnabled ? 'bg-orange-500/15 border-orange-500/40 text-orange-200' : 'bg-white/[0.03] border-white/[0.07] text-gray-400 hover:border-white/[0.15]'}`}>
+                                                                                    <input type="checkbox" checked={isEnabled} onChange={() => setMollieEnabledMethods(prev => isEnabled ? prev.filter(m => m !== method.id) : [...prev, method.id])} className="accent-orange-500 w-3.5 h-3.5 flex-shrink-0" />
+                                                                                    {method.image?.svg ? <img src={method.image.svg} alt={method.description} className="w-5 h-4 object-contain flex-shrink-0" /> : <span className="text-base flex-shrink-0">💳</span>}
+                                                                                    <span className="text-xs font-medium truncate">{method.description}</span>
+                                                                                </label>
+                                                                            )
+                                                                        })}
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                        )}
                                                         <div className="flex gap-2">
-                                                            <button onClick={() => setEditingProviderId(null)} className="px-4 py-2 bg-white/[0.05] hover:bg-white/[0.1] text-gray-400 rounded-lg text-sm transition-colors border border-white/[0.08]">Cancelar</button>
+                                                            <button onClick={() => { setEditingProviderId(null); setMollieMethodsProviderId(null); setMollieAvailableMethods([]); setMollieEnabledMethods([]) }} className="px-4 py-2 bg-white/[0.05] hover:bg-white/[0.1] text-gray-400 rounded-lg text-sm transition-colors border border-white/[0.08]">Cancelar</button>
                                                             <button onClick={() => handleSaveProviderEdit(provider.id)} disabled={savingProvider} className="px-5 py-2 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-400 hover:to-blue-500 disabled:opacity-50 text-white rounded-lg text-sm font-semibold transition-all">{savingProvider ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin mx-auto" /> : 'Salvar'}</button>
                                                         </div>
                                                     </div>

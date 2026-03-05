@@ -37,6 +37,7 @@ import { handleCheckoutData } from './handlers/checkout-data'
 import { handleCachePreloader } from './handlers/preloader'
 import { handleCachePurge } from './handlers/purge'
 import { handleSendConfirmationEmail } from './handlers/send-confirmation-email'
+import { handleProcessMolliePayment } from './handlers/process-mollie-payment'
 
 export interface Env {
     // Variáveis públicas
@@ -55,6 +56,9 @@ export interface Env {
 
     // Stripe Webhook secret (wrangler secret put STRIPE_WEBHOOK_SECRET)
     STRIPE_WEBHOOK_SECRET?: string
+
+    // Mollie (opcional: chave global via env, ou via payment_providers no DB)
+    MOLLIE_API_KEY?: string
 
     // Email (Resend)
     RESEND_API_KEY?: string
@@ -154,9 +158,36 @@ async function handleApiRoute(
         return handleProcessPayment(request, env, ctx)
     }
 
+    // POST /api/process-mollie-payment
+    if (pathname === '/api/process-mollie-payment' && request.method === 'POST') {
+        return handleProcessMolliePayment(request, env, ctx)
+    }
+
     // POST /api/process-upsell
     if (pathname === '/api/process-upsell' && request.method === 'POST') {
         return handleProcessUpsell(request, env, ctx)
+    }
+
+    // GET /api/mollie/methods — métodos Mollie habilitados globalmente (usado pelo checkout)
+    if (pathname === '/api/mollie/methods' && request.method === 'GET') {
+        const { createClient } = await import('./lib/supabase')
+        const supabase = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY)
+        const { data: prov } = await supabase
+            .from('payment_providers')
+            .select('enabled_methods')
+            .eq('type', 'mollie')
+            .eq('is_active', true)
+            .order('is_global_default', { ascending: false })
+            .limit(1)
+            .maybeSingle()
+        const enabledMethods: string[] = prov?.enabled_methods || []
+        // Buscar labels da tabela de referência
+        const { data: methodDefs } = await supabase
+            .from('mollie_payment_methods')
+            .select('id, label, description, countries, currencies, icon_url, sort_order')
+            .in('id', enabledMethods.length > 0 ? enabledMethods : ['__none__'])
+            .order('sort_order')
+        return jsonResponse({ methods: methodDefs || [] })
     }
 
     // /api/applications/* - CRUD de aplicações

@@ -1,5 +1,6 @@
 // @ts-nocheck
 import { createClient } from '../lib/supabase'
+import { createMollieClient } from '../lib/mollie'
 
 const corsHeaders = {
     'Access-Control-Allow-Origin': '*',
@@ -650,17 +651,63 @@ export async function handleSuperadmin(request: Request, env: any, pathSegments:
             })
         }
 
+        // GET /api/superadmin/providers/:id/mollie-methods
+        // Busca métodos disponíveis na conta Mollie deste provedor
+        if (request.method === 'GET' && pathSegments.length === 3 && pathSegments[0] === 'providers' && pathSegments[2] === 'mollie-methods') {
+            const providerId = pathSegments[1]
+            const { data: prov } = await supabase
+                .from('payment_providers')
+                .select('credentials, type, enabled_methods')
+                .eq('id', providerId)
+                .single()
+            if (!prov || prov.type !== 'mollie') {
+                return new Response(JSON.stringify({ error: 'Provedor não encontrado ou não é Mollie' }), { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+            }
+            const apiKey = prov.credentials?.live_api_key || prov.credentials?.api_key
+            if (!apiKey) {
+                return new Response(JSON.stringify({ error: 'Chave Mollie não configurada neste provedor' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+            }
+            try {
+                const mollie = createMollieClient(apiKey)
+                const methods = await mollie.listMethods()
+                return new Response(JSON.stringify({
+                    available: methods,
+                    enabled: prov.enabled_methods || [],
+                }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+            } catch (mollieErr: any) {
+                return new Response(JSON.stringify({ error: `Erro Mollie: ${mollieErr.message}` }), { status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+            }
+        }
+
+        // GET /api/superadmin/mollie/enabled-methods  (métodos habilitados globalmente)
+        if (request.method === 'GET' && pathSegments.length === 2 && pathSegments[0] === 'mollie' && pathSegments[1] === 'enabled-methods') {
+            const { data: prov } = await supabase
+                .from('payment_providers')
+                .select('id, name, enabled_methods')
+                .eq('type', 'mollie')
+                .eq('is_active', true)
+                .order('is_global_default', { ascending: false })
+                .limit(1)
+                .maybeSingle()
+            return new Response(JSON.stringify({
+                provider_id: prov?.id || null,
+                provider_name: prov?.name || null,
+                enabled_methods: prov?.enabled_methods || [],
+            }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+        }
+
         // PUT /api/superadmin/providers/:id
         if (request.method === 'PUT' && pathSegments.length === 2 && pathSegments[0] === 'providers') {
             const providerId = pathSegments[1]
             const body = await request.json()
-            const { name, credentials, is_active, is_global_default } = body
+            const { name, credentials, is_active, is_global_default, enabled_methods } = body
             const { data: adminData } = await supabase.auth.admin.getUserById(userId)
             const adminEmail = adminData?.user?.email || ''
             const updateData: any = { updated_at: new Date().toISOString() }
             if (name !== undefined) updateData.name = name
             if (credentials !== undefined) updateData.credentials = credentials
             if (is_active !== undefined) updateData.is_active = is_active
+            if (enabled_methods !== undefined) updateData.enabled_methods = enabled_methods
             if (is_global_default !== undefined) {
                 // Garante que só um pode ser global default
                 if (is_global_default) {
@@ -676,7 +723,7 @@ export async function handleSuperadmin(request: Request, env: any, pathSegments:
                 .update(updateData)
                 .eq('id', providerId)
             if (error) throw error
-            await logAudit(supabase, userId, adminEmail, 'update_payment_provider', 'payment_provider', providerId, { is_active, is_global_default })
+            await logAudit(supabase, userId, adminEmail, 'update_payment_provider', 'payment_provider', providerId, { is_active, is_global_default, enabled_methods })
             return new Response(JSON.stringify({ success: true }), {
                 headers: { ...corsHeaders, 'Content-Type': 'application/json' }
             })

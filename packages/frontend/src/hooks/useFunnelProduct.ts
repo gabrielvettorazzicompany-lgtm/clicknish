@@ -7,6 +7,7 @@ interface FunnelProduct {
     price?: string
     app_type?: string
     source: string
+    image_url?: string
 }
 
 export function useFunnelProduct(funnelId: string, enabled: boolean) {
@@ -36,8 +37,8 @@ export function useFunnelProduct(funnelId: string, enabled: boolean) {
                         : 'member_areas'
 
                     const selectFields = tableName === 'applications'
-                        ? 'id, name, app_type'
-                        : 'id, name, price'
+                        ? 'id, name, app_type, logo_url'
+                        : 'id, name, price, logo_url'
 
                     const { data: productData, error: productError } = await supabase
                         .from(tableName)
@@ -47,7 +48,11 @@ export function useFunnelProduct(funnelId: string, enabled: boolean) {
 
                     if (productError) throw productError
                     if (productData) {
-                        setProduct({ ...productData, source: funnel.product_type })
+                        setProduct({
+                            ...productData,
+                            source: funnel.product_type,
+                            image_url: productData.logo_url
+                        })
                     }
                 }
             } catch (err) {

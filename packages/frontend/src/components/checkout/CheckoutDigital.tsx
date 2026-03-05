@@ -80,7 +80,8 @@ function CheckoutDigital({
     imageBlocks = [],
     onImageBlockClick,
     onUpdateImageBlock,
-    onDeleteImageBlock
+    onDeleteImageBlock,
+    mollieEnabledMethods,
 }: CheckoutDigitalProps) {
     const [showPrivacyPolicy, setShowPrivacyPolicy] = useState(false)
     const [activePaymentMethod, setActivePaymentMethod] = useState<'credit_card' | 'paypal'>(defaultPaymentMethod as 'credit_card' | 'paypal')
@@ -102,8 +103,9 @@ function CheckoutDigital({
     } = useCheckoutState()
 
     // Use custom hook for order bumps
-    // ✅ OTIMIZAÇÃO: Só usar hooks pesados quando necessário
-    const shouldLoadData = !isPreview && (checkoutId || productId)
+    // ✅ OTIMIZAÇÃO: Carregar order bumps tanto em preview quanto em produção
+    // shouldLoadData=false apenas bloqueia o processamento de pagamento, não a busca de dados
+    const shouldLoadOrderBumps = !!(checkoutId || productId)
 
     // ✅ OTIMIZAÇÃO: Hook otimizado com cache e RPC
     const {
@@ -113,8 +115,8 @@ function CheckoutDigital({
         calculateBumpsTotal,
         loading: orderBumpsLoading
     } = useOrderBumpsOptimized(
-        shouldLoadData ? checkoutId : undefined,
-        shouldLoadData ? productId : undefined,
+        shouldLoadOrderBumps ? checkoutId : undefined,
+        shouldLoadOrderBumps ? productId : undefined,
         initialOrderBumps
     )
 
@@ -370,6 +372,39 @@ function CheckoutDigital({
                         onTestimonialsClick={onTestimonialsClick}
                     />
                 </div>
+
+                {/* Mollie Alternative Payment Methods */}
+                {!isPreview && mollieEnabledMethods && mollieEnabledMethods.length > 0 && (
+                    <div className="w-full mt-4 px-4 lg:px-0">
+                        <div className="relative flex items-center gap-3 my-4">
+                            <div className="flex-1 h-px bg-gray-200 dark:bg-white/[0.07]" />
+                            <span className="text-xs text-gray-400 px-2 whitespace-nowrap">{language === 'pt' ? 'Ou pague com' : language === 'es' ? 'O paga con' : 'Or pay with'}</span>
+                            <div className="flex-1 h-px bg-gray-200 dark:bg-white/[0.07]" />
+                        </div>
+                        <div className="flex flex-wrap gap-2 justify-center">
+                            {mollieEnabledMethods.map(method => (
+                                <button
+                                    key={method.id}
+                                    disabled={paymentState.processing || paymentState.success}
+                                    onClick={() => {
+                                        if (!formData.email || !formData.name) {
+                                            setPaymentError(language === 'pt' ? 'Preencha seu nome e e-mail antes de continuar.' : 'Please fill in your name and email first.')
+                                            return
+                                        }
+                                        handleSubmit(undefined, { ...formData, paymentMethod: `mollie_${method.id}` })
+                                    }}
+                                    className="flex items-center gap-2 px-4 py-2.5 bg-white dark:bg-white/[0.04] hover:bg-gray-50 dark:hover:bg-white/[0.08] border border-gray-200 dark:border-white/[0.1] rounded-xl text-sm font-medium text-gray-700 dark:text-gray-300 transition-all disabled:opacity-50 shadow-sm"
+                                >
+                                    {method.icon_url
+                                        ? <img src={method.icon_url} alt={method.label} className="h-5 w-auto object-contain" />
+                                        : <span className="text-base">💳</span>
+                                    }
+                                    <span>{method.label || method.description}</span>
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+                )}
             </div>
 
             {/* Testimonials + Seals + Footer — lazy loaded (below the fold) */}

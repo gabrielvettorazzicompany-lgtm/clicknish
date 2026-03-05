@@ -165,12 +165,12 @@ export default function Integrations() {
                 <div className="flex items-center gap-3">
                   <button
                     onClick={openCreateModal}
-                    className="cursor-pointer hover:opacity-80 transition-opacity border border-gray-200 dark:border-white/10 rounded-lg px-3 py-2 bg-white/5"
+                    className="cursor-pointer hover:opacity-80 transition-opacity border border-gray-200 dark:border-white/10 rounded-lg px-3 py-2 bg-gray-100 dark:bg-white/5"
                   >
                     <img
                       src="https://utmify.com.br/logo/logo-dark.png"
                       alt="UTMify"
-                      className="h-6 object-contain"
+                      className="h-6 object-contain brightness-0 dark:brightness-100"
                     />
                   </button>
                 </div>
@@ -178,27 +178,27 @@ export default function Integrations() {
 
               <div className="space-y-3">
                 {utmifyIntegrations.map(integration => (
-                  <div key={integration.id} className="bg-[#1a1d2e] border border-[#1e2139] p-4 flex items-center justify-between gap-4">
+                  <div key={integration.id} className="bg-white dark:bg-[#1a1d2e] border border-gray-200 dark:border-[#1e2139] rounded-xl p-4 flex items-center justify-between gap-4 shadow-sm dark:shadow-none">
                     <div className="flex-1 min-w-0">
-                      <p className="text-gray-100 font-medium text-sm">{integration.name}</p>
+                      <p className="text-gray-900 dark:text-gray-100 font-medium text-sm">{integration.name}</p>
                       <div className="flex flex-wrap gap-1.5 mt-2">
                         {(integration.products as AvailableProduct[]).slice(0, 4).map(p => (
-                          <span key={p.id} className="text-xs bg-[#252941] text-gray-300 px-2 py-0.5 rounded">
+                          <span key={p.id} className="text-xs bg-gray-100 dark:bg-[#252941] text-gray-600 dark:text-gray-300 px-2 py-0.5 rounded-md border border-gray-200 dark:border-transparent">
                             {p.name}
                           </span>
                         ))}
                         {(integration.products as AvailableProduct[]).length > 4 && (
-                          <span className="text-xs text-gray-500">{t('integrations.more', { count: (integration.products as AvailableProduct[]).length - 4 })}</span>
+                          <span className="text-xs text-gray-400 dark:text-gray-500">{t('integrations.more', { count: (integration.products as AvailableProduct[]).length - 4 })}</span>
                         )}
                         {(integration.products as AvailableProduct[]).length === 0 && (
-                          <span className="text-xs text-gray-600 italic">{t('integrations.all_products')}</span>
+                          <span className="text-xs text-gray-400 dark:text-gray-600 italic">{t('integrations.all_products')}</span>
                         )}
                       </div>
                       <div className="flex flex-wrap gap-1.5 mt-1.5">
                         {(integration.events as string[]).map(ev => {
                           const evDef = ALL_EVENTS.find(e => e.key === ev)
                           return evDef ? (
-                            <span key={ev} className="text-xs bg-blue-500/10 text-blue-300 px-2 py-0.5 rounded border border-blue-500/20">
+                            <span key={ev} className="text-xs bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-300 px-2 py-0.5 rounded-md border border-blue-200 dark:border-blue-500/20">
                               {t(evDef.label)}
                             </span>
                           ) : null
@@ -208,13 +208,13 @@ export default function Integrations() {
                     <div className="flex items-center gap-2 flex-shrink-0">
                       <button
                         onClick={() => openEditModal(integration)}
-                        className="p-2 text-gray-500 hover:text-gray-200 hover:bg-[#252941] rounded-lg transition-colors"
+                        className="p-2 text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-[#252941] rounded-lg transition-colors"
                       >
                         <Edit2 className="w-4 h-4" />
                       </button>
                       <button
                         onClick={() => deleteUtmifyIntegration(integration.id)}
-                        className="p-2 text-gray-500 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
+                        className="p-2 text-gray-400 hover:text-red-500 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-lg transition-colors"
                       >
                         <Trash2 className="w-4 h-4" />
                       </button>
@@ -231,7 +231,7 @@ export default function Integrations() {
                   {/* Modal Header */}
                   <div className="sticky top-0 bg-white dark:bg-[#1a1d2e] border-b border-gray-200 dark:border-[#1e2139] px-6 py-4 flex items-center justify-between rounded-t-2xl">
                     <div className="flex items-center gap-3">
-                      <img src="https://utmify.com.br/logo/logo-dark.png" alt="UTMify" className="h-5 object-contain" />
+                      <img src="https://utmify.com.br/logo/logo-dark.png" alt="UTMify" className="h-5 object-contain brightness-0 dark:brightness-100" />
                       <h2 className="text-base font-semibold text-gray-900 dark:text-gray-100">
                         {utmifyModal.editing ? t('integrations.edit_title') : t('integrations.new_integration')}
                       </h2>

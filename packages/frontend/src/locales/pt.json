@@ -1503,7 +1503,8 @@
         "select_app_first": "Selecione um app primeiro",
         "search_placeholder": "Nome, email ou telefone",
         "email_placeholder": "cliente@exemplo.com",
-        "enter_password": "Digite uma senha"
+        "enter_password": "Digite uma senha",
+        "active": "Ativo"
     },
     "funnel_editor": {
         "add_step": "Adicionar Etapa",

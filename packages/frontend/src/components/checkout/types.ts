@@ -136,6 +136,7 @@ export interface CheckoutDigitalProps {
     onImageBlockClick?: () => void
     onUpdateImageBlock?: (id: string, updates: Partial<CheckoutImageBlock>) => void
     onDeleteImageBlock?: (id: string) => void
+    mollieEnabledMethods?: Array<{ id: string; label: string; description?: string; icon_url?: string }>
 }
 
 export type PaymentMethod = 'credit'

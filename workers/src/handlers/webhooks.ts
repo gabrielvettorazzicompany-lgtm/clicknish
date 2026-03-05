@@ -1,4 +1,5 @@
 import { createClient } from '../lib/supabase'
+import { createMollieClient } from '../lib/mollie'
 
 const corsHeaders = {
     'Access-Control-Allow-Origin': '*',
@@ -32,10 +33,14 @@ export async function handleWebhooks(request: Request, env: any, pathSegments: s
                     result = await processGenericWebhook(platform, body)
                     break
 
+                case 'mollie':
+                    // Mollie envia id=tr_xxxxx como form-encoded OU JSON
+                    return await processMollieWebhook(request, supabase, env, ctx)
+
                 default:
                     return new Response(JSON.stringify({
                         error: 'Platform not supported',
-                        supportedPlatforms: ['hotmart', 'cartpanda', 'yampi']
+                        supportedPlatforms: ['hotmart', 'cartpanda', 'yampi', 'mollie']
                     }), {
                         status: 400,
                         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
@@ -163,6 +168,114 @@ async function processGenericWebhook(platform: string, data: any) {
         success: true,
         message: `${platform} webhook received`,
         data: data
+    }
+}
+
+/**
+ * Processa webhook Mollie
+ * Mollie envia POST com body form-encoded: id=tr_xxxxx
+ * Responder 200 imediatamente — Mollie retenta se não receber 200
+ */
+async function processMollieWebhook(
+    request: Request,
+    supabase: any,
+    env: any,
+    ctx: ExecutionContext
+): Promise<Response> {
+    const ok200 = new Response(JSON.stringify({ received: true }), {
+        status: 200,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    })
+
+    try {
+        // Ler body (form-encoded: id=tr_xxxxx)
+        const contentType = request.headers.get('content-type') || ''
+        let molliePaymentId = ''
+
+        if (contentType.includes('application/x-www-form-urlencoded') || contentType.includes('multipart/form-data')) {
+            const formData = await request.formData().catch(() => null)
+            molliePaymentId = formData?.get('id')?.toString() || ''
+        } else {
+            const text = await request.text().catch(() => '')
+            // Pode ser form-encoded como texto ou JSON
+            if (text.startsWith('{')) {
+                const parsed = JSON.parse(text)
+                molliePaymentId = parsed.id || ''
+            } else {
+                molliePaymentId = new URLSearchParams(text).get('id') || ''
+            }
+        }
+
+        if (!molliePaymentId) {
+            console.warn('[mollie-webhook] No payment ID in body')
+            return ok200
+        }
+
+        console.log(`[mollie-webhook] Received: ${molliePaymentId}`)
+
+        // Resolver chave Mollie (primeiro provedor ativo)
+        const { data: provider } = await supabase
+            .from('payment_providers')
+            .select('credentials')
+            .eq('type', 'mollie')
+            .eq('is_active', true)
+            .order('is_global_default', { ascending: false })
+            .limit(1)
+            .maybeSingle()
+
+        const apiKey = provider?.credentials?.live_api_key || provider?.credentials?.api_key
+        if (!apiKey) {
+            console.warn('[mollie-webhook] No Mollie API key configured')
+            return ok200
+        }
+
+        // Responder imediatamente e processar em background
+        ctx.waitUntil((async () => {
+            try {
+                const mollie = createMollieClient(apiKey)
+                const payment = await mollie.getPayment(molliePaymentId)
+
+                console.log(`[mollie-webhook] Payment ${molliePaymentId} status: ${payment.status}`)
+
+                // Buscar registro interno pelo mollie_payment_id
+                const { data: record } = await supabase
+                    .from('mollie_payments')
+                    .select('*')
+                    .eq('mollie_payment_id', molliePaymentId)
+                    .maybeSingle()
+
+                if (!record) {
+                    console.warn(`[mollie-webhook] No internal record for ${molliePaymentId}`)
+                    return
+                }
+
+                // Atualizar status no DB
+                await supabase
+                    .from('mollie_payments')
+                    .update({ status: payment.status, updated_at: new Date().toISOString() })
+                    .eq('mollie_payment_id', molliePaymentId)
+
+                if (payment.status === 'paid' && !record.access_granted) {
+                    // Importar dinamicamente para não carregar o bundle sempre
+                    const { handleProcessMolliePayment } = await import('./process-mollie-payment')
+                    // Cria um request fake para chamar o verify flow
+                    const fakeRequest = new Request('https://api.clicknich.com/api/process-mollie-payment', {
+                        method: 'POST',
+                        headers: { 'content-type': 'application/json' },
+                        body: JSON.stringify({ action: 'verify', paymentId: record.id }),
+                    })
+                    await handleProcessMolliePayment(fakeRequest, env, ctx)
+                    console.log(`[mollie-webhook] Access granted for payment ${molliePaymentId}`)
+                }
+            } catch (bgErr: any) {
+                console.error('[mollie-webhook] Background error:', bgErr.message)
+            }
+        })())
+
+        return ok200
+    } catch (err: any) {
+        console.error('[mollie-webhook] Error:', err.message)
+        return ok200  // Sempre 200 para não fazer a Mollie retentar
     }
 }
 

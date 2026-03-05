@@ -160,6 +160,8 @@ export default function CheckoutPublic() {
     const [initialOrderBumps, setInitialOrderBumps] = useState<any[] | undefined>(snap?.initialOrderBumps)
     const [initialAppProducts, setInitialAppProducts] = useState<any[] | undefined>(snap?.initialAppProducts)
     const [checkoutSessionId, setCheckoutSessionId] = useState<string | null>(null)
+    const [mollieEnabledMethods, setMollieEnabledMethods] = useState<Array<{ id: string; label: string; description?: string; icon_url?: string }>>([])
+    const [mollieVerifying, setMollieVerifying] = useState(false)
 
     // Capture UTM params once from the URL when the checkout opens
     // Persiste por 30 dias no localStorage (igual Hotmart/PerfectPay)
@@ -216,6 +218,43 @@ export default function CheckoutPublic() {
 
     // Track page view when checkout ID is determined
     useCheckoutPageView(finalCheckoutId || '')
+
+    // Verificar retorno do Mollie (redirect flow)
+    useEffect(() => {
+        const p = new URLSearchParams(window.location.search)
+        const mollieReturn = p.get('mollie_return')
+        const molliePaymentId = p.get('paymentId')
+        if (mollieReturn !== '1' || !molliePaymentId) return
+
+        setMollieVerifying(true)
+        fetch('https://api.clicknich.com/api/process-mollie-payment', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'verify', paymentId: molliePaymentId }),
+        })
+            .then(r => r.json())
+            .then((result: any) => {
+                if (result.success) {
+                    // Limpar params da URL sem recarregar
+                    const cleanUrl = window.location.pathname
+                    window.history.replaceState({}, '', cleanUrl)
+                    if (result.redirectUrl) {
+                        window.location.href = result.redirectUrl
+                    }
+                } else {
+                    setMollieVerifying(false)
+                }
+            })
+            .catch(() => setMollieVerifying(false))
+    }, [])
+
+    // Buscar métodos Mollie habilitados globalmente na plataforma
+    useEffect(() => {
+        fetch('https://api.clicknich.com/api/mollie/methods')
+            .then(r => r.json())
+            .then((d: any) => { if (d.methods?.length > 0) setMollieEnabledMethods(d.methods) })
+            .catch(() => { })
+    }, [])
 
     const fetchData = useCallback(async () => {
         try {
@@ -864,6 +903,37 @@ export default function CheckoutPublic() {
     const handleProcessPayment = async (paymentData: { formData: { name: string; email: string; phone: string; paymentMethod?: string }, selectedOrderBumps: any[], totalAmount: number, installments?: number }) => {
         try {
             const paymentMethod = (paymentData.formData as any).paymentMethod || 'credit_card'
+
+            // ── Mollie redirect flow ──────────────────────────────────────────────
+            if (paymentMethod.startsWith('mollie_')) {
+                const mollieMethod = paymentMethod.replace('mollie_', '')
+                const response = await fetch('https://api.clicknich.com/api/process-mollie-payment', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        productId: product!.id,
+                        productType: product!.productType,
+                        applicationId: product!.applicationId,
+                        checkoutId: checkout!.id,
+                        customerEmail: paymentData.formData.email,
+                        customerName: paymentData.formData.name,
+                        customerPhone: paymentData.formData.phone,
+                        mollieMethod,
+                        selectedOrderBumps: paymentData.selectedOrderBumps,
+                        sessionId: checkoutSessionId || undefined,
+                        trackingParameters: utmParams.current,
+                    }),
+                })
+                const result = await response.json()
+                if (result.checkoutUrl) {
+                    window.location.href = result.checkoutUrl
+                    return { success: false } // página vai redirecionar
+                }
+                if (!result.success) throw new Error(result.error || 'Mollie payment failed')
+                return { success: true, purchaseId: result.purchaseId, thankyouToken: result.thankyouToken, redirectUrl: result.redirectUrl }
+            }
+
+            // ── Stripe / PayPal flow ─────────────────────────────────────────────
             const paymentProvider = paymentMethod === 'paypal' ? 'paypal' : 'stripe'
 
             const response = await fetch('https://api.clicknich.com/api/process-payment', {
@@ -955,6 +1025,7 @@ export default function CheckoutPublic() {
                 testimonialsHorizontalMode={testimonialsHorizontalMode}
                 imageBlocks={imageBlocks}
                 onProcessPayment={handleProcessPayment}
+                mollieEnabledMethods={mollieEnabledMethods.length > 0 ? mollieEnabledMethods : undefined}
                 onLeadCapture={(data) => {
                     leadDataRef.current = data
                     abandonedFiredRef.current = false

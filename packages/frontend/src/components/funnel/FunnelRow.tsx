@@ -2,11 +2,13 @@
  * Individual funnel row component for the funnels table
  */
 
-import { Trash2, Copy, Pencil } from 'lucide-react'
+import { Trash2, Copy, Pencil, ExternalLink } from 'lucide-react'
+import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Funnel, FunnelActions } from '@/types/funnel'
 import { formatDate, getStatusLabel } from '@/utils/funnelUtils'
 import { useI18n } from '@/i18n'
+import { supabase } from '@/services/supabase'
 
 interface FunnelRowProps {
     funnel: Funnel
@@ -16,6 +18,71 @@ interface FunnelRowProps {
 export default function FunnelRow({ funnel, actions }: FunnelRowProps) {
     const navigate = useNavigate()
     const { t } = useI18n()
+    const [openingCheckout, setOpeningCheckout] = useState(false)
+
+    const handleOpenCheckout = async (e: React.MouseEvent) => {
+        e.stopPropagation()
+        setOpeningCheckout(true)
+        try {
+            // Buscar a página de checkout do funil
+            const { data: checkoutPage } = await supabase
+                .from('funnel_pages')
+                .select('checkout_id')
+                .eq('funnel_id', funnel.id)
+                .eq('page_type', 'checkout')
+                .single()
+
+            if (!checkoutPage?.checkout_id) {
+                alert('Nenhum checkout configurado neste funil.')
+                return
+            }
+
+            const checkoutId = checkoutPage.checkout_id
+
+            // Buscar ou criar URL curta
+            const { data: existingUrl } = await supabase
+                .from('checkout_urls')
+                .select('id')
+                .eq('checkout_id', checkoutId)
+                .maybeSingle()
+
+            let shortId = existingUrl?.id
+
+            if (!shortId) {
+                const { data: checkoutData } = await supabase
+                    .from('checkouts')
+                    .select('member_area_id, application_id')
+                    .eq('id', checkoutId)
+                    .single()
+
+                const insertData: any = { checkout_id: checkoutId }
+                if (checkoutData?.application_id) {
+                    insertData.application_id = checkoutData.application_id
+                } else if (checkoutData?.member_area_id) {
+                    insertData.member_area_id = checkoutData.member_area_id
+                }
+
+                const { data: newUrl } = await supabase
+                    .from('checkout_urls')
+                    .insert(insertData)
+                    .select('id')
+                    .single()
+
+                shortId = newUrl?.id
+            }
+
+            if (shortId) {
+                window.open(`${window.location.origin}/checkout/${shortId}`, '_blank')
+            } else {
+                alert('Erro ao gerar link do checkout.')
+            }
+        } catch (err) {
+            console.error('Erro ao abrir checkout do funil:', err)
+            alert('Erro ao abrir checkout do funil.')
+        } finally {
+            setOpeningCheckout(false)
+        }
+    }
     // productName já vem do useFunnels (batch fetch)
     const productName = (funnel as any).productName || ''
 
@@ -67,6 +134,17 @@ export default function FunnelRow({ funnel, actions }: FunnelRowProps) {
             </td>
             <td className="py-3 px-4 text-right">
                 <div className="flex items-center justify-end gap-1">
+                    <button
+                        className="text-gray-400 dark:text-gray-500 hover:text-emerald-400 transition-colors p-1.5 hover:bg-emerald-500/10 rounded-lg disabled:opacity-50"
+                        onClick={handleOpenCheckout}
+                        disabled={openingCheckout}
+                        title="Abrir checkout do funil"
+                    >
+                        {openingCheckout
+                            ? <div className="w-3.5 h-3.5 border border-gray-500 border-t-emerald-400 rounded-full animate-spin" />
+                            : <ExternalLink size={14} />
+                        }
+                    </button>
                     <button
                         className="text-gray-400 dark:text-gray-500 hover:text-gray-100 transition-colors p-1.5 hover:bg-white/10 rounded-lg"
                         onClick={(e) => {

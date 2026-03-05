@@ -27,7 +27,7 @@ const Header = memo(function Header({ onMenuClick }: HeaderProps) {
         <img
           src="/logoo.png"
           alt="Logo"
-          className="h-16 sm:h-22 md:h-28 w-auto object-contain"
+          className="h-16 sm:h-22 md:h-28 w-auto object-contain brightness-0 dark:brightness-100 transition-all duration-200"
         />
       </div>
 

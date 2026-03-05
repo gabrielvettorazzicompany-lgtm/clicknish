@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
-import { Eye, X, Check, ChevronDown, ChevronUp } from 'lucide-react'
+import { createPortal } from 'react-dom'
+import { Eye, X, Check, ChevronDown, ChevronUp, Monitor, Smartphone } from 'lucide-react'
 import { supabase } from '@/services/supabase'
 import CheckoutDigital from '@/components/checkout/CheckoutDigital'
 
@@ -9,6 +10,7 @@ interface FunnelProduct {
     price?: string
     app_type?: string
     source: string
+    image_url?: string
 }
 
 interface Checkout {
@@ -57,6 +59,7 @@ export default function ProductCheckoutCard({
     onModulesChange
 }: ProductCheckoutCardProps) {
     const [showPreview, setShowPreview] = useState(false)
+    const [viewDevice, setViewDevice] = useState<'desktop' | 'mobile'>('desktop')
     const [checkoutDetails, setCheckoutDetails] = useState<CheckoutDetails | null>(null)
     const [loadingPreview, setLoadingPreview] = useState(false)
     const [modules, setModules] = useState<Module[]>([])
@@ -235,6 +238,8 @@ export default function ProductCheckoutCard({
 
     const productPrice = checkoutDetails?.custom_price ?? (product?.price ? parseFloat(product.price) : 0)
     const timerConfig = checkoutDetails?.custom_fields?.timer
+    const paymentMethodsOverride = checkoutDetails?.custom_fields?.paymentMethods as ('credit_card' | 'paypal')[] | undefined
+    const productType = product?.source === 'application' || product?.source === 'community' ? 'application' : 'marketplace'
 
     return (
         <div className="space-y-4">
@@ -450,33 +455,81 @@ export default function ProductCheckoutCard({
             )}
 
             {/* Full Preview */}
-            {showPreview && product && (
-                <div className="fixed inset-0 bg-black/80 z-50 overflow-auto">
-                    <button
-                        onClick={() => setShowPreview(false)}
-                        className="fixed top-4 right-4 z-[60] flex items-center gap-2 px-4 py-2 bg-white hover:bg-zinc-100 text-slate-800 rounded-md transition-all text-sm font-medium shadow-xl"
-                    >
-                        <X size={16} />
-                        Close Preview
-                    </button>
+            {showPreview && product && createPortal(
+                <div className="fixed inset-0 bg-[#080b14] z-[9999] flex flex-col">
+                    {/* Navbar */}
+                    <div className="bg-gray-900 border-b border-gray-800 flex-shrink-0">
+                        <div className="flex items-center justify-between px-4 h-10">
+                            <div className="flex items-center gap-3">
+                                <button
+                                    onClick={() => setShowPreview(false)}
+                                    className="p-1.5 hover:bg-gray-800/50 rounded-lg transition-colors"
+                                >
+                                    <X size={14} className="text-gray-400" />
+                                </button>
+                                <span className="text-xs font-medium text-gray-400">Preview</span>
+                            </div>
 
-                    <div className="min-h-screen">
-                        <CheckoutDigital
-                            productId={product.id}
-                            productName={product.name}
-                            productPrice={productPrice}
-                            productDescription=""
-                            customBanner={checkoutDetails ? {
-                                image: checkoutDetails.banner_image,
-                                title: checkoutDetails.banner_title,
-                                customHeight: checkoutDetails.custom_height
-                            } : undefined}
-                            timerConfig={timerConfig}
-                            isPreview={true}
-                        />
+                            {/* Device toggle */}
+                            <div className="flex items-center gap-0.5">
+                                <button
+                                    onClick={() => setViewDevice('desktop')}
+                                    className={`flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-medium transition-colors ${viewDevice === 'desktop'
+                                            ? 'text-gray-100'
+                                            : 'text-gray-500 hover:text-gray-300'
+                                        }`}
+                                    title="Desktop"
+                                >
+                                    <Monitor size={12} />
+                                    <span>Desktop</span>
+                                </button>
+                                <button
+                                    onClick={() => setViewDevice('mobile')}
+                                    className={`flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-medium transition-colors ${viewDevice === 'mobile'
+                                            ? 'text-gray-100'
+                                            : 'text-gray-500 hover:text-gray-300'
+                                        }`}
+                                    title="Mobile"
+                                >
+                                    <Smartphone size={12} />
+                                    <span>Mobile</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Preview area */}
+                    <div className="flex-1 overflow-y-auto px-3 py-4">
+                        <div className={`transition-all duration-300 ${viewDevice === 'mobile' ? 'max-w-sm mx-auto' : 'max-w-4xl mx-auto w-full'
+                            }`}>
+                            <div className={`rounded-xl border border-gray-700/50 shadow-lg shadow-black/20 overflow-hidden`}>
+                                <CheckoutDigital
+                                    productId={product.id}
+                                    productName={product.name}
+                                    productPrice={productPrice}
+                                    productDescription=""
+                                    productType={productType as any}
+                                    productImage={product.image_url}
+                                    checkoutId={selectedCheckout}
+                                    customBanner={checkoutDetails ? {
+                                        image: checkoutDetails.banner_image,
+                                        title: checkoutDetails.banner_title,
+                                        customHeight: checkoutDetails.custom_height
+                                    } : undefined}
+                                    timerConfig={timerConfig}
+                                    selectedPaymentMethods={paymentMethodsOverride ?? ['credit_card']}
+                                    buttonColor={checkoutDetails?.custom_fields?.buttonColor}
+                                    securitySealsEnabled={checkoutDetails?.custom_fields?.securitySealsEnabled ?? false}
+                                    testimonials={checkoutDetails?.custom_fields?.testimonials ?? []}
+                                    imageBlocks={checkoutDetails?.custom_fields?.imageBlocks ?? []}
+                                    isPreview={true}
+                                    viewDevice={viewDevice}
+                                />
+                            </div>
+                        </div>
                     </div>
                 </div>
-            )}
+                , document.body)}
         </div>
     )
 }
