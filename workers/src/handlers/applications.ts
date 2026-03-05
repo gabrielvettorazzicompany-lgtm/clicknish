@@ -518,26 +518,56 @@ export async function handleApplications(
 
             console.log('Deleting application:', appId, 'for user:', userId)
 
-            // Delete related records that don't have CASCADE first
+            // Verificar ownership antes de deletar
+            const { data: appCheck } = await supabase
+                .from('applications')
+                .select('id')
+                .eq('id', appId)
+                .eq('owner_id', userId)
+                .single()
+            if (!appCheck) return jsonResponse({ error: 'App not found or access denied' }, 404)
+
+            // 1. Nível mais profundo: filhos de community_posts e products
+            const { data: postIds } = await supabase.from('community_posts').select('id').eq('application_id', appId)
+            if (postIds && postIds.length > 0) {
+                await supabase.from('community_comments').delete().in('post_id', postIds.map((p: any) => p.id))
+            }
+
+            const { data: productIds } = await supabase.from('products').select('id').eq('application_id', appId)
+            if (productIds && productIds.length > 0) {
+                await supabase.from('product_content').delete().in('product_id', productIds.map((p: any) => p.id))
+            }
+
+            await supabase.from('checkout_offers').delete().eq('application_id', appId)
+            await supabase.from('member_areas').delete().eq('application_id', appId)
+
+            // 2. Tabelas sem FK obrigatória (ou com application_id direto)
             await supabase.from('user_product_access').delete().eq('application_id', appId)
             await supabase.from('webhook_logs').delete().eq('application_id', appId)
-
-            // Delete other related records (these have CASCADE but delete explicitly for safety)
             await supabase.from('app_banners').delete().eq('application_id', appId)
-            await supabase.from('products').delete().eq('application_id', appId)
             await supabase.from('app_users').delete().eq('application_id', appId)
-            await supabase.from('checkouts').delete().eq('application_id', appId)
-            await supabase.from('checkout_urls').delete().eq('application_id', appId)
             await supabase.from('feed_posts').delete().eq('application_id', appId)
-            await supabase.from('community_posts').delete().eq('application_id', appId)
             await supabase.from('push_notifications').delete().eq('application_id', appId)
             await supabase.from('user_notifications').delete().eq('application_id', appId)
 
+            // 3. community_posts (após comments)
+            await supabase.from('community_posts').delete().eq('application_id', appId)
+
+            // 4. checkouts e checkout_urls (após checkout_offers)
+            await supabase.from('checkouts').delete().eq('application_id', appId)
+            await supabase.from('checkout_urls').delete().eq('application_id', appId)
+
+            // 5. products (após product_content e member_areas)
+            await supabase.from('products').delete().eq('application_id', appId)
+
+            // 6. app_domains se existir
+            await supabase.from('app_domains').delete().eq('application_id', appId)
+
+            // 7. Finalmente deletar a application
             const { error } = await supabase
                 .from('applications')
                 .delete()
                 .eq('id', appId)
-                .eq('owner_id', userId)
 
             if (error) {
                 console.error('Error deleting application:', error)

@@ -482,7 +482,8 @@ export default function ProductsManagement({ embedded = false }: { embedded?: bo
                     setApps(apps.filter(app => app.id !== id))
                     alert('App deleted successfully!')
                 } else {
-                    alert('Error deleting app')
+                    const err = await response.json().catch(() => ({}))
+                    alert(`Error deleting app: ${err.error || response.status}`)
                 }
             } catch (error) {
                 console.error('Error deleting app:', error)
