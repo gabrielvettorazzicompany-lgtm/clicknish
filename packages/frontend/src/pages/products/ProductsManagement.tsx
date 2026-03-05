@@ -159,10 +159,11 @@ export default function ProductsManagement({ embedded = false }: { embedded?: bo
 
     const fetchApps = async () => {
         try {
+            const session = await getValidSession()
             const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/applications`, {
                 headers: {
-                    'Authorization': `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNnZXF0b2RiaXNnd3Zoa2FhaGl5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjkxMTk1MDIsImV4cCI6MjA4NDY5NTUwMn0.Ov6_rRlThZUBIoL4oT6BGozEhvTUdFsWB6KylDXpFoY`,
-                    'x-user-id': user?.id || 'user-default'
+                    'Authorization': `Bearer ${session.access_token}`,
+                    'x-user-id': session.user.id
                 }
             })
 
@@ -231,14 +232,18 @@ export default function ProductsManagement({ embedded = false }: { embedded?: bo
     const handleDeleteProduct = async (id: string) => {
         if (confirm('Are you sure you want to delete this product?')) {
             try {
-                const { error } = await supabase
-                    .from('marketplace_products')
-                    .delete()
-                    .eq('id', id)
+                const session = await getValidSession()
+                const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/marketplace-products/${id}`, {
+                    method: 'DELETE',
+                    headers: {
+                        'Authorization': `Bearer ${session.access_token}`,
+                        'x-user-id': session.user.id
+                    }
+                })
 
-                if (error) {
-                    console.error('Error deleting product:', error)
-                    throw new Error(error.message)
+                if (!response.ok) {
+                    const err = await response.json().catch(() => ({}))
+                    throw new Error(err.error || response.status.toString())
                 }
 
                 alert('Product deleted successfully!')
@@ -259,14 +264,13 @@ export default function ProductsManagement({ embedded = false }: { embedded?: bo
         // Se for app novo, salvar na tabela applications com review_status: pending_review
         if (dataToSave.delivery_type === 'app' && !editingProduct) {
             try {
-                const apiUrl = 'https://api.clicknich.com/api'
-                const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNnZXF0b2RiaXNnd3Zoa2FhaGl5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjkxMTk1MDIsImV4cCI6MjA4NDY5NTUwMn0.Ov6_rRlThZUBIoL4oT6BGozEhvTUdFsWB6KylDXpFoY'
-                const response = await fetch(`${apiUrl}/applications`, {
+                const session = await getValidSession()
+                const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/applications`, {
                     method: 'POST',
                     headers: {
-                        'Authorization': `Bearer ${anonKey}`,
+                        'Authorization': `Bearer ${session.access_token}`,
                         'Content-Type': 'application/json',
-                        'x-user-id': user?.id || ''
+                        'x-user-id': session.user.id
                     },
                     body: JSON.stringify({
                         name: dataToSave.name,
@@ -286,28 +290,28 @@ export default function ProductsManagement({ embedded = false }: { embedded?: bo
                 if (response.ok) {
                     const newApp = await response.json()
 
-                    // Criar checkout padrão com o preço cadastrado no wizard
-                    if (dataToSave.price > 0) {
-                        try {
-                            await supabase.from('checkouts').insert({
-                                application_id: newApp.id,
-                                name: 'Default',
-                                is_default: true,
-                                custom_price: dataToSave.price,
-                                banner_title: dataToSave.name
-                            })
-                        } catch (checkoutErr) {
-                            console.error('Error creating default checkout for app:', checkoutErr)
-                        }
-                    }
-
-                    await fetchProducts()
+                    // Fechar wizard imediatamente — app criado com sucesso
                     setShowWizard(false)
                     setCurrentStep(1)
+
+                    // Criar checkout padrão em background (não bloqueia)
+                    if (dataToSave.price > 0 && newApp?.id) {
+                        supabase.from('checkouts').insert({
+                            application_id: newApp.id,
+                            name: 'Default',
+                            is_default: true,
+                            custom_price: dataToSave.price,
+                            banner_title: dataToSave.name
+                        }).then(({ error }) => {
+                            if (error) console.error('Error creating default checkout for app:', error)
+                        })
+                    }
+
+                    await fetchApps()
                 } else {
-                    const errorData = await response.json()
+                    const errorData = await response.json().catch(() => ({}))
                     console.error('Error creating app:', errorData)
-                    throw new Error(errorData.message || 'Erro ao criar app')
+                    throw new Error(errorData.error || errorData.message || 'Erro ao criar app')
                 }
             } catch (error: any) {
                 console.error('Error saving app:', error)
@@ -320,13 +324,12 @@ export default function ProductsManagement({ embedded = false }: { embedded?: bo
             const session = await getValidSession()
 
             if (editingProduct) {
-                const apiUrl = 'https://api.clicknich.com/api'
-                const response = await fetch(`${apiUrl}/marketplace-products/${editingProduct.id}`, {
+                const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/marketplace-products/${editingProduct.id}`, {
                     method: 'PATCH',
                     headers: {
                         'Authorization': `Bearer ${session.access_token}`,
                         'Content-Type': 'application/json',
-                        'x-user-id': user?.id || ''
+                        'x-user-id': session.user.id
                     },
                     body: JSON.stringify({
                         name: dataToSave.name,
@@ -352,13 +355,12 @@ export default function ProductsManagement({ embedded = false }: { embedded?: bo
                     throw new Error('Error updating product')
                 }
             } else {
-                const apiUrl = 'https://api.clicknich.com/api'
-                const response = await fetch(`${apiUrl}/marketplace-products`, {
+                const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/marketplace-products`, {
                     method: 'POST',
                     headers: {
                         'Authorization': `Bearer ${session.access_token}`,
                         'Content-Type': 'application/json',
-                        'x-user-id': user?.id || ''
+                        'x-user-id': session.user.id
                     },
                     body: JSON.stringify({
                         name: dataToSave.name,
@@ -382,26 +384,28 @@ export default function ProductsManagement({ embedded = false }: { embedded?: bo
                 if (response.ok) {
                     const newProduct = await response.json()
 
-                    // Criar checkout padrão automaticamente com o preço cadastrado
-                    try {
-                        await supabase.from('checkouts').insert({
+                    // Fechar wizard imediatamente — produto criado com sucesso
+                    setShowWizard(false)
+                    setCurrentStep(1)
+
+                    // Criar checkout padrão em background (não bloqueia)
+                    if (newProduct?.id) {
+                        supabase.from('checkouts').insert({
                             member_area_id: newProduct.id,
                             name: 'Default',
                             is_default: true,
                             custom_price: dataToSave.price,
                             banner_title: dataToSave.name
+                        }).then(({ error }) => {
+                            if (error) console.error('Error creating default checkout:', error)
                         })
-                    } catch (checkoutErr) {
-                        console.error('Error creating default checkout:', checkoutErr)
                     }
 
                     await fetchProducts()
-                    setShowWizard(false)
-                    setCurrentStep(1)
                 } else {
-                    const errorData = await response.json()
+                    const errorData = await response.json().catch(() => ({}))
                     console.error('Error creating product:', errorData)
-                    throw new Error(errorData.message || 'Error creating product')
+                    throw new Error(errorData.error || errorData.message || 'Error creating product')
                 }
             }
 
@@ -419,12 +423,13 @@ export default function ProductsManagement({ embedded = false }: { embedded?: bo
     const handleSubmitAppForReview = async (id: string) => {
         if (!confirm('Enviar este app para verificação? Após enviado, não será possível editar até ser revisado.')) return
         try {
+            const session = await getValidSession()
             const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/applications/${id}/submit-review`, {
                 method: 'PUT',
                 headers: {
-                    'Authorization': `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNnZXF0b2RiaXNnd3Zoa2FhaGl5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjkxMTk1MDIsImV4cCI6MjA4NDY5NTUwMn0.Ov6_rRlThZUBIoL4oT6BGozEhvTUdFsWB6KylDXpFoY`,
+                    'Authorization': `Bearer ${session.access_token}`,
                     'Content-Type': 'application/json',
-                    'x-user-id': user?.id || ''
+                    'x-user-id': session.user.id
                 }
             })
             if (response.ok) {
@@ -444,12 +449,12 @@ export default function ProductsManagement({ embedded = false }: { embedded?: bo
         if (!confirm('Enviar este produto para verificação?')) return
         try {
             const session = await getValidSession()
-            const response = await fetch(`https://api.clicknich.com/api/marketplace-products/${id}`, {
+            const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/marketplace-products/${id}`, {
                 method: 'PATCH',
                 headers: {
                     'Authorization': `Bearer ${session.access_token}`,
                     'Content-Type': 'application/json',
-                    'x-user-id': user?.id || ''
+                    'x-user-id': session.user.id
                 },
                 body: JSON.stringify({ review_status: 'pending_review' })
             })

@@ -141,17 +141,37 @@ export async function handleMarketplaceProducts(request: Request, env: any, path
 
             case 'PATCH': {
                 // Update product
-                const body = await request.json()
+                const body = await request.json().catch(() => null)
+                if (!body) {
+                    return new Response(JSON.stringify({ error: 'Invalid or empty request body' }), {
+                        status: 400,
+                        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+                    })
+                }
 
-                const { data, error } = await supabase
+                // Fazer update e select separados para evitar problema de 204 No Content
+                const { error: updateError } = await supabase
                     .from('member_areas')
                     .update(body)
                     .eq('id', productId)
                     .eq('owner_id', userId)
-                    .select()
+
+                if (updateError) throw updateError
+
+                // Buscar o registro atualizado separadamente
+                const { data, error: selectError } = await supabase
+                    .from('member_areas')
+                    .select('*')
+                    .eq('id', productId)
                     .single()
 
-                if (error) throw error
+                if (selectError) {
+                    // Update foi bem sucedido mas select falhou — retornar sucesso sem dados
+                    return new Response(JSON.stringify({ success: true }), {
+                        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+                        status: 200,
+                    })
+                }
 
                 return new Response(JSON.stringify(data), {
                     headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -160,7 +180,39 @@ export async function handleMarketplaceProducts(request: Request, env: any, path
             }
 
             case 'DELETE': {
-                // Delete product
+                // Verificar ownership
+                const { data: maCheck } = await supabase
+                    .from('member_areas')
+                    .select('id')
+                    .eq('id', productId)
+                    .eq('owner_id', userId)
+                    .single()
+                if (!maCheck) {
+                    return new Response(JSON.stringify({ error: 'Product not found or access denied' }), {
+                        status: 404,
+                        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+                    })
+                }
+
+                // 1. Buscar IDs dos módulos para limpar as aulas
+                const { data: moduleIds } = await supabase
+                    .from('community_modules')
+                    .select('id')
+                    .eq('member_area_id', productId)
+
+                // 2. Deletar filhos de community_modules e checkouts em paralelo
+                await Promise.all([
+                    moduleIds && moduleIds.length > 0
+                        ? supabase.from('community_lessons').delete().in('module_id', moduleIds.map((m: any) => m.id))
+                        : Promise.resolve(),
+                    supabase.from('checkouts').delete().eq('member_area_id', productId),
+                    supabase.from('checkout_urls').delete().eq('member_area_id', productId),
+                ])
+
+                // 3. Deletar community_modules após as aulas
+                await supabase.from('community_modules').delete().eq('member_area_id', productId)
+
+                // Deletar a member_area
                 const { error } = await supabase
                     .from('member_areas')
                     .delete()

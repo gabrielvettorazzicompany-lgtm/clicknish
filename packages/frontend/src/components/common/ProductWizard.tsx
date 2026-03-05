@@ -456,15 +456,29 @@ export default function ProductWizard({
                                 <div>
                                     <label className="block text-[11px] font-medium text-gray-500 mb-1.5">{t('components.product_wizard.support_whatsapp')}</label>
                                     <div className="flex relative">
-                                        <button
-                                            type="button"
-                                            onClick={() => setShowCountryDropdown(!showCountryDropdown)}
-                                            className="flex items-center gap-1.5 px-2.5 bg-[#111522] border border-r-0 border-[#1e2433] rounded-l-xl hover:bg-[#1a1f2e] transition-colors"
-                                        >
-                                            <span className="text-sm">{selectedCountry.flag}</span>
-                                            <span className="text-xs text-gray-300">{selectedCountry.code}</span>
-                                            <svg className="w-2.5 h-2.5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
-                                        </button>
+                                        <div className="flex items-center bg-[#111522] border border-r-0 border-[#1e2433] rounded-l-xl">
+                                            <button
+                                                type="button"
+                                                onClick={() => setShowCountryDropdown(!showCountryDropdown)}
+                                                className="flex items-center pl-2.5 pr-1 hover:opacity-70 transition-opacity"
+                                            >
+                                                <span className="text-sm">{selectedCountry.flag}</span>
+                                                <svg className="w-2.5 h-2.5 text-gray-600 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+                                            </button>
+                                            <input
+                                                type="text"
+                                                value={selectedCountry.code}
+                                                onChange={(e) => {
+                                                    const typed = e.target.value
+                                                    const match = countries.find(c => c.code === typed)
+                                                    setSelectedCountry(match
+                                                        ? match
+                                                        : { ...selectedCountry, code: typed }
+                                                    )
+                                                }}
+                                                className="w-14 pr-2 py-2.5 text-xs bg-transparent text-gray-300 focus:outline-none focus:text-white"
+                                            />
+                                        </div>
                                         {showCountryDropdown && (
                                             <div className="absolute top-full left-0 mt-1 w-52 bg-[#111522] border border-[#1e2433] rounded-xl shadow-2xl z-50 max-h-48 overflow-y-auto">
                                                 {countries.map((c) => (

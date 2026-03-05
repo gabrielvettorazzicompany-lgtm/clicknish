@@ -95,7 +95,6 @@ export default function AppBuilder() {
                       appData={appData}
                       setAppData={setAppData}
                       loading={loading}
-                      currentLanguage={language as any}
                       onSave={handleSaveApp}
                       onRemoveBanner={removeBanner}
                       onUpdateBanner={updateBanner}

@@ -1,6 +1,5 @@
 import { Plus, X } from 'lucide-react'
 import ImageUploader from '@/components/ImageUploader'
-import { getTranslation, type Language } from '@/locales/translations'
 import { useI18n } from '@/i18n'
 import type { AppData } from './types'
 
@@ -8,7 +7,6 @@ interface Props {
     appData: AppData
     setAppData: React.Dispatch<React.SetStateAction<AppData>>
     loading: boolean
-    currentLanguage: Language
     onSave: () => void
     onRemoveBanner: (id: number) => void
     onUpdateBanner: (id: number, field: 'link' | 'image', value: string) => void
@@ -156,7 +154,6 @@ export default function AppGeneralTab({
     appData,
     setAppData,
     loading,
-    currentLanguage,
     onSave,
     onRemoveBanner,
     onUpdateBanner,
@@ -168,7 +165,7 @@ export default function AppGeneralTab({
             {/* App Name */}
             <div className="mb-4">
                 <label className="block text-[11px] font-semibold text-gray-700 dark:text-gray-300 mb-1.5">
-                    {getTranslation(currentLanguage, 'appName')}
+                    {t('apps.builder.app_name')}
                 </label>
                 <input
                     type="text"
@@ -184,18 +181,18 @@ export default function AppGeneralTab({
                 {[
                     {
                         key: 'showNames' as const,
-                        label: getTranslation(currentLanguage, 'showNames'),
-                        desc: getTranslation(currentLanguage, 'showNamesDescription'),
+                        label: t('apps.builder.show_names'),
+                        desc: t('apps.builder.show_names_description'),
                     },
                     {
                         key: 'highlightCommunity' as const,
-                        label: getTranslation(currentLanguage, 'highlightCommunity'),
-                        desc: getTranslation(currentLanguage, 'highlightCommunityDescription'),
+                        label: t('apps.builder.highlight_community'),
+                        desc: t('apps.builder.highlight_community_description'),
                     },
                     {
                         key: 'freeRegistration' as const,
-                        label: getTranslation(currentLanguage, 'enableFreeRegistration'),
-                        desc: getTranslation(currentLanguage, 'freeRegistrationDescription'),
+                        label: t('apps.builder.enable_free_registration'),
+                        desc: t('apps.builder.free_registration_description'),
                     },
                 ].map(({ key, label, desc }) => (
                     <div
@@ -223,23 +220,23 @@ export default function AppGeneralTab({
             {/* App Type */}
             <div className="mb-4">
                 <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1.5">
-                    {getTranslation(currentLanguage, 'appType')}
+                    {t('apps.builder.app_type')}
                 </label>
                 <select
                     value={appData.appType}
                     onChange={e => setAppData(prev => ({ ...prev, appType: e.target.value }))}
                     className="w-full px-3 py-2.5 text-sm bg-white dark:bg-[#0f1117] text-gray-900 dark:text-gray-100 border border-gray-300 dark:border-[#252941] rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 [&>option]:bg-white [&>option]:dark:bg-[#0f1117] cursor-pointer"
                 >
-                    <option value="login-complete">{getTranslation(currentLanguage, 'loginCompleteEmail')}</option>
-                    <option value="login-simple">{getTranslation(currentLanguage, 'loginSimpleEmail')}</option>
+                    <option value="login-complete">{t('apps.builder.login_complete_email')}</option>
+                    <option value="login-simple">{t('apps.builder.login_simple_email')}</option>
                 </select>
-                <p className="text-xs text-gray-500 mt-1.5">{getTranslation(currentLanguage, 'selectAuthMethod')}</p>
+                <p className="text-xs text-gray-500 mt-1.5">{t('apps.builder.select_auth_method')}</p>
             </div>
 
             {/* Language */}
             <div className="mb-4">
                 <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1.5">
-                    {getTranslation(currentLanguage, 'language')}
+                    {t('apps.builder.language')}
                 </label>
                 <select
                     value={appData.language}
@@ -249,16 +246,18 @@ export default function AppGeneralTab({
                     <option value="pt-br">Português (Brasil)</option>
                     <option value="en">English</option>
                     <option value="es">Español</option>
+                    <option value="fr">Français</option>
+                    <option value="de">Deutsch</option>
                 </select>
                 <p className="text-xs text-gray-500 mt-1.5">
-                    {getTranslation(currentLanguage, 'languageDisplayDescription')}
+                    {t('apps.builder.language_display_description')}
                 </p>
             </div>
 
             {/* Theme */}
             <div className="mb-4">
                 <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    {getTranslation(currentLanguage, 'theme')}
+                    {t('apps.builder.theme')}
                 </label>
                 <div className="grid grid-cols-2 gap-3">
                     <button
@@ -272,7 +271,7 @@ export default function AppGeneralTab({
                         <div className="w-10 h-10 bg-gradient-to-br from-blue-50 via-blue-50 to-blue-100 rounded-lg border-2 border-blue-200 flex items-center justify-center mb-2">
                             <div className="w-5 h-5 bg-white rounded shadow-sm border border-gray-200" />
                         </div>
-                        <span className="text-xs font-medium text-gray-900 dark:text-gray-100">{getTranslation(currentLanguage, 'light')}</span>
+                        <span className="text-xs font-medium text-gray-900 dark:text-gray-100">{t('apps.builder.light')}</span>
                     </button>
 
                     <button
@@ -286,18 +285,18 @@ export default function AppGeneralTab({
                         <div className="w-10 h-10 bg-gradient-to-br from-[#050608] via-[#0f1520] to-[#1a4a6c] rounded-lg border-2 border-[#2a4060] flex items-center justify-center mb-2">
                             <div className="w-5 h-5 bg-[#151825] rounded border border-[#252941]" />
                         </div>
-                        <span className="text-xs font-medium text-gray-900 dark:text-gray-100">{getTranslation(currentLanguage, 'dark')}</span>
+                        <span className="text-xs font-medium text-gray-900 dark:text-gray-100">{t('apps.builder.dark')}</span>
                     </button>
                 </div>
                 <p className="text-xs text-gray-500 mt-2">
-                    {getTranslation(currentLanguage, 'selectThemeDescription')}
+                    {t('apps.builder.select_theme_description')}
                 </p>
             </div>
 
             {/* Logo */}
             <div className="mb-4">
                 <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1.5">
-                    {getTranslation(currentLanguage, 'appLogo')}
+                    {t('apps.builder.app_logo')}
                 </label>
                 <ImageUploader
                     onImageSelect={imageData => setAppData(prev => ({ ...prev, logo: imageData }))}
@@ -311,7 +310,7 @@ export default function AppGeneralTab({
             <div className="mb-4">
                 <div className="flex items-center justify-between mb-3">
                     <label className="block text-xs font-medium text-gray-700 dark:text-gray-300">
-                        {getTranslation(currentLanguage, 'appBanners')}
+                        {t('apps.builder.app_banners')}
                     </label>
                     <span className="text-sm text-gray-500">{appData.banners.length}/3 banners</span>
                 </div>
@@ -452,7 +451,7 @@ export default function AppGeneralTab({
                 {/* Support Settings */}
                 <div className="mb-6">
                     <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-6">
-                        {getTranslation(currentLanguage, 'supportChannels')}
+                        {t('apps.builder.support_channels')}
                     </h3>
 
                     {/* Support toggle */}
@@ -471,10 +470,10 @@ export default function AppGeneralTab({
                                 </div>
                                 <div>
                                     <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">
-                                        {getTranslation(currentLanguage, 'supportEnabled')}
+                                        {t('apps.builder.support_enabled')}
                                     </p>
                                     <p className="text-xs text-gray-600 mt-1">
-                                        {getTranslation(currentLanguage, 'supportDescription')}
+                                        {t('apps.builder.support_description')}
                                     </p>
                                 </div>
                             </div>
@@ -507,7 +506,7 @@ export default function AppGeneralTab({
                                             d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
                                         />
                                     </svg>
-                                    <span>{getTranslation(currentLanguage, 'supportEmail')}</span>
+                                    <span>{t('apps.builder.support_email')}</span>
                                 </label>
                                 <div className="relative">
                                     <input
@@ -535,7 +534,7 @@ export default function AppGeneralTab({
                                     <svg className="w-4 h-4 text-blue-400" fill="currentColor" viewBox="0 0 24 24">
                                         <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z" />
                                     </svg>
-                                    <span>{getTranslation(currentLanguage, 'whatsapp')}</span>
+                                    <span>{t('apps.builder.whatsapp')}</span>
                                 </label>
                                 <div className="relative">
                                     <input
@@ -577,7 +576,7 @@ export default function AppGeneralTab({
                         {loading ? (
                             <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white/60" />
                         ) : null}
-                        {getTranslation(currentLanguage, 'saveApp')}
+                        {t('apps.builder.save_app')}
                     </button>
                 </div>
             </div>

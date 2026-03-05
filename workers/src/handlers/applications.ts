@@ -500,7 +500,9 @@ export async function handleApplications(
                 .eq('owner_id', userId)
                 .single()
             if (fetchError || !app) return jsonResponse({ error: 'App not found' }, 404)
-            if (app.review_status !== 'draft' && app.review_status !== 'rejected') {
+            // Permitir null/undefined (apps sem status definido) além de 'draft' e 'rejected'
+            const allowedStatuses = ['draft', 'rejected', null, undefined]
+            if (!allowedStatuses.includes(app.review_status)) {
                 return jsonResponse({ error: 'App is not in draft or rejected status' }, 400)
             }
             const { error } = await supabase
@@ -508,6 +510,7 @@ export async function handleApplications(
                 .update({ review_status: 'pending_review' })
                 .eq('id', appId)
                 .eq('owner_id', userId)
+                .select('id')
             if (error) throw error
             return jsonResponse({ success: true, message: 'App submitted for review' })
         }
@@ -527,47 +530,50 @@ export async function handleApplications(
                 .single()
             if (!appCheck) return jsonResponse({ error: 'App not found or access denied' }, 404)
 
-            // 1. Nível mais profundo: filhos de community_posts e products
-            const { data: postIds } = await supabase.from('community_posts').select('id').eq('application_id', appId)
-            if (postIds && postIds.length > 0) {
-                await supabase.from('community_comments').delete().in('post_id', postIds.map((p: any) => p.id))
-            }
+            // 1. Buscar IDs dependentes em paralelo
+            const [{ data: postIds }, { data: productIds }] = await Promise.all([
+                supabase.from('community_posts').select('id').eq('application_id', appId),
+                supabase.from('products').select('id').eq('application_id', appId)
+            ])
 
-            const { data: productIds } = await supabase.from('products').select('id').eq('application_id', appId)
-            if (productIds && productIds.length > 0) {
-                await supabase.from('product_content').delete().in('product_id', productIds.map((p: any) => p.id))
-            }
+            // 2. Deletar filhos de community_posts e products em paralelo
+            await Promise.all([
+                postIds && postIds.length > 0
+                    ? supabase.from('community_comments').delete().in('post_id', postIds.map((p: any) => p.id))
+                    : Promise.resolve(),
+                productIds && productIds.length > 0
+                    ? supabase.from('product_content').delete().in('product_id', productIds.map((p: any) => p.id))
+                    : Promise.resolve(),
+                supabase.from('checkout_offers').delete().eq('application_id', appId),
+            ])
 
-            await supabase.from('checkout_offers').delete().eq('application_id', appId)
-            await supabase.from('member_areas').delete().eq('application_id', appId)
+            // 3. Deletar checkouts ANTES de member_areas (FK checkouts_member_area_id_fkey)
+            await Promise.all([
+                supabase.from('checkouts').delete().eq('application_id', appId),
+                supabase.from('checkout_urls').delete().eq('application_id', appId),
+            ])
 
-            // 2. Tabelas sem FK obrigatória (ou com application_id direto)
-            await supabase.from('user_product_access').delete().eq('application_id', appId)
-            await supabase.from('webhook_logs').delete().eq('application_id', appId)
-            await supabase.from('app_banners').delete().eq('application_id', appId)
-            await supabase.from('app_users').delete().eq('application_id', appId)
-            await supabase.from('feed_posts').delete().eq('application_id', appId)
-            await supabase.from('push_notifications').delete().eq('application_id', appId)
-            await supabase.from('user_notifications').delete().eq('application_id', appId)
-
-            // 3. community_posts (após comments)
-            await supabase.from('community_posts').delete().eq('application_id', appId)
-
-            // 4. checkouts e checkout_urls (após checkout_offers)
-            await supabase.from('checkouts').delete().eq('application_id', appId)
-            await supabase.from('checkout_urls').delete().eq('application_id', appId)
-
-            // 5. products (após product_content e member_areas)
-            await supabase.from('products').delete().eq('application_id', appId)
-
-            // 6. app_domains se existir
-            await supabase.from('app_domains').delete().eq('application_id', appId)
+            // 4. Agora é seguro deletar member_areas + demais tabelas independentes em paralelo
+            await Promise.all([
+                supabase.from('member_areas').delete().eq('application_id', appId),
+                supabase.from('user_product_access').delete().eq('application_id', appId),
+                supabase.from('webhook_logs').delete().eq('application_id', appId),
+                supabase.from('app_banners').delete().eq('application_id', appId),
+                supabase.from('app_users').delete().eq('application_id', appId),
+                supabase.from('feed_posts').delete().eq('application_id', appId),
+                supabase.from('push_notifications').delete().eq('application_id', appId),
+                supabase.from('user_notifications').delete().eq('application_id', appId),
+                supabase.from('community_posts').delete().eq('application_id', appId),
+                supabase.from('products').delete().eq('application_id', appId),
+                supabase.from('app_domains').delete().eq('application_id', appId),
+            ])
 
             // 7. Finalmente deletar a application
             const { error } = await supabase
                 .from('applications')
                 .delete()
                 .eq('id', appId)
+                .select('id')
 
             if (error) {
                 console.error('Error deleting application:', error)
@@ -631,6 +637,29 @@ export async function handleApplications(
         // DELETE /applications/:appId/products/:productId - Delete product
         if (request.method === 'DELETE' && pathSegments.length === 3 && pathSegments[1] === 'products') {
             const productId = pathSegments[2]
+
+            // 1. Buscar IDs dos módulos para limpar as aulas
+            const { data: moduleIds } = await supabase
+                .from('community_modules')
+                .select('id')
+                .eq('member_area_id', productId)
+
+            // 2. Deletar todas as dependências em paralelo
+            await Promise.all([
+                supabase.from('product_content').delete().eq('product_id', productId),
+                supabase.from('checkouts').delete().eq('member_area_id', productId),
+                supabase.from('user_product_access').delete().eq('product_id', productId),
+                supabase.from('checkout_urls').delete().eq('product_id', productId),
+                moduleIds && moduleIds.length > 0
+                    ? supabase.from('community_lessons').delete().in('module_id', moduleIds.map((m: any) => m.id))
+                    : Promise.resolve(),
+            ])
+
+            // 3. Deletar community_modules após as aulas
+            await supabase.from('community_modules').delete().eq('member_area_id', productId)
+
+            // 4. Deletar member_areas (FK checkouts_member_area_id_fkey já resolvida acima)
+            await supabase.from('member_areas').delete().eq('id', productId)
 
             const { error } = await supabase.from('products').delete().eq('id', productId)
             if (error) throw error
