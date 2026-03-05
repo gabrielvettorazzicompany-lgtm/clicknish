@@ -620,7 +620,7 @@ export async function handleSuperadmin(request: Request, env: any, pathSegments:
         if (request.method === 'GET' && pathSegments.length === 1 && pathSegments[0] === 'providers') {
             const { data, error } = await supabase
                 .from('payment_providers')
-                .select('id, name, type, is_active, is_global_default, created_at, updated_at')
+                .select('id, name, type, credentials, is_active, is_global_default, created_at, updated_at')
                 .order('created_at', { ascending: true })
             if (error) throw error
             return new Response(JSON.stringify({ providers: data || [] }), {
@@ -705,7 +705,8 @@ export async function handleSuperadmin(request: Request, env: any, pathSegments:
             const adminEmail = adminData?.user?.email || ''
             const updateData: any = { updated_at: new Date().toISOString() }
             if (name !== undefined) updateData.name = name
-            if (credentials !== undefined) updateData.credentials = credentials
+            // Só atualiza credentials se vier preenchido (não sobrescreve com objeto vazio)
+            if (credentials !== undefined && Object.keys(credentials).length > 0) updateData.credentials = credentials
             if (is_active !== undefined) updateData.is_active = is_active
             if (enabled_methods !== undefined) updateData.enabled_methods = enabled_methods
             if (is_global_default !== undefined) {
@@ -722,7 +723,13 @@ export async function handleSuperadmin(request: Request, env: any, pathSegments:
                 .from('payment_providers')
                 .update(updateData)
                 .eq('id', providerId)
-            if (error) throw error
+            if (error) {
+                console.error('update_payment_provider error:', JSON.stringify(error))
+                return new Response(JSON.stringify({ error: error.message || 'Erro ao atualizar provedor', details: error }), {
+                    status: 500,
+                    headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+                })
+            }
             await logAudit(supabase, userId, adminEmail, 'update_payment_provider', 'payment_provider', providerId, { is_active, is_global_default, enabled_methods })
             return new Response(JSON.stringify({ success: true }), {
                 headers: { ...corsHeaders, 'Content-Type': 'application/json' }

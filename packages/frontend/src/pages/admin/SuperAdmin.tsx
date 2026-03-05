@@ -99,6 +99,7 @@ interface PaymentProvider {
     id: string
     name: string
     type: 'stripe' | 'stripe_connect' | 'mollie' | 'paypal' | 'custom'
+    credentials?: Record<string, string>
     is_active: boolean
     is_global_default: boolean
     created_at: string
@@ -901,7 +902,11 @@ export default function SuperAdmin() {
     const handleSaveProviderEdit = async (providerId: string) => {
         setSavingProvider(true)
         try {
-            const payload: any = { name: editingProviderName, credentials: editingProviderCreds }
+            const payload: any = { name: editingProviderName }
+            // Só envia credentials se alguma chave foi preenchida (evita sobrescrever com vazio)
+            if (Object.keys(editingProviderCreds).length > 0) {
+                payload.credentials = editingProviderCreds
+            }
             // Incluir enabled_methods se estivermos editando um provedor Mollie
             if (mollieMethodsProviderId === providerId) {
                 payload.enabled_methods = mollieEnabledMethods
@@ -917,7 +922,10 @@ export default function SuperAdmin() {
                 setMollieMethodsProviderId(null)
                 setMollieAvailableMethods([])
                 setMollieEnabledMethods([])
-            } else alert('Erro ao salvar provedor')
+            } else {
+                const err = await res.json().catch(() => ({}))
+                alert(err.error || `Erro ao salvar provedor (${res.status})`)
+            }
         } catch (e) { console.error(e) } finally { setSavingProvider(false) }
     }
 
@@ -3245,7 +3253,7 @@ export default function SuperAdmin() {
                                                                 if (isEditing) { setEditingProviderId(null); return }
                                                                 setEditingProviderId(provider.id)
                                                                 setEditingProviderName(provider.name)
-                                                                setEditingProviderCreds({})
+                                                                setEditingProviderCreds(provider.credentials || {})
                                                                 setShowAddProviderForm(false)
                                                             }}
                                                             className={`px-3 py-1.5 rounded-lg text-xs transition-colors border ${isEditing ? `${c.bg} ${c.text} ${c.border}` : 'bg-white/[0.05] hover:bg-white/[0.1] text-gray-400 hover:text-white border-white/[0.08]'}`}
