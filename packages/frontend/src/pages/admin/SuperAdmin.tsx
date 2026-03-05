@@ -146,6 +146,10 @@ export default function SuperAdmin() {
     const [selectedApp, setSelectedApp] = useState<PendingApp | null>(null)
     const [showAppRejectModal, setShowAppRejectModal] = useState(false)
     const [appRejectionReason, setAppRejectionReason] = useState('')
+    const [showAppDetailsModal, setShowAppDetailsModal] = useState(false)
+    const [appDetailsData, setAppDetailsData] = useState<any>(null)
+    const [loadingAppDetails, setLoadingAppDetails] = useState(false)
+    const [selectedAppForDetails, setSelectedAppForDetails] = useState<PendingApp | null>(null)
 
     // ─── Financial ─────────────────────────────────────────────────────────────────
     const [financialData, setFinancialData] = useState<any>(null)
@@ -601,7 +605,28 @@ export default function SuperAdmin() {
         setShowAppRejectModal(true)
     }
 
-    const handleApproveVerification = async (verificationId: string) => {
+    const fetchAppDetails = async (appId: string) => {
+        setLoadingAppDetails(true)
+        setAppDetailsData(null)
+        try {
+            const response = await fetch(`https://api.clicknich.com/api/superadmin/app-details/${appId}`, {
+                headers: {
+                    'Authorization': `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNnZXF0b2RiaXNnd3Zoa2FhaGl5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjkxMTk1MDIsImV4cCI6MjA4NDY5NTUwMn0.Ov6_rRlThZUBIoL4oT6BGozEhvTUdFsWB6KylDXpFoY`,
+                    'Content-Type': 'application/json',
+                    'x-user-id': user?.id || ''
+                }
+            })
+            if (response.ok) { const data = await response.json(); setAppDetailsData(data) }
+        } catch (error) { console.error('Error fetching app details:', error) } finally { setLoadingAppDetails(false) }
+    }
+
+    const openAppDetailsModal = (app: PendingApp) => {
+        setSelectedAppForDetails(app)
+        setShowAppDetailsModal(true)
+        fetchAppDetails(app.id)
+    }
+
+ = async (verificationId: string) => {
         setProcessingId(verificationId)
         try {
             const response = await fetch(`https://api.clicknich.com/api/superadmin/bank-verifications/${verificationId}/approve`, {
@@ -2386,6 +2411,10 @@ export default function SuperAdmin() {
                                                 </div>
                                             </div>
                                             <div className="flex items-center gap-2 mt-5 pt-4 border-t border-white/[0.05]">
+                                                <button onClick={() => openAppDetailsModal(app)} className="px-3 py-2 bg-white/[0.02] hover:bg-white/[0.05] border border-white/[0.06] hover:border-blue-500/30 text-gray-400 hover:text-blue-400 rounded-lg text-xs font-medium transition-all duration-200 flex items-center gap-1.5">
+                                                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
+                                                    <span>Ver conteúdo</span>
+                                                </button>
                                                 <button onClick={() => handleApproveApp(app.id)} disabled={processingId === app.id} className="relative flex-1 px-4 py-2 bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] hover:border-blue-500/50 text-gray-300 hover:text-white rounded-lg text-sm font-medium transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed">
                                                     <span className="flex items-center justify-center gap-1.5">
                                                         {processingId === app.id ? (
@@ -2699,6 +2728,166 @@ export default function SuperAdmin() {
                                 >
                                     Approve Account
                                 </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* App Details Modal */}
+                {showAppDetailsModal && selectedAppForDetails && (
+                    <div className="fixed inset-0 bg-black/70 backdrop-blur-md z-50 flex items-center justify-center p-4">
+                        <div className="relative w-full max-w-5xl max-h-[90vh] overflow-hidden flex flex-col rounded-none shadow-2xl">
+                            <div className="absolute inset-0 bg-[#0a0f1a] rounded-none" />
+                            <div className="absolute top-0 left-0 right-0 h-48 bg-gradient-to-br from-indigo-600/20 via-blue-600/10 to-transparent" />
+
+                            {/* Header */}
+                            <div className="relative p-6 border-b border-white/[0.05] flex items-center justify-between">
+                                <div className="flex items-center gap-4">
+                                    <div className="w-12 h-12 bg-gradient-to-br from-indigo-500 via-blue-600 to-blue-700 rounded-xl flex items-center justify-center shadow-lg shadow-indigo-500/30">
+                                        <svg className="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" /></svg>
+                                    </div>
+                                    <div>
+                                        <h3 className="text-xl font-bold text-white">App Review</h3>
+                                        <p className="text-sm text-gray-400">Conteúdo e produtos da aplicação</p>
+                                    </div>
+                                </div>
+                                <button
+                                    onClick={() => { setShowAppDetailsModal(false); setSelectedAppForDetails(null); setAppDetailsData(null) }}
+                                    className="w-10 h-10 rounded-xl bg-white/[0.05] hover:bg-white/[0.1] border border-white/[0.05] flex items-center justify-center text-gray-400 hover:text-white transition-all duration-200"
+                                >×</button>
+                            </div>
+
+                            {/* Content */}
+                            <div className="relative p-6 overflow-y-auto flex-1">
+                                {loadingAppDetails ? (
+                                    <div className="flex flex-col items-center justify-center py-16">
+                                        <div className="w-12 h-12 border-3 border-blue-500/30 border-t-blue-500 rounded-full animate-spin mb-4"></div>
+                                        <p className="text-gray-400">Carregando detalhes do app...</p>
+                                    </div>
+                                ) : (
+                                    <>
+                                        {/* App Hero Card */}
+                                        <div className="bg-gradient-to-br from-white/[0.05] to-white/[0.02] rounded-xl p-6 border border-white/[0.08] mb-6">
+                                            <div className="flex gap-5">
+                                                <div className="w-24 h-24 rounded-xl overflow-hidden flex-shrink-0 ring-4 ring-white/[0.08]">
+                                                    {selectedAppForDetails.logo_url ? (
+                                                        <img src={selectedAppForDetails.logo_url} alt={selectedAppForDetails.name} className="w-full h-full object-cover" />
+                                                    ) : (
+                                                        <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-indigo-600/30 to-blue-600/30">
+                                                            <span className="text-3xl font-bold text-indigo-400">{selectedAppForDetails.name?.charAt(0) || 'A'}</span>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                                <div className="flex-1">
+                                                    <h4 className="text-2xl font-bold text-white mb-1">{appDetailsData?.app?.name || selectedAppForDetails.name}</h4>
+                                                    <p className="text-sm text-gray-500 mb-3">/{selectedAppForDetails.slug}</p>
+                                                    <div className="flex flex-wrap gap-2">
+                                                        {appDetailsData?.app?.description && (
+                                                            <p className="text-sm text-gray-400 mb-2 w-full">{appDetailsData.app.description}</p>
+                                                        )}
+                                                        {selectedAppForDetails.app_type && <span className="px-3 py-1.5 bg-blue-500/10 text-blue-400 border border-blue-500/20 rounded-lg text-sm font-medium">{selectedAppForDetails.app_type}</span>}
+                                                        {selectedAppForDetails.language && <span className="px-3 py-1.5 bg-purple-500/10 text-purple-400 border border-purple-500/20 rounded-lg text-sm font-medium">{selectedAppForDetails.language}</span>}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        {/* Stats */}
+                                        {appDetailsData?.stats && (
+                                            <div className="grid grid-cols-3 gap-4 mb-6">
+                                                <div className="p-5 bg-gradient-to-br from-indigo-600/10 to-transparent rounded-xl border border-indigo-500/20">
+                                                    <p className="text-4xl font-bold bg-gradient-to-r from-indigo-400 to-blue-400 bg-clip-text text-transparent">{appDetailsData.stats.totalProducts}</p>
+                                                    <p className="text-sm text-gray-400 mt-1">Produtos</p>
+                                                </div>
+                                                <div className="p-5 bg-gradient-to-br from-blue-600/10 to-transparent rounded-xl border border-blue-500/20">
+                                                    <p className="text-4xl font-bold bg-gradient-to-r from-blue-400 to-blue-500 bg-clip-text text-transparent">{appDetailsData.stats.totalContents}</p>
+                                                    <p className="text-sm text-gray-400 mt-1">Conteúdos</p>
+                                                </div>
+                                                <div className="p-5 bg-gradient-to-br from-purple-600/10 to-transparent rounded-xl border border-purple-500/20">
+                                                    <p className="text-sm text-white font-medium mt-1">{appDetailsData?.app?.owner_email || selectedAppForDetails.owner_email || 'Unknown'}</p>
+                                                    <p className="text-sm text-gray-400 mt-1">Owner</p>
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        {/* Products */}
+                                        {appDetailsData?.products && appDetailsData.products.length > 0 && (
+                                            <div>
+                                                <h5 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-3">Produtos / Área de Membro</h5>
+                                                <div className="space-y-4">
+                                                    {appDetailsData.products.map((product: any, idx: number) => (
+                                                        <div key={product.id} className="bg-gradient-to-br from-white/[0.03] to-transparent rounded-xl border border-white/[0.05] overflow-hidden">
+                                                            <div className="p-4 bg-gradient-to-r from-indigo-600/5 to-transparent border-b border-white/[0.05]">
+                                                                <div className="flex items-center gap-3">
+                                                                    {product.image_url ? (
+                                                                        <img src={product.image_url} alt={product.name || product.title} className="w-10 h-10 rounded-lg object-cover" />
+                                                                    ) : (
+                                                                        <span className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-blue-600 text-white flex items-center justify-center text-sm font-bold">{idx + 1}</span>
+                                                                    )}
+                                                                    <div className="flex-1">
+                                                                        <h6 className="font-bold text-white">{product.name || product.title || 'Sem nome'}</h6>
+                                                                        {product.description && <p className="text-xs text-gray-500 mt-0.5 line-clamp-1">{product.description}</p>}
+                                                                    </div>
+                                                                    <div className="flex items-center gap-3">
+                                                                        {product.price != null && <span className="text-sm font-bold text-emerald-400">{product.currency || 'EUR'} {product.price?.toFixed(2)}</span>}
+                                                                        <span className="px-2 py-1 bg-white/[0.05] text-gray-400 rounded-lg text-xs">{product.contents?.length || 0} itens</span>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                            {product.contents && product.contents.length > 0 && (
+                                                                <div className="divide-y divide-white/[0.03]">
+                                                                    {product.contents.map((content: any, cIdx: number) => (
+                                                                        <div key={content.id} className="p-3 pl-16 hover:bg-white/[0.02] transition-colors flex items-center gap-3">
+                                                                            <span className="w-6 h-6 rounded-lg bg-white/[0.05] text-gray-500 flex items-center justify-center text-xs">{cIdx + 1}</span>
+                                                                            <div className="flex-1">
+                                                                                <p className="text-sm text-white">{content.title || 'Sem título'}</p>
+                                                                            </div>
+                                                                            <span className="text-xs px-2 py-0.5 rounded-lg bg-white/[0.05] text-gray-400 capitalize">{content.content_type || 'content'}</span>
+                                                                            {content.content_url && (
+                                                                                <a href={content.content_url} target="_blank" rel="noopener noreferrer" className="text-xs px-2 py-0.5 rounded-lg bg-blue-500/10 text-blue-400 hover:bg-blue-500/20 transition-colors">
+                                                                                    Abrir ↗
+                                                                                </a>
+                                                                            )}
+                                                                        </div>
+                                                                    ))}
+                                                                </div>
+                                                            )}
+                                                            {(!product.contents || product.contents.length === 0) && (
+                                                                <div className="p-4 text-center text-gray-500 text-sm">Nenhum conteúdo neste produto</div>
+                                                            )}
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        )}
+                                        {appDetailsData?.products && appDetailsData.products.length === 0 && (
+                                            <div className="p-10 bg-gradient-to-br from-white/[0.02] to-transparent rounded-xl border border-white/[0.05] text-center">
+                                                <p className="text-gray-400 font-medium">Nenhum produto cadastrado</p>
+                                                <p className="text-xs text-gray-500 mt-1">Esta aplicação ainda não tem produtos</p>
+                                            </div>
+                                        )}
+                                    </>
+                                )}
+                            </div>
+
+                            {/* Footer */}
+                            <div className="relative p-6 border-t border-white/[0.05] bg-gradient-to-t from-[#0a0f1a] to-transparent">
+                                <div className="flex items-center justify-between">
+                                    <button
+                                        onClick={() => { setShowAppDetailsModal(false); setSelectedAppForDetails(null); setAppDetailsData(null) }}
+                                        className="px-5 py-3 text-gray-400 hover:text-white transition-colors font-medium"
+                                    >Fechar</button>
+                                    <div className="flex gap-3">
+                                        <button
+                                            onClick={() => { setShowAppDetailsModal(false); openAppRejectModal(selectedAppForDetails) }}
+                                            className="px-6 py-3 bg-white/[0.05] hover:bg-red-500/20 border border-white/[0.1] hover:border-red-500/30 text-gray-300 hover:text-red-400 rounded-xl font-semibold transition-all duration-300"
+                                        >Rejeitar App</button>
+                                        <button
+                                            onClick={() => { handleApproveApp(selectedAppForDetails.id); setShowAppDetailsModal(false) }}
+                                            className="px-6 py-3 bg-gradient-to-r from-indigo-500 to-blue-600 hover:from-indigo-400 hover:to-blue-500 text-white rounded-xl font-semibold transition-all duration-300 shadow-lg shadow-indigo-500/25"
+                                        >Aprovar App</button>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>

@@ -365,6 +365,24 @@ export async function handleSuperadmin(request: Request, env: any, pathSegments:
             return new Response(JSON.stringify({ success: true, message: 'Product rejected' }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
         }
 
+        // GET /api/superadmin/app-details/:appId
+        if (request.method === 'GET' && pathSegments.length === 2 && pathSegments[0] === 'app-details') {
+            const appId = pathSegments[1]
+            const { data: app, error: appError } = await supabase.from('applications').select('*').eq('id', appId).single()
+            if (appError || !app) return new Response(JSON.stringify({ error: 'App not found' }), { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+            let ownerEmail = 'Unknown'
+            try { const { data: authUser } = await supabase.auth.admin.getUserById(app.owner_id); ownerEmail = authUser?.user?.email || 'Unknown' } catch { }
+            const { data: products } = await supabase.from('products').select('id, name, title, price, currency, description, image_url, is_active, order, created_at').eq('application_id', appId).order('order', { ascending: true })
+            const productIds = (products || []).map((p: any) => p.id)
+            let contents: any[] = []
+            if (productIds.length > 0) {
+                const { data: contentData } = await supabase.from('product_content').select('id, product_id, title, content_type, content_url, order').in('product_id', productIds).order('order', { ascending: true })
+                contents = contentData || []
+            }
+            const productsWithContents = (products || []).map((product: any) => ({ ...product, contents: contents.filter((c: any) => c.product_id === product.id) }))
+            return new Response(JSON.stringify({ app: { ...app, owner_email: ownerEmail }, products: productsWithContents, stats: { totalProducts: products?.length || 0, totalContents: contents.length } }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+        }
+
         // GET /api/superadmin/pending-apps
         if (request.method === 'GET' && pathSegments.length === 1 && pathSegments[0] === 'pending-apps') {
             const { data: apps, error } = await supabase.from('applications').select('id, name, slug, logo_url, app_type, language, owner_id, created_at, review_status').in('review_status', ['pending_review', 'draft']).order('created_at', { ascending: false })
