@@ -2353,6 +2353,12 @@ export default function SuperAdmin() {
                                                             <div className="flex items-center gap-2 mb-1">
                                                                 <h4 className="text-xl font-bold text-white group-hover:text-blue-400 transition-colors">{app.name}</h4>
                                                                 <span className="px-2 py-0.5 bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 rounded text-xs font-medium">App</span>
+                                                                {app.review_status === 'draft' && (
+                                                                    <span className="px-2 py-0.5 bg-gray-500/10 text-gray-400 border border-gray-500/20 rounded text-xs font-medium">Draft</span>
+                                                                )}
+                                                                {app.review_status === 'pending_review' && (
+                                                                    <span className="px-2 py-0.5 bg-amber-500/10 text-amber-400 border border-amber-500/20 rounded text-xs font-medium">Pending Review</span>
+                                                                )}
                                                             </div>
                                                             <p className="text-sm text-gray-500">/{app.slug}</p>
                                                         </div>

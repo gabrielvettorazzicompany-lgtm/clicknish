@@ -36,13 +36,15 @@ const Header = memo(function Header({ onMenuClick }: HeaderProps) {
         <ThemeToggle />
         <select
           value={language}
-          onChange={e => setLanguage(e.target.value as 'pt' | 'es' | 'en')}
+          onChange={e => setLanguage(e.target.value as 'pt' | 'es' | 'en' | 'fr' | 'de')}
           className="h-8 px-1.5 sm:px-2 bg-white dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded text-xs text-gray-600 dark:text-gray-300 focus:outline-none focus:ring-1 focus:ring-blue-400 cursor-pointer"
           title="Idioma"
         >
           <option value="pt">PT</option>
           <option value="es">ES</option>
           <option value="en">EN</option>
+          <option value="fr">FR</option>
+          <option value="de">DE</option>
         </select>
         <UserProfileDropdown />
       </div>

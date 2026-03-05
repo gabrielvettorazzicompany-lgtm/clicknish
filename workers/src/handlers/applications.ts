@@ -415,7 +415,7 @@ export async function handleApplications(
                 payment_type: body.payment_type || body.paymentType || null,
                 recurrence_period: body.recurrence_period || body.recurrencePeriod || null,
                 sales_page_url: body.sales_page_url || body.salesPageUrl || null,
-                review_status: 'draft'
+                review_status: 'pending_review'
             }
 
             console.log('Creating application with data:', JSON.stringify(newApp))

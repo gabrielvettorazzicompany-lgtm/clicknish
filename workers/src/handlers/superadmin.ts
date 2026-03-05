@@ -367,7 +367,7 @@ export async function handleSuperadmin(request: Request, env: any, pathSegments:
 
         // GET /api/superadmin/pending-apps
         if (request.method === 'GET' && pathSegments.length === 1 && pathSegments[0] === 'pending-apps') {
-            const { data: apps, error } = await supabase.from('applications').select('id, name, slug, logo_url, app_type, language, owner_id, created_at, review_status').eq('review_status', 'pending_review').order('created_at', { ascending: false })
+            const { data: apps, error } = await supabase.from('applications').select('id, name, slug, logo_url, app_type, language, owner_id, created_at, review_status').in('review_status', ['pending_review', 'draft']).order('created_at', { ascending: false })
             if (error) throw error
             const enrichedApps = await Promise.all((apps || []).map(async (app: any) => { try { const { data: authUser } = await supabase.auth.admin.getUserById(app.owner_id); return { ...app, owner_email: authUser?.user?.email || 'Unknown' } } catch { return { ...app, owner_email: 'Unknown' } } }))
             return new Response(JSON.stringify({ apps: enrichedApps }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
