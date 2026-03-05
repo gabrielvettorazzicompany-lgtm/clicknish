@@ -126,15 +126,6 @@ export default function Taxes() {
                             </div>
                         </Section>
 
-                        {/* 2. Pix / Boleto — Brasil */}
-                        <Section icon={<ArrowRightLeft className="w-4 h-4 text-green-400" />} title={t('taxes.local_title')} subtitle={t('taxes.local_subtitle')} color="border-green-500">
-                            <InfoCard items={[
-                                { label: t('taxes.pix_fee'), value: '4.99% + R$0.39', note: t('taxes.pix_settlement') },
-                                { label: t('taxes.boleto_fee'), value: '3.99% + R$1.90', note: t('taxes.per_paid_transaction') },
-                                { label: t('taxes.boleto_settlement'), value: 'D+3 úteis', note: t('taxes.after_payment_confirmation') },
-                            ]} />
-                        </Section>
-
                         {/* 5. Chargeback */}
                         <Section icon={<AlertTriangle className="w-4 h-4 text-red-400" />} title={t('taxes.chargeback_title')} color="border-red-500">
                             <InfoCard items={[
@@ -179,9 +170,8 @@ export default function Taxes() {
                             <div className="rounded-2xl border border-gray-200 dark:border-white/10 bg-white dark:bg-white/5 overflow-hidden">
                                 <div className="divide-y divide-gray-100 dark:divide-white/[0.05]">
                                     {[
-                                        { label: t('taxes.migration_min_time'), value: '60 dias' },
+                                        { label: t('taxes.migration_min_time'), value: '30 dias' },
                                         { label: t('taxes.migration_chargeback'), value: '< 0.6%' },
-                                        { label: t('taxes.migration_volume'), value: '$30.000 / mês' },
                                         { label: t('taxes.migration_kyc'), value: t('taxes.required') },
                                     ].map((item, i) => (
                                         <div key={i} className="flex items-center justify-between px-5 py-3.5">

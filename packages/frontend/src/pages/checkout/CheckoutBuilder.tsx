@@ -1044,7 +1044,7 @@ export default function CheckoutBuilder() {
                                 <textarea
                                     value={customUtms}
                                     onChange={(e) => setCustomUtms(e.target.value)}
-                                    placeholder={`<script\n  src="https://cdn.utmify.com.br/scripts/utms/latest.js"\n  data-utmify-prevent-xcod-sck\n  data-utmify-prevent-subids\n  async\n  defer\n></script>`}
+                                    placeholder=""
                                     rows={4}
                                     className="w-full px-2 py-2 bg-gray-800 border border-gray-700/50 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500/50 text-gray-300 text-[11px] font-mono resize-y"
                                 />
