@@ -89,8 +89,9 @@ export async function handleDashboardStats(
         const toDateObj = toDate ? new Date(toDate) : undefined
         let endOfDay: Date | undefined
         if (toDateObj) {
-            endOfDay = new Date(toDateObj)
-            endOfDay.setHours(23, 59, 59, 999)
+            // Adiciona 24h-1ms ao início do dia local enviado pelo frontend (em UTC),
+            // evitando o bug de timezone do setHours em ambiente UTC do worker.
+            endOfDay = new Date(toDateObj.getTime() + 24 * 60 * 60 * 1000 - 1)
         }
 
         // Inicializar resultados

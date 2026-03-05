@@ -75,8 +75,9 @@ export async function handleOrders(
             const fromDateObj = fromDate ? new Date(fromDate) : undefined
             let endOfDay: Date | undefined
             if (toDate) {
-                endOfDay = new Date(toDate)
-                endOfDay.setHours(23, 59, 59, 999)
+                // Adiciona 24h-1ms ao início do dia local enviado pelo frontend (em UTC),
+                // evitando o bug de timezone do setHours em ambiente UTC do worker.
+                endOfDay = new Date(new Date(toDate).getTime() + 24 * 60 * 60 * 1000 - 1)
             }
 
             // Buscar apps do usuário

@@ -21,7 +21,11 @@ function Dashboard() {
   const { user } = useAuthStore()
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [selectedCurrency, setSelectedCurrency] = useState('BRL')
-  const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined)
+  const [dateRange, setDateRange] = useState<DateRange | undefined>(() => {
+    const d = new Date()
+    d.setHours(0, 0, 0, 0)
+    return { from: d, to: d }
+  })
   const [hideValues, setHideValues] = useState(false)
   const [selectedApp, setSelectedApp] = useState<string>('')
   const [selectedMarketplace, setSelectedMarketplace] = useState<string>('')

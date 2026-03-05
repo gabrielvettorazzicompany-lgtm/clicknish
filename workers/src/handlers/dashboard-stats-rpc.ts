@@ -129,8 +129,9 @@ async function fetchDailySales(
 ): Promise<any[]> {
     // Determinar range de datas (últimos 7 dias por padrão)
     const from = fromDate ? new Date(fromDate) : new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
-    const to = toDate ? new Date(toDate) : new Date()
-    to.setHours(23, 59, 59, 999)
+    // Quando toDate é fornecido pelo frontend, representa meia-noite no timezone local.
+    // Adiciona 24h-1ms para cobrir o dia inteiro sem bug de timezone no worker (UTC).
+    const to = toDate ? new Date(new Date(toDate).getTime() + 24 * 60 * 60 * 1000 - 1) : new Date()
 
     // Buscar apps do usuário se necessário
     let appIds: string[] = []
