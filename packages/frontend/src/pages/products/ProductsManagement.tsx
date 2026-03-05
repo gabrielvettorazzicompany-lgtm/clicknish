@@ -469,11 +469,12 @@ export default function ProductsManagement({ embedded = false }: { embedded?: bo
     const handleDeleteApp = async (id: string) => {
         if (confirm('Are you sure you want to delete this app?')) {
             try {
+                const session = await getValidSession()
                 const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/applications/${id}`, {
                     method: 'DELETE',
                     headers: {
-                        'Authorization': `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNnZXF0b2RiaXNnd3Zoa2FhaGl5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjkxMTk1MDIsImV4cCI6MjA4NDY5NTUwMn0.Ov6_rRlThZUBIoL4oT6BGozEhvTUdFsWB6KylDXpFoY`,
-                        'x-user-id': user?.id || 'user-default'
+                        'Authorization': `Bearer ${session.access_token}`,
+                        'x-user-id': session.user.id
                     }
                 })
 
