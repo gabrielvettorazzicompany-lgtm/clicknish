@@ -626,7 +626,7 @@ export default function SuperAdmin() {
         fetchAppDetails(app.id)
     }
 
- = async (verificationId: string) => {
+    const handleApproveVerification = async (verificationId: string) => {
         setProcessingId(verificationId)
         try {
             const response = await fetch(`https://api.clicknich.com/api/superadmin/bank-verifications/${verificationId}/approve`, {
@@ -3934,7 +3934,7 @@ export default function SuperAdmin() {
                                                     </div>
                                                     <div className="flex items-center gap-2">
                                                         <button onClick={() => handleToggleProviderActive(provider.id, provider.is_active)} className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all ${provider.is_active ? 'bg-gray-500/10 text-gray-400 border-gray-500/20 hover:bg-gray-500/20' : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20 hover:bg-emerald-500/20'}`}>{provider.is_active ? 'Desativar' : 'Ativar'}</button>
-                                                        <button onClick={() => { if (isEditing) { setEditingProviderId(null); return } setEditingProviderId(provider.id); setEditingProviderName(provider.name); setEditingProviderCreds({}); setShowAddProviderForm(false) }} className={`px-3 py-1.5 rounded-lg text-xs transition-colors border ${isEditing ? `${c.bg} ${c.text} ${c.border}` : 'bg-white/[0.05] hover:bg-white/[0.1] text-gray-400 hover:text-white border-white/[0.08]'}`}>{isEditing ? '✎ Editando' : 'Editar chaves'}</button>
+                                                        <button onClick={() => { if (isEditing) { setEditingProviderId(null); return } setEditingProviderId(provider.id); setEditingProviderName(provider.name); setEditingProviderCreds(provider.credentials || {}); setShowAddProviderForm(false) }} className={`px-3 py-1.5 rounded-lg text-xs transition-colors border ${isEditing ? `${c.bg} ${c.text} ${c.border}` : 'bg-white/[0.05] hover:bg-white/[0.1] text-gray-400 hover:text-white border-white/[0.08]'}`}>{isEditing ? '✎ Editando' : 'Editar chaves'}</button>
                                                         {!provider.is_global_default && (<button onClick={() => handleDeleteProvider(provider.id)} className="px-3 py-1.5 bg-red-500/10 hover:bg-red-500/20 text-red-400 rounded-lg text-xs transition-colors border border-red-500/20">Remover</button>)}
                                                     </div>
                                                 </div>
