@@ -348,6 +348,7 @@ export default function Login() {
                     <option value="+34">🇪🇸 +34 Spain</option>
                     <option value="+33">🇫🇷 +33 France</option>
                     <option value="+49">🇩🇪 +49 Germany</option>
+                    <option value="+41">🇨🇭 +41 Switzerland</option>
                     <option value="+39">🇮🇹 +39 Italy</option>
                     <option value="+91">🇮🇳 +91 India</option>
                     <option value="+86">🇨🇳 +86 China</option>
