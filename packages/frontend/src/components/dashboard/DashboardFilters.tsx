@@ -39,13 +39,13 @@ export default function DashboardFilters({
             {combinedItems.length > 0 && onAppChange && (
                 <div className="w-full sm:w-48">
                     <Select
-                        aria-label="Filtrar por loja/app"
+                        aria-label={t('dashboard.filter_by_store')}
                         selectedKeys={selectedApp || selectedMarketplace ? [selectedApp || selectedMarketplace] : []}
                         onChange={(e) => onAppChange(e.target.value)}
                         variant="bordered"
                         radius="md"
                         size="sm"
-                        placeholder="Todas as lojas"
+                        placeholder={t('dashboard.all_stores')}
                         classNames={{
                             trigger: 'bg-white dark:bg-white/5 dark:backdrop-blur-xl border-gray-200 dark:border-white/10 hover:border-primary data-[focus=true]:border-primary h-8',
                             value: 'text-xs text-gray-700 dark:text-gray-300',
