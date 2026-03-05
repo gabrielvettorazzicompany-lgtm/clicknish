@@ -717,7 +717,15 @@ export async function handleSuperadmin(request: Request, env: any, pathSegments:
         // PUT /api/superadmin/providers/:id
         if (request.method === 'PUT' && pathSegments.length === 2 && pathSegments[0] === 'providers') {
             const providerId = pathSegments[1]
-            const body = await request.json()
+            let body: any = {}
+            try {
+                const rawText = await request.text()
+                if (rawText && rawText.trim()) body = JSON.parse(rawText)
+            } catch {
+                return new Response(JSON.stringify({ error: 'Corpo da requisição inválido (JSON malformado)' }), {
+                    status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+                })
+            }
             const { name, credentials, is_active, is_global_default, enabled_methods } = body
             const { data: adminData } = await supabase.auth.admin.getUserById(userId)
             const adminEmail = adminData?.user?.email || ''
