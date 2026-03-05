@@ -141,7 +141,7 @@ export default function ProductCard({
                         </span>
                     )}
                 </div>
-                {(product.review_status === 'draft' || product.review_status === 'rejected') && onSubmitReview && (
+                {(product.review_status === 'draft' || !product.review_status || product.review_status === 'rejected') && onSubmitReview && (
                     <button
                         onClick={() => onSubmitReview(product.id)}
                         className="w-full flex items-center justify-center gap-1.5 px-3 py-1.5 bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/25 text-blue-400 rounded-lg text-xs font-medium transition-colors mt-1"
