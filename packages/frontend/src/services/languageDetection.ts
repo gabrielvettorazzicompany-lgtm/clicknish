@@ -194,9 +194,9 @@ async function getGeolocationFromIP(ip: string): Promise<GeolocationData | null>
                 })
             },
             {
-                url: `http://ip-api.com/json/${ip}?fields=country,countryCode`,
+                url: `https://freeipapi.com/api/json/${ip}`,
                 parser: (data: any) => ({
-                    country: data.country,
+                    country: data.countryName,
                     country_code: data.countryCode
                 })
             }
@@ -216,11 +216,6 @@ async function getGeolocationFromIP(ip: string): Promise<GeolocationData | null>
                 if (!response.ok) continue
 
                 const data = await response.json()
-
-                // Verificar se a resposta é válida
-                if (service.url.includes('ip-api.com') && data.status !== 'success') {
-                    continue
-                }
 
                 const parsedData = service.parser(data)
 
