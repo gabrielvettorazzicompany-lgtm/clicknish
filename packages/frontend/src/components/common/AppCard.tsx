@@ -1,4 +1,5 @@
 import { Edit, Trash2, Link, Send } from 'lucide-react'
+import { useI18n } from '@/i18n'
 
 interface Application {
     id?: string
@@ -31,6 +32,8 @@ export default function AppCard({
     onOpenAccess,
     onSubmitReview,
 }: AppCardProps) {
+    const { t } = useI18n()
+
     const formatDate = (dateString: string) => {
         return new Date(dateString).toLocaleDateString('pt-BR')
     }
@@ -108,19 +111,19 @@ export default function AppCard({
                         {isDraft && (
                             <div className="flex items-center gap-1.5 px-2 py-1 bg-gray-500/10 border border-gray-500/20 rounded-lg">
                                 <div className="w-1.5 h-1.5 bg-gray-400 rounded-full"></div>
-                                <span className="text-xs text-gray-400 font-medium">Rascunho</span>
+                                <span className="text-xs text-gray-400 font-medium">{t('components.app_card.draft')}</span>
                             </div>
                         )}
                         {app.review_status === 'pending_review' && (
                             <div className="flex items-center gap-1.5 px-2 py-1 bg-yellow-500/10 border border-yellow-500/20 rounded-lg">
                                 <div className="w-1.5 h-1.5 bg-yellow-500 rounded-full animate-pulse"></div>
-                                <span className="text-xs text-yellow-500 font-medium">Em Verificação</span>
+                                <span className="text-xs text-yellow-500 font-medium">{t('components.app_card.in_review')}</span>
                             </div>
                         )}
                         {app.review_status === 'rejected' && (
                             <div className="flex items-center gap-1.5 px-2 py-1 bg-red-500/10 border border-red-500/20 rounded-lg">
                                 <div className="w-1.5 h-1.5 bg-red-500 rounded-full"></div>
-                                <span className="text-xs text-red-500 font-medium">Rejeitado</span>
+                                <span className="text-xs text-red-500 font-medium">{t('components.app_card.rejected')}</span>
                             </div>
                         )}
                     </div>
@@ -131,7 +134,7 @@ export default function AppCard({
                         className="mt-2 w-full flex items-center justify-center gap-1.5 px-3 py-1.5 bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/25 text-blue-400 rounded-lg text-xs font-medium transition-colors"
                     >
                         <Send size={11} />
-                        Enviar para Verificação
+                        {t('components.app_card.submit_verification')}
                     </button>
                 )}
             </div>

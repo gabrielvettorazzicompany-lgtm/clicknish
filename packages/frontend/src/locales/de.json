@@ -2359,8 +2359,11 @@
             "analysis": "Überprüfung!"
         },
         "app_card": {
-            "pending_review": "Pending Review",
-            "rejected": "Rejected"
+            "draft": "Entwurf",
+            "pending_review": "Ausstehende Überprüfung",
+            "in_review": "In Prüfung",
+            "rejected": "Abgelehnt",
+            "submit_verification": "Zur Prüfung einreichen"
         },
         "content_modal": {
             "select_type": "Select content type",

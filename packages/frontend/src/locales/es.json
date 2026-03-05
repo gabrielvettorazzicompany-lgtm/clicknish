@@ -2360,8 +2360,11 @@
             "analysis": "¡análisis!"
         },
         "app_card": {
+            "draft": "Borrador",
             "pending_review": "Pendiente de Revisión",
-            "rejected": "Rechazado"
+            "in_review": "En Verificación",
+            "rejected": "Rechazado",
+            "submit_verification": "Enviar para Verificación"
         },
         "content_modal": {
             "select_type": "Seleccionar tipo de contenido",
