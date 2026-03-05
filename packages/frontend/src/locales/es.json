@@ -44,7 +44,9 @@
         "total": "Total",
         "best_day": "Mejor día",
         "show_values": "Mostrar valores",
-        "hide_values": "Ocultar valores"
+        "hide_values": "Ocultar valores",
+        "all_stores": "Todas las tiendas",
+        "filter_by_store": "Filtrar por tienda/app"
     },
     "orders": {
         "title": "Pedidos",
@@ -152,6 +154,39 @@
             "brl": "BRL — Real",
             "eur": "EUR — Euro",
             "chf": "CHF — Franco"
+        },
+        "withdraw_modal": {
+            "title": "Solicitar retiro",
+            "available": "Disponible:",
+            "amount_label": "Monto del retiro",
+            "release_period": "Plazo de liberación",
+            "payout_fast": "Pago rápido",
+            "payout_standard": "Pago estándar",
+            "payout_economy": "Pago económico",
+            "gross_amount": "Monto bruto",
+            "fee_label": "Tarifa",
+            "you_receive": "Usted recibirá",
+            "new_account_warning": "Las cuentas nuevas tienen una reserva de seguridad de hasta el 15% durante 60 días.",
+            "cancel": "Cancelar",
+            "confirm": "Confirmar retiro",
+            "processing": "Procesando..."
+        },
+        "anticipation_modal": {
+            "title": "Solicitar anticipación",
+            "pending_balance": "Saldo pendiente:",
+            "explanation_p1": "Anticipe montos en",
+            "explanation_keyword": "procesamiento",
+            "explanation_p2": "para recepción inmediata, pagando una tarifa de",
+            "explanation_p3": "sobre el monto anticipado.",
+            "amount_label": "Monto a anticipar",
+            "amount_exceeds": "El monto supera el saldo pendiente disponible.",
+            "requested_amount": "Monto solicitado",
+            "fee_label": "Tarifa de anticipación",
+            "you_receive": "Usted recibirá",
+            "risk_warning": "Las anticipaciones están sujetas a análisis de riesgo. Los montos en reserva financiera (risk hold) no pueden anticiparse.",
+            "cancel": "Cancelar",
+            "confirm": "Confirmar anticipación",
+            "processing": "Procesando..."
         }
     },
     "customers": {

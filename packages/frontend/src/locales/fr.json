@@ -44,7 +44,9 @@
         "total": "Total",
         "best_day": "Meilleur jour",
         "show_values": "Afficher les valeurs",
-        "hide_values": "Masquer les valeurs"
+        "hide_values": "Masquer les valeurs",
+        "all_stores": "Toutes les boutiques",
+        "filter_by_store": "Filtrer par boutique/app"
     },
     "orders": {
         "title": "Commandes",
@@ -152,6 +154,39 @@
             "brl": "BRL — Real",
             "eur": "EUR — Euro",
             "chf": "CHF — Franc"
+        },
+        "withdraw_modal": {
+            "title": "Demander un retrait",
+            "available": "Disponible :",
+            "amount_label": "Montant du retrait",
+            "release_period": "Délai de libération",
+            "payout_fast": "Paiement rapide",
+            "payout_standard": "Paiement standard",
+            "payout_economy": "Paiement économique",
+            "gross_amount": "Montant brut",
+            "fee_label": "Frais",
+            "you_receive": "Vous recevrez",
+            "new_account_warning": "Les nouveaux comptes ont une réserve de sécurité allant jusqu'à 15% pendant 60 jours.",
+            "cancel": "Annuler",
+            "confirm": "Confirmer le retrait",
+            "processing": "Traitement en cours..."
+        },
+        "anticipation_modal": {
+            "title": "Demander une anticipation",
+            "pending_balance": "Solde en attente :",
+            "explanation_p1": "Anticipez les montants en",
+            "explanation_keyword": "traitement",
+            "explanation_p2": "pour une réception immédiate, en payant des frais de",
+            "explanation_p3": "sur le montant anticipé.",
+            "amount_label": "Montant à anticiper",
+            "amount_exceeds": "Le montant dépasse le solde en attente disponible.",
+            "requested_amount": "Montant demandé",
+            "fee_label": "Frais d'anticipation",
+            "you_receive": "Vous recevrez",
+            "risk_warning": "Les anticipations sont soumises à une analyse des risques. Les montants en réserve financière (risk hold) ne peuvent pas être anticipés.",
+            "cancel": "Annuler",
+            "confirm": "Confirmer l'anticipation",
+            "processing": "Traitement en cours..."
         }
     },
     "customers": {

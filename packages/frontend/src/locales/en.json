@@ -44,7 +44,9 @@
         "total": "Total",
         "best_day": "Best day",
         "show_values": "Show values",
-        "hide_values": "Hide values"
+        "hide_values": "Hide values",
+        "all_stores": "All stores",
+        "filter_by_store": "Filter by store/app"
     },
     "orders": {
         "title": "Orders",
@@ -152,6 +154,39 @@
             "brl": "BRL — Real",
             "eur": "EUR — Euro",
             "chf": "CHF — Franc"
+        },
+        "withdraw_modal": {
+            "title": "Request Withdrawal",
+            "available": "Available:",
+            "amount_label": "Withdrawal amount",
+            "release_period": "Release period",
+            "payout_fast": "Fast payout",
+            "payout_standard": "Standard payout",
+            "payout_economy": "Economic payout",
+            "gross_amount": "Gross amount",
+            "fee_label": "Fee",
+            "you_receive": "You will receive",
+            "new_account_warning": "New accounts have a security reserve of up to 15% for 60 days.",
+            "cancel": "Cancel",
+            "confirm": "Confirm Withdrawal",
+            "processing": "Processing..."
+        },
+        "anticipation_modal": {
+            "title": "Request Anticipation",
+            "pending_balance": "Pending balance:",
+            "explanation_p1": "Anticipate amounts in",
+            "explanation_keyword": "processing",
+            "explanation_p2": "for immediate receipt, paying a fee of",
+            "explanation_p3": "on the anticipated amount.",
+            "amount_label": "Amount to anticipate",
+            "amount_exceeds": "Amount exceeds available pending balance.",
+            "requested_amount": "Requested amount",
+            "fee_label": "Anticipation fee",
+            "you_receive": "You will receive",
+            "risk_warning": "Anticipations are subject to risk analysis. Amounts in financial reserve (risk hold) cannot be anticipated.",
+            "cancel": "Cancel",
+            "confirm": "Confirm Anticipation",
+            "processing": "Processing..."
         }
     },
     "customers": {

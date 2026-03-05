@@ -44,7 +44,9 @@
         "total": "Gesamt",
         "best_day": "Bester Tag",
         "show_values": "Werte anzeigen",
-        "hide_values": "Werte ausblenden"
+        "hide_values": "Werte ausblenden",
+        "all_stores": "Alle Shops",
+        "filter_by_store": "Nach Shop/App filtern"
     },
     "orders": {
         "title": "Bestellungen",
@@ -152,6 +154,39 @@
             "brl": "BRL — Real",
             "eur": "EUR — Euro",
             "chf": "CHF — Franc"
+        },
+        "withdraw_modal": {
+            "title": "Auszahlung anfordern",
+            "available": "Verfügbar:",
+            "amount_label": "Auszahlungsbetrag",
+            "release_period": "Freigabezeitraum",
+            "payout_fast": "Schnelle Auszahlung",
+            "payout_standard": "Standard-Auszahlung",
+            "payout_economy": "Günstige Auszahlung",
+            "gross_amount": "Bruttobetrag",
+            "fee_label": "Gebühr",
+            "you_receive": "Sie erhalten",
+            "new_account_warning": "Neue Konten haben eine Sicherheitsreserve von bis zu 15% für 60 Tage.",
+            "cancel": "Abbrechen",
+            "confirm": "Auszahlung bestätigen",
+            "processing": "Verarbeitung..."
+        },
+        "anticipation_modal": {
+            "title": "Vorauszahlung anfordern",
+            "pending_balance": "Ausstehender Saldo:",
+            "explanation_p1": "Beantragen Sie die sofortige Auszahlung von Beträgen in",
+            "explanation_keyword": "Bearbeitung",
+            "explanation_p2": "und zahlen Sie dabei eine Gebühr von",
+            "explanation_p3": "auf den vorgezogenen Betrag.",
+            "amount_label": "Vorzeitig auszuzahlender Betrag",
+            "amount_exceeds": "Betrag übersteigt den verfügbaren ausstehenden Saldo.",
+            "requested_amount": "Angeforderter Betrag",
+            "fee_label": "Vorauszahlungsgebühr",
+            "you_receive": "Sie erhalten",
+            "risk_warning": "Vorauszahlungen unterliegen der Risikoanalyse. Beträge in der Finanzreserve (Risk Hold) können nicht vorgezogen werden.",
+            "cancel": "Abbrechen",
+            "confirm": "Vorauszahlung bestätigen",
+            "processing": "Verarbeitung..."
         }
     },
     "customers": {
