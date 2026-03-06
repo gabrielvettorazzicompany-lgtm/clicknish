@@ -942,7 +942,8 @@ export default function SuperAdmin() {
                 body: JSON.stringify(payload)
             })
             if (res.ok) {
-                setProviders(prev => prev.map(p => p.id === providerId ? { ...p, name: editingProviderName } : p))
+                const newCreds = Object.keys(editingProviderCreds).length > 0 ? editingProviderCreds : undefined
+                setProviders(prev => prev.map(p => p.id === providerId ? { ...p, name: editingProviderName, ...(newCreds ? { credentials: newCreds } : {}) } : p))
                 setEditingProviderId(null)
                 setMollieMethodsProviderId(null)
                 setMollieAvailableMethods([])

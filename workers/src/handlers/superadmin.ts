@@ -660,7 +660,7 @@ export async function handleSuperadmin(request: Request, env: any, pathSegments:
             const { data, error } = await supabase
                 .from('payment_providers')
                 .insert({ name, type, credentials, is_active, created_by: userId })
-                .select('id, name, type, is_active, is_global_default, created_at')
+                .select('id, name, type, credentials, is_active, is_global_default, created_at')
                 .single()
             if (error) throw error
             await logAudit(supabase, userId, adminEmail, 'create_payment_provider', 'payment_provider', data.id, { name, type })
