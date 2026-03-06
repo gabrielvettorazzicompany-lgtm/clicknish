@@ -100,6 +100,7 @@ function buildInitialState(raw: any) {
         checkout,
         timerConfig,
         buttonColor: customFields.buttonColor || '#111827',
+        buttonText: customFields.buttonText || '',
         securitySealsEnabled: customFields.securitySealsEnabled || false,
         testimonials: (customFields.testimonials || []).map((t: any) => ({ ...t, slot: t.slot || 'below_button' })),
         testimonialsCarouselMode: customFields.testimonialsCarouselMode || false,
@@ -151,6 +152,7 @@ export default function CheckoutPublic() {
     const leadDataRef = useRef<{ email: string; name: string; phone: string } | null>(null)
     const abandonedFiredRef = useRef(false)
     const [buttonColor, setButtonColor] = useState(snap?.buttonColor ?? '#111827')
+    const [buttonText, setButtonText] = useState(snap?.buttonText ?? '')
     const [customPixels, setCustomPixels] = useState(snap?.customPixels ?? '')
     const [customUtms, setCustomUtms] = useState(snap?.customUtms ?? '')
     const [securitySealsEnabled, setSecuritySealsEnabled] = useState(snap?.securitySealsEnabled ?? false)
@@ -352,6 +354,9 @@ export default function CheckoutPublic() {
                     }
                     if (customFields.buttonColor) {
                         setButtonColor(customFields.buttonColor)
+                    }
+                    if (customFields.buttonText) {
+                        setButtonText(customFields.buttonText)
                     }
                     if (customFields.securitySealsEnabled !== undefined) {
                         setSecuritySealsEnabled(customFields.securitySealsEnabled)
@@ -587,6 +592,9 @@ export default function CheckoutPublic() {
             // Load button color
             if (customFields.buttonColor) {
                 setButtonColor(customFields.buttonColor)
+            }
+            if (customFields.buttonText) {
+                setButtonText(customFields.buttonText)
             }
 
             // Load security seals
@@ -1041,6 +1049,7 @@ export default function CheckoutPublic() {
                 timerConfig={timerConfig}
                 isPreview={false}
                 buttonColor={buttonColor}
+                buttonText={buttonText || undefined}
                 securitySealsEnabled={securitySealsEnabled}
                 testimonials={testimonials}
                 testimonialsCarouselMode={testimonialsCarouselMode}
