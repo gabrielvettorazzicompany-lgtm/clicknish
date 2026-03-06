@@ -168,7 +168,7 @@ async function handleApiRoute(
         return handleProcessUpsell(request, env, ctx)
     }
 
-    // GET /api/mollie/methods — métodos Mollie habilitados globalmente (usado pelo checkout)
+    // GET /api/mollie/methods — métodos Mollie habilitados, filtrados por país do visitante
     if (pathname === '/api/mollie/methods' && request.method === 'GET') {
         const { createClient } = await import('./lib/supabase')
         const supabase = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY)
@@ -181,13 +181,23 @@ async function handleApiRoute(
             .limit(1)
             .maybeSingle()
         const enabledMethods: string[] = prov?.enabled_methods || []
-        // Buscar labels da tabela de referência
-        const { data: methodDefs } = await supabase
+        // Detectar país via Cloudflare (CF-IPCountry header injetado automaticamente)
+        const visitorCountry = (request as any).cf?.country
+            || request.headers.get('CF-IPCountry')
+            || null
+        // Buscar métodos habilitados e disponíveis para o país do visitante
+        // Métodos com countries = ['*'] aparecem para todos
+        let query = supabase
             .from('mollie_payment_methods')
             .select('id, label, description, countries, currencies, icon_url, sort_order')
             .in('id', enabledMethods.length > 0 ? enabledMethods : ['__none__'])
             .order('sort_order')
-        return jsonResponse({ methods: methodDefs || [] })
+        if (visitorCountry) {
+            // Retorna métodos globais ('*') OU disponíveis no país do visitante
+            query = query.or(`countries.cs.{"*"},countries.cs.{"${visitorCountry}"}`)
+        }
+        const { data: methodDefs } = await query
+        return jsonResponse({ methods: methodDefs || [], country: visitorCountry })
     }
 
     // /api/applications/* - CRUD de aplicações
