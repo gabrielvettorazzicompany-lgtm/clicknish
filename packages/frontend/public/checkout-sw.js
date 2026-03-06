@@ -1,14 +1,22 @@
 /**
- * 🚀 CHECKOUT SERVICE WORKER ULTRAFAST
+ * Service Worker desativado.
+ * Este arquivo existe apenas para que browsers que tinham o checkout-sw antigo
+ * instalado recebam a atualização, limpem todos os caches e desregistrem.
  * 
- * ESTRATÉGIAS DE CACHE:
- * • Cache-First para assets estáticos (recursos críticos)
- * • Network-First com cache fallback para dados dinâmicos 
- * • Stale-While-Revalidate para checkout data
- * • Preload de recursos críticos on-demand
- * 
- * PERFORMANCE TARGET: <100ms resource loading
+ * O SW interceptava todas as navegações em scope '/' incluindo /checkout/:shortId,
+ * causando 404 no iOS/Android devido a bug do Safari com streaming responses.
  */
+self.addEventListener('install', () => self.skipWaiting())
+
+self.addEventListener('activate', (event) => {
+    event.waitUntil(
+        caches.keys()
+            .then((keys) => Promise.all(keys.map((k) => caches.delete(k))))
+            .then(() => self.clients.claim())
+            .then(() => self.registration.unregister())
+    )
+})
+
 
 const CACHE_VERSION = 'checkout-v7'
 const STATIC_CACHE = `${CACHE_VERSION}-static`
