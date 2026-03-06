@@ -127,12 +127,19 @@ async function fetchCheckoutData(shortId, env) {
         } catch (_) { }
     }
 
-    try {
-        const res = await fetch(`${CHECKOUT_API}/api/checkout-data/${shortId}`, {
-            cf: { cacheTtl: 300, cacheEverything: true },
-        })
-        if (res.ok) return await res.json()
-    } catch (_) { }
+    // Tenta 2 vezes com 1s de intervalo (novo checkout pode não estar no cache da API ainda)
+    for (let attempt = 0; attempt < 2; attempt++) {
+        try {
+            if (attempt > 0) await new Promise(r => setTimeout(r, 1000))
+            // Sem cf.cacheEverything: evita cachear respostas de erro da API
+            const res = await fetch(`${CHECKOUT_API}/api/checkout-data/${shortId}`)
+            if (res.ok) {
+                const data = await res.json()
+                // Não usa dados com erro mesmo que status seja 200
+                if (data && !data.error) return data
+            }
+        } catch (_) { }
+    }
 
     return null
 }

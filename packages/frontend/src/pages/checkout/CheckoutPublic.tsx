@@ -134,6 +134,7 @@ export default function CheckoutPublic() {
 
     // ⚡ Se dados já disponíveis no HTML, começa sem loading (zero skeleton)
     const [loading, setLoading] = useState(!snap)
+    const [fetchError, setFetchError] = useState(false)
     const [product, setProduct] = useState<Product | null>(snap?.product ?? null)
     const [checkout, setCheckout] = useState<Checkout | null>(snap?.checkout ?? null)
     const [finalCheckoutId, setFinalCheckoutId] = useState<string | null>(snap?.checkoutId ?? null)
@@ -651,8 +652,7 @@ export default function CheckoutPublic() {
             }
         } catch (error) {
             console.error('Error loading data:', error)
-            // Redirect to error page or 404
-            navigate('/404')
+            setFetchError(true)
         } finally {
             setLoading(false)
         }
@@ -788,7 +788,7 @@ export default function CheckoutPublic() {
         } else {
             setLoading(false)
         }
-    }, [productId, checkoutId, shortId, fetchData])
+    }, [productId, checkoutId, shortId, fetchData, loading]) // loading: re-executa ao clicar "Tentar novamente"
 
     const lang = checkout?.language || 'en'
     const t = getTranslations(lang as CheckoutLanguage)
@@ -863,6 +863,22 @@ export default function CheckoutPublic() {
             injected.forEach(el => el.parentNode?.removeChild(el))
         }
     }, [customPixels, customUtms])
+
+    if (fetchError) {
+        return (
+            <div className="min-h-screen bg-[#0f1117] flex items-center justify-center px-4">
+                <div className="text-center">
+                    <p className="text-gray-400 text-sm mb-4">Não foi possível carregar o checkout.</p>
+                    <button
+                        onClick={() => { setFetchError(false); setLoading(true) }}
+                        className="px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700"
+                    >
+                        Tentar novamente
+                    </button>
+                </div>
+            </div>
+        )
+    }
 
     if (loading) {
         return (
