@@ -1309,10 +1309,7 @@ export default function CheckoutBuilder() {
 
                         {/* Testimonials Configuration */}
                         {editingElement === 'testimonials' && (() => {
-                            const resolvedId = editingTestimonialId ?? testimonials[0]?.id ?? null
-                            const testimonial = testimonials.find(t => t.id === resolvedId)
-                            if (!testimonial) return null
-                            if (resolvedId !== editingTestimonialId) setEditingTestimonialId(resolvedId)
+                            const testimonial = testimonials.find(t => t.id === editingTestimonialId)
                             return (
                                 <div className="space-y-3">
                                     {/* Header with list of all testimonials */}
@@ -1320,7 +1317,7 @@ export default function CheckoutBuilder() {
                                         <div className="flex items-center justify-between mb-1.5">
                                             <span className="text-[10px] text-gray-400 font-semibold uppercase tracking-wider">Depoimentos</span>
                                             <button
-                                                onClick={handleAddTestimonial}
+                                                onClick={() => handleAddTestimonial('below_button')}
                                                 className="flex items-center gap-0.5 text-[10px] text-blue-400 hover:text-blue-300 transition-colors"
                                             >
                                                 <Plus size={11} />
@@ -1350,147 +1347,153 @@ export default function CheckoutBuilder() {
                                             </button>
                                         </div>
 
-                                        <div className="flex flex-col gap-1">
-                                            {testimonials.map(t => (
-                                                <div
-                                                    key={t.id}
-                                                    className={`flex items-center justify-between px-2 py-1.5 rounded cursor-pointer transition-colors ${t.id === editingTestimonialId ? 'bg-blue-500/20 border border-blue-500/40' : 'bg-gray-950 border border-gray-700 hover:border-blue-500/40'}`}
-                                                    onClick={() => { setEditingTestimonialId(t.id) }}
-                                                >
-                                                    <div className="flex items-center gap-1.5 min-w-0">
-                                                        {t.photo ? (
-                                                            <img src={t.photo} alt="" className="w-5 h-5 rounded-full object-cover flex-shrink-0" />
-                                                        ) : (
-                                                            <div className="w-5 h-5 rounded-full bg-gray-800 flex items-center justify-center flex-shrink-0">
-                                                                <MessageSquare size={9} className="text-gray-400" />
-                                                            </div>
-                                                        )}
-                                                        <span className="text-[11px] text-gray-300 truncate">{t.name}</span>
-                                                    </div>
-                                                    <button
-                                                        onClick={(e) => { e.stopPropagation(); handleDeleteTestimonial(t.id) }}
-                                                        className="p-1 text-red-500 hover:bg-red-500/10 rounded transition-colors flex-shrink-0"
+                                        {testimonials.length === 0 ? (
+                                            <p className="text-[10px] text-gray-600 italic text-center py-2">Nenhum depoimento. Clique em "+ Novo" para adicionar.</p>
+                                        ) : (
+                                            <div className="flex flex-col gap-1">
+                                                {testimonials.map(t => (
+                                                    <div
+                                                        key={t.id}
+                                                        className={`flex items-center justify-between px-2 py-1.5 rounded cursor-pointer transition-colors ${t.id === editingTestimonialId ? 'bg-blue-500/20 border border-blue-500/40' : 'bg-gray-950 border border-gray-700 hover:border-blue-500/40'}`}
+                                                        onClick={() => { setEditingTestimonialId(t.id) }}
                                                     >
-                                                        <Trash2 size={12} />
-                                                    </button>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    </div>
-
-                                    <div className="border-t border-gray-700 pt-4 space-y-4">
-                                        {/* Photo upload */}
-                                        <div>
-                                            <label className="block text-sm font-medium text-gray-300 mb-2">Foto</label>
-                                            <div className="flex flex-col items-center gap-3">
-                                                {testimonial.photo ? (
-                                                    <div className="relative">
-                                                        <img src={testimonial.photo} alt="preview" className="w-20 h-20 rounded-full object-cover border-2 border-gray-700" />
+                                                        <div className="flex items-center gap-1.5 min-w-0">
+                                                            {t.photo ? (
+                                                                <img src={t.photo} alt="" className="w-5 h-5 rounded-full object-cover flex-shrink-0" />
+                                                            ) : (
+                                                                <div className="w-5 h-5 rounded-full bg-gray-800 flex items-center justify-center flex-shrink-0">
+                                                                    <MessageSquare size={9} className="text-gray-400" />
+                                                                </div>
+                                                            )}
+                                                            <span className="text-[11px] text-gray-300 truncate">{t.name}</span>
+                                                        </div>
                                                         <button
-                                                            onClick={() => handleUpdateTestimonial(testimonial.id, { photo: '' })}
-                                                            className="absolute -top-1 -right-1 w-5 h-5 bg-red-600 text-white rounded-full flex items-center justify-center hover:bg-red-700 transition-colors"
+                                                            onClick={(e) => { e.stopPropagation(); handleDeleteTestimonial(t.id) }}
+                                                            className="p-1 text-red-500 hover:bg-red-500/10 rounded transition-colors flex-shrink-0"
                                                         >
-                                                            <X size={10} />
+                                                            <Trash2 size={12} />
                                                         </button>
                                                     </div>
-                                                ) : (
-                                                    <label htmlFor={`testimonial-photo-${testimonial.id}`} className="w-20 h-20 rounded-full bg-gray-800 border-2 border-dashed border-gray-600 flex flex-col items-center justify-center gap-1 cursor-pointer hover:border-blue-500 transition-colors">
-                                                        <Upload size={16} className="text-gray-400" />
-                                                        <span className="text-[9px] text-gray-500 text-center leading-tight">Upload<br />photo</span>
-                                                    </label>
-                                                )}
-                                                <input
-                                                    id={`testimonial-photo-${testimonial.id}`}
-                                                    type="file"
-                                                    accept="image/jpeg,image/png"
-                                                    className="hidden"
-                                                    onChange={(e) => handleTestimonialPhotoUpload(e, testimonial.id)}
-                                                />
-                                                <span className="text-[10px] text-gray-500">Formatos aceitos: JPG ou PNG. Tamanho máximo: 10MB.</span>
-                                            </div>
-                                        </div>
-
-                                        {/* Testimonial text */}
-                                        <div>
-                                            <label className="block text-sm font-medium text-gray-300 mb-2">Depoimento</label>
-                                            <textarea
-                                                value={testimonial.text}
-                                                onChange={(e) => handleUpdateTestimonial(testimonial.id, { text: e.target.value })}
-                                                rows={4}
-                                                placeholder="Digite seu depoimento aqui"
-                                                className="w-full px-3 py-2 bg-gray-950 border border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-100 text-sm resize-none"
-                                            />
-                                        </div>
-
-                                        {/* Stars */}
-                                        <div>
-                                            <label className="block text-sm font-medium text-gray-300 mb-2">Estrelas</label>
-                                            <div className="flex gap-1">
-                                                {[1, 2, 3, 4, 5].map((star) => (
-                                                    <button
-                                                        key={star}
-                                                        onClick={() => handleUpdateTestimonial(testimonial.id, { stars: star })}
-                                                        className="transition-transform hover:scale-110"
-                                                    >
-                                                        <svg viewBox="0 0 20 20" fill={star <= testimonial.stars ? '#f59e0b' : '#374151'} className="w-7 h-7">
-                                                            <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                                                        </svg>
-                                                    </button>
                                                 ))}
                                             </div>
-                                        </div>
-
-                                        {/* Name */}
-                                        <div>
-                                            <label className="block text-sm font-medium text-gray-300 mb-2">Nome</label>
-                                            <input
-                                                type="text"
-                                                value={testimonial.name}
-                                                onChange={(e) => handleUpdateTestimonial(testimonial.id, { name: e.target.value })}
-                                                placeholder="John Doe"
-                                                className="w-full px-3 py-2 bg-gray-950 border border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-100 text-sm"
-                                            />
-                                        </div>
-
-                                        {/* Background color */}
-                                        <div>
-                                            <label className="block text-sm font-medium text-gray-300 mb-2">Cor de fundo</label>
-                                            <div className="flex items-center gap-2">
-                                                <input
-                                                    type="color"
-                                                    value={testimonial.backgroundColor}
-                                                    onChange={(e) => handleUpdateTestimonial(testimonial.id, { backgroundColor: e.target.value })}
-                                                    className="w-10 h-10 border border-gray-700 rounded-lg cursor-pointer bg-transparent"
-                                                />
-                                                <input
-                                                    type="text"
-                                                    value={testimonial.backgroundColor}
-                                                    onChange={(e) => handleUpdateTestimonial(testimonial.id, { backgroundColor: e.target.value })}
-                                                    className="flex-1 px-3 py-2 bg-gray-950 border border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-100 text-sm"
-                                                />
-                                            </div>
-                                        </div>
-
-                                        {/* Text color */}
-                                        <div>
-                                            <label className="block text-sm font-medium text-gray-300 mb-2">Cor do texto</label>
-                                            <div className="flex items-center gap-2">
-                                                <input
-                                                    type="color"
-                                                    value={testimonial.textColor}
-                                                    onChange={(e) => handleUpdateTestimonial(testimonial.id, { textColor: e.target.value })}
-                                                    className="w-10 h-10 border border-gray-700 rounded-lg cursor-pointer bg-transparent"
-                                                />
-                                                <input
-                                                    type="text"
-                                                    value={testimonial.textColor}
-                                                    onChange={(e) => handleUpdateTestimonial(testimonial.id, { textColor: e.target.value })}
-                                                    className="flex-1 px-3 py-2 bg-gray-950 border border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-100 text-sm"
-                                                />
-                                            </div>
-                                        </div>
-
+                                        )}
                                     </div>
+
+                                    {testimonial && (
+                                        <div className="border-t border-gray-700 pt-4 space-y-4">
+                                            {/* Photo upload */}
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-300 mb-2">Foto</label>
+                                                <div className="flex flex-col items-center gap-3">
+                                                    {testimonial.photo ? (
+                                                        <div className="relative">
+                                                            <img src={testimonial.photo} alt="preview" className="w-20 h-20 rounded-full object-cover border-2 border-gray-700" />
+                                                            <button
+                                                                onClick={() => handleUpdateTestimonial(testimonial.id, { photo: '' })}
+                                                                className="absolute -top-1 -right-1 w-5 h-5 bg-red-600 text-white rounded-full flex items-center justify-center hover:bg-red-700 transition-colors"
+                                                            >
+                                                                <X size={10} />
+                                                            </button>
+                                                        </div>
+                                                    ) : (
+                                                        <label htmlFor={`testimonial-photo-${testimonial.id}`} className="w-20 h-20 rounded-full bg-gray-800 border-2 border-dashed border-gray-600 flex flex-col items-center justify-center gap-1 cursor-pointer hover:border-blue-500 transition-colors">
+                                                            <Upload size={16} className="text-gray-400" />
+                                                            <span className="text-[9px] text-gray-500 text-center leading-tight">Upload<br />photo</span>
+                                                        </label>
+                                                    )}
+                                                    <input
+                                                        id={`testimonial-photo-${testimonial.id}`}
+                                                        type="file"
+                                                        accept="image/jpeg,image/png"
+                                                        className="hidden"
+                                                        onChange={(e) => handleTestimonialPhotoUpload(e, testimonial.id)}
+                                                    />
+                                                    <span className="text-[10px] text-gray-500">Formatos aceitos: JPG ou PNG. Tamanho máximo: 10MB.</span>
+                                                </div>
+                                            </div>
+
+                                            {/* Testimonial text */}
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-300 mb-2">Depoimento</label>
+                                                <textarea
+                                                    value={testimonial.text}
+                                                    onChange={(e) => handleUpdateTestimonial(testimonial.id, { text: e.target.value })}
+                                                    rows={4}
+                                                    placeholder="Digite seu depoimento aqui"
+                                                    className="w-full px-3 py-2 bg-gray-950 border border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-100 text-sm resize-none"
+                                                />
+                                            </div>
+
+                                            {/* Stars */}
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-300 mb-2">Estrelas</label>
+                                                <div className="flex gap-1">
+                                                    {[1, 2, 3, 4, 5].map((star) => (
+                                                        <button
+                                                            key={star}
+                                                            onClick={() => handleUpdateTestimonial(testimonial.id, { stars: star })}
+                                                            className="transition-transform hover:scale-110"
+                                                        >
+                                                            <svg viewBox="0 0 20 20" fill={star <= testimonial.stars ? '#f59e0b' : '#374151'} className="w-7 h-7">
+                                                                <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                                                            </svg>
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                            </div>
+
+                                            {/* Name */}
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-300 mb-2">Nome</label>
+                                                <input
+                                                    type="text"
+                                                    value={testimonial.name}
+                                                    onChange={(e) => handleUpdateTestimonial(testimonial.id, { name: e.target.value })}
+                                                    placeholder="John Doe"
+                                                    className="w-full px-3 py-2 bg-gray-950 border border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-100 text-sm"
+                                                />
+                                            </div>
+
+                                            {/* Background color */}
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-300 mb-2">Cor de fundo</label>
+                                                <div className="flex items-center gap-2">
+                                                    <input
+                                                        type="color"
+                                                        value={testimonial.backgroundColor}
+                                                        onChange={(e) => handleUpdateTestimonial(testimonial.id, { backgroundColor: e.target.value })}
+                                                        className="w-10 h-10 border border-gray-700 rounded-lg cursor-pointer bg-transparent"
+                                                    />
+                                                    <input
+                                                        type="text"
+                                                        value={testimonial.backgroundColor}
+                                                        onChange={(e) => handleUpdateTestimonial(testimonial.id, { backgroundColor: e.target.value })}
+                                                        className="flex-1 px-3 py-2 bg-gray-950 border border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-100 text-sm"
+                                                    />
+                                                </div>
+                                            </div>
+
+                                            {/* Text color */}
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-300 mb-2">Cor do texto</label>
+                                                <div className="flex items-center gap-2">
+                                                    <input
+                                                        type="color"
+                                                        value={testimonial.textColor}
+                                                        onChange={(e) => handleUpdateTestimonial(testimonial.id, { textColor: e.target.value })}
+                                                        className="w-10 h-10 border border-gray-700 rounded-lg cursor-pointer bg-transparent"
+                                                    />
+                                                    <input
+                                                        type="text"
+                                                        value={testimonial.textColor}
+                                                        onChange={(e) => handleUpdateTestimonial(testimonial.id, { textColor: e.target.value })}
+                                                        className="flex-1 px-3 py-2 bg-gray-950 border border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-100 text-sm"
+                                                    />
+                                                </div>
+                                            </div>
+
+                                        </div>
+                                    )}
                                 </div>
                             )
                         })()}
