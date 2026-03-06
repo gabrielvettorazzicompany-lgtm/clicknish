@@ -19,17 +19,16 @@ const CHECKOUT_API = 'https://api.clicknich.com'
 function makeHeaders(shortId) {
     return {
         'Content-Type': 'text/html; charset=utf-8',
-        // 300s de cache na CDN Cloudflare global (purge ativo garante dados frescos)
-        'Cache-Control': 'public, max-age=300, stale-while-revalidate=3600',
+        // no-store: impede que CDN do Cloudflare e browser cacheiem o HTML do checkout.
+        // A performance já é garantida pelo KV cache interno do worker (~5ms).
+        // Cache na CDN causava: mobile recebia HTML antigo (com streaming quebrado) por até 1h.
+        'Cache-Control': 'no-store',
         'X-Edge-Rendered': 'true',
         'X-Checkout-Id': shortId,
-        // Early Hints (103): Cloudflare converte automaticamente para push/preload
-        // O browser inicia preconnect ANTES de receber o HTML completo
         'Link': [
             '<https://js.stripe.com>; rel=preconnect; crossorigin',
             '<https://api.stripe.com>; rel=preconnect; crossorigin',
             '<https://api.clicknich.com>; rel=preconnect; crossorigin',
-            // Imagens de banner/depoimentos migradas para Supabase Storage CDN
             '<https://cgeqtodbisgwvhkaahiy.supabase.co>; rel=preconnect; crossorigin',
         ].join(', '),
     }
