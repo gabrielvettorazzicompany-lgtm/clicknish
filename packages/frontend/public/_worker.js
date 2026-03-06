@@ -81,9 +81,10 @@ export default {
             }
         }
 
-        // ── CAMADA 2: Streaming response (miss de cache) ────────────────────────
-        // Busca o HTML estático e os dados do checkout em PARALELO
-        // checkout.html usa checkout-main.tsx — bundle mínimo sem HeroUI/QueryClient
+        // ── CAMADA 2: Busca HTML e dados em paralelo, resposta simples (sem streaming)
+        // Streaming (TransformStream) causava bug no iOS Safari: response.clone()
+        // corrompia o body original → checkout vazio no mobile. Resposta completa
+        // é compatível com todos os browsers e Service Workers.
         const htmlPromise = env.ASSETS.fetch(new Request(`${url.origin}/checkout.html`))
         const dataPromise = fetchCheckoutData(shortId, env)
 
@@ -94,55 +95,21 @@ export default {
             return env.ASSETS.fetch(new Request(`${url.origin}/index.html`))
         }
 
-        const html = await assetResponse.text()
+        const [html, checkoutData] = await Promise.all([
+            assetResponse.text(),
+            dataPromise,
+        ])
 
-        // Divide o HTML no ponto de injeção
-        const splitIdx = html.indexOf('</head>')
-        if (splitIdx === -1) {
-            // Fallback sem streaming se não tiver </head>
-            const data = await dataPromise
-            const full = buildInjectedHtml(html, shortId, data)
-            if (env.CACHE && data) {
-                ctx.waitUntil(env.CACHE.put(`html:${shortId}`, full, { expirationTtl: 86400 }).catch(() => { }))
-            }
-            return new Response(full, { status: 200, headers: makeHeaders(shortId) })
+        const fullHtml = buildInjectedHtml(html, shortId, checkoutData)
+
+        // Grava no KV em background para próximas requisições (TTL 24h)
+        if (env.CACHE && checkoutData) {
+            ctx.waitUntil(
+                env.CACHE.put(`html:${shortId}`, fullHtml, { expirationTtl: 86400 }).catch(() => { })
+            )
         }
 
-        const headChunk = html.slice(0, splitIdx)
-        const tailChunk = html.slice(splitIdx)       // </head><body>...</body></html>
-
-        // Cria um stream: flushar head IMEDIATAMENTE → browser inicia downloads
-        const { readable, writable } = new TransformStream()
-        const writer = writable.getWriter()
-        const enc = new TextEncoder()
-
-        ctx.waitUntil((async () => {
-            try {
-                // 1. IMEDIATO: envia o <head> — preconnects, CSS crítico, modulepreload
-                //    O browser já começa a baixar os bundles JS enquanto esperamos dados
-                await writer.write(enc.encode(headChunk))
-
-                // 2. Aguarda dados do KV/API (paralelo — já estava em flight)
-                const checkoutData = await dataPromise
-                const scriptTag = buildScriptTag(shortId, checkoutData)
-
-                // 3. Envia injeção de dados + resto do body
-                await writer.write(enc.encode(scriptTag + tailChunk))
-
-                // 4. Background: grava HTML completo no KV para próximas requisições (TTL 30min)
-                if (env.CACHE && checkoutData) {
-                    const fullHtml = headChunk + scriptTag + tailChunk
-                    // TTL 24h — purge ativo ao salvar checkout garante dados frescos
-                    env.CACHE.put(`html:${shortId}`, fullHtml, { expirationTtl: 86400 }).catch(() => { })
-                }
-            } catch (_) {
-                // Ignora erros de write (conexão fechada pelo cliente, etc.)
-            } finally {
-                writer.close().catch(() => { })
-            }
-        })())
-
-        return new Response(readable, { status: 200, headers: makeHeaders(shortId) })
+        return new Response(fullHtml, { status: 200, headers: makeHeaders(shortId) })
     },
 }
 
@@ -179,7 +146,7 @@ function buildScriptTag(shortId, data) {
     if (data) {
         return `<script>window.__IS_CHECKOUT_ROUTE__=true;window.__CHECKOUT_SHORT_ID__=${JSON.stringify(shortId)};window.__CHECKOUT_DATA__=${JSON.stringify(data)};window.__checkoutDataPromise=Promise.resolve(window.__CHECKOUT_DATA__);</script>\n`
     }
-    return `<script>window.__IS_CHECKOUT_ROUTE__=true;window.__CHECKOUT_SHORT_ID__=${JSON.stringify(shortId)};window.__checkoutDataPromise=fetch('https://api.clicknich.com/api/checkout-data/'+${JSON.stringify(shortId)},{priority:'high'}).then(function(r){return r.ok?r.json():null;}).catch(function(){return null;});</script>\n`
+    return `<script>window.__IS_CHECKOUT_ROUTE__=true;window.__CHECKOUT_SHORT_ID__=${JSON.stringify(shortId)};window.__checkoutDataPromise=fetch('https://api.clicknich.com/api/checkout-data/'+${JSON.stringify(shortId)}).then(function(r){return r.ok?r.json():null;}).catch(function(){return null;});</script>\n`
 }
 
 /** Usado apenas como fallback quando não há </head> no HTML */

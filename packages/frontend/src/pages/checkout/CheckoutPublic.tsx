@@ -281,7 +281,7 @@ export default function CheckoutPublic() {
                 // ⚡ FAST PATH: promise já em voo iniciada no index.html
                 const rpcResult = preRendered ?? await (
                     (window as any).__checkoutDataPromise
-                    ?? fetch(`https://api.clicknich.com/api/checkout-data/${shortId}`, { priority: 'high' } as any).then((r: Response) => r.json())
+                    ?? fetch(`https://api.clicknich.com/api/checkout-data/${shortId}`).then((r: Response) => r.json())
                 )
 
                 if ((window as any).__checkoutDataPromise) {
