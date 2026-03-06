@@ -355,8 +355,8 @@ class SupabaseQuery {
                 'Authorization': `Bearer ${this.serviceKey}`,
             }
 
-            // Prefer header para retornar dados após insert/update
-            if (this.returnData && (this.method === 'POST' || this.method === 'PATCH')) {
+            // Prefer header para retornar dados após insert/update/delete
+            if (this.returnData && (this.method === 'POST' || this.method === 'PATCH' || this.method === 'DELETE')) {
                 headers['Prefer'] = 'return=representation'
             }
 
@@ -388,6 +388,12 @@ class SupabaseQuery {
             }
 
             const response = await fetch(url, fetchOptions)
+
+            // 204 No Content — sem body, não chamar response.json()
+            if (response.status === 204) {
+                resolve({ data: [] as any, error: null })
+                return
+            }
 
             let data = await response.json()
 

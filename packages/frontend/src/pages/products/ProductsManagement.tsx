@@ -169,6 +169,7 @@ export default function ProductsManagement({ embedded = false }: { embedded?: bo
 
             if (response.ok) {
                 const data = await response.json()
+                console.log('[fetchApps] apps retornados:', data.map((a: any) => ({ id: a.id, name: a.name })))
                 setApps(data)
             }
         } catch (error) {
@@ -475,7 +476,10 @@ export default function ProductsManagement({ embedded = false }: { embedded?: bo
         if (confirm('Are you sure you want to delete this app?')) {
             try {
                 const session = await getValidSession()
-                const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/applications/${id}`, {
+                const url = `${import.meta.env.VITE_API_BASE_URL}/applications/${id}`
+                console.log('[handleDeleteApp] Iniciando delete', { id, url, userId: session.user.id })
+
+                const response = await fetch(url, {
                     method: 'DELETE',
                     headers: {
                         'Authorization': `Bearer ${session.access_token}`,
@@ -483,15 +487,20 @@ export default function ProductsManagement({ embedded = false }: { embedded?: bo
                     }
                 })
 
+                console.log('[handleDeleteApp] Resposta recebida', { status: response.status, ok: response.ok })
+
                 if (response.ok) {
-                    setApps(apps.filter(app => app.id !== id))
+                    const body = await response.json().catch(() => ({}))
+                    console.log('[handleDeleteApp] Body de sucesso:', body)
+                    setApps(prev => prev.filter(app => app.id !== id))
                     alert('App deleted successfully!')
                 } else {
                     const err = await response.json().catch(() => ({}))
+                    console.error('[handleDeleteApp] Erro do servidor:', err)
                     alert(`Error deleting app: ${err.error || response.status}`)
                 }
             } catch (error) {
-                console.error('Error deleting app:', error)
+                console.error('[handleDeleteApp] Exceção capturada:', error)
                 alert('Error deleting app')
             }
         }

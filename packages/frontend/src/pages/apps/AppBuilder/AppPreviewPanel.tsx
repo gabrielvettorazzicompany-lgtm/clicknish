@@ -1,5 +1,5 @@
 import { Eye, Smartphone } from 'lucide-react'
-import { useI18n } from '@/i18n'
+import { useI18n, tForLang } from '@/i18n'
 import type { AppData } from './types'
 
 interface Props {
@@ -9,6 +9,10 @@ interface Props {
 export default function AppPreviewPanel({ appData }: Props) {
     const { t } = useI18n()
     const isDark = appData.theme === 'dark'
+
+    // Translations rendered inside the phone preview should use the app's configured language
+    const tApp = (key: string, vars?: Record<string, any>) =>
+        tForLang(appData.language || 'en', key, vars)
 
     const bgGradient = isDark
         ? 'bg-gradient-to-br from-[#050608] via-[#0a0d14] via-30% via-[#0f1520] via-60% to-[#1a4a6c]'
@@ -49,14 +53,14 @@ export default function AppPreviewPanel({ appData }: Props) {
                                 </div>
                             )}
                             <h4 className={`font-semibold ${isDark ? 'text-white' : 'text-gray-800'}`}>
-                                {appData.name || t('apps.preview.app_name_default')}
+                                {appData.name || tApp('apps.preview.app_name_default')}
                             </h4>
                             <p className={`text-xs ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
                                 {appData.appType === 'login-complete'
-                                    ? t('apps.preview.login_email_password')
+                                    ? tApp('apps.preview.login_email_password')
                                     : appData.appType === 'login-simple'
-                                        ? t('apps.preview.quick_access_email')
-                                        : t('apps.preview.access_account')}
+                                        ? tApp('apps.preview.quick_access_email')
+                                        : tApp('apps.preview.access_account')}
                             </p>
                         </div>
 
@@ -65,7 +69,7 @@ export default function AppPreviewPanel({ appData }: Props) {
                                 className={`flex items-center gap-2 p-2 border rounded text-xs ${isDark ? 'border-[#252941] bg-[#0f1117] text-gray-300' : 'border-gray-200 bg-gray-50 text-gray-500'
                                     }`}
                             >
-                                {t('apps.preview.your_email')}
+                                {tApp('apps.preview.your_email')}
                             </div>
                             {appData.appType === 'login-complete' && (
                                 <div
@@ -74,11 +78,11 @@ export default function AppPreviewPanel({ appData }: Props) {
                                         : 'border-gray-200 bg-gray-50 text-gray-500'
                                         }`}
                                 >
-                                    {t('apps.preview.enter_password')}
+                                    {tApp('apps.preview.enter_password')}
                                 </div>
                             )}
                             <button className="w-full py-2 rounded text-xs font-medium text-white bg-gradient-to-r from-blue-500 to-blue-600 shadow-lg shadow-blue-500/30">
-                                {appData.appType === 'login-simple' ? t('apps.preview.access_with_email') : t('apps.preview.login')}
+                                {appData.appType === 'login-simple' ? tApp('apps.preview.access_with_email') : tApp('apps.preview.login')}
                             </button>
                             {appData.freeRegistration && (
                                 <>
@@ -91,7 +95,7 @@ export default function AppPreviewPanel({ appData }: Props) {
                                                 className={`px-2 ${isDark ? 'bg-[#1a2035] text-gray-500' : 'bg-white text-gray-400'}`}
                                                 style={{ fontSize: '9px' }}
                                             >
-                                                {t('apps.preview.or')}
+                                                {tApp('apps.preview.or')}
                                             </span>
                                         </div>
                                     </div>
@@ -101,7 +105,7 @@ export default function AppPreviewPanel({ appData }: Props) {
                                             : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300 hover:bg-gray-50'
                                             }`}
                                     >
-                                        ✓ {t('apps.preview.create_free_account')}
+                                        ✓ {tApp('apps.preview.create_free_account')}
                                     </button>
                                 </>
                             )}
@@ -128,7 +132,7 @@ export default function AppPreviewPanel({ appData }: Props) {
                                         {appData.name ? appData.name.charAt(0).toUpperCase() : 'A'}
                                     </div>
                                 )}
-                                <span className="text-xs font-semibold">{appData.name || t('apps.preview.app_name_default')}</span>
+                                <span className="text-xs font-semibold">{appData.name || tApp('apps.preview.app_name_default')}</span>
                             </div>
                             <div className="w-5 h-5 rounded-full bg-white/20" />
                         </div>
@@ -159,7 +163,7 @@ export default function AppPreviewPanel({ appData }: Props) {
                             {/* Products Grid */}
                             <div>
                                 <h4 className={`text-xs font-bold mb-2 ${isDark ? 'text-white' : 'text-gray-800'}`}>
-                                    {appData.showNames ? t('apps.preview.products_label') : ''}
+                                    {appData.showNames ? tApp('apps.preview.products_label') : ''}
                                 </h4>
                                 <div className="grid grid-cols-2 gap-2">
                                     {[1, 2].map(i => (
@@ -174,9 +178,9 @@ export default function AppPreviewPanel({ appData }: Props) {
                                             {appData.showNames && (
                                                 <div className="p-2">
                                                     <p className={`text-xs font-semibold truncate ${isDark ? 'text-white' : 'text-gray-800'}`}>
-                                                        {t('apps.preview.product_n', { n: i })}
+                                                        {tApp('apps.preview.product_n', { n: i })}
                                                     </p>
-                                                    <p className={`text-xs truncate ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>{t('apps.preview.course')}</p>
+                                                    <p className={`text-xs truncate ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>{tApp('apps.preview.course')}</p>
                                                 </div>
                                             )}
                                         </div>
@@ -262,7 +266,7 @@ export default function AppPreviewPanel({ appData }: Props) {
                                     <div className="w-4 h-4 rounded bg-blue-100 flex items-center justify-center">
                                         <div className="w-2 h-2 rounded" style={{ backgroundColor: appData.primaryColor }} />
                                     </div>
-                                    <span className="text-xs font-medium">{t('apps.preview.home')}</span>
+                                    <span className="text-xs font-medium">{tApp('apps.preview.home')}</span>
                                 </div>
 
                                 <div className={`flex flex-col items-center gap-0.5 ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>
@@ -277,7 +281,7 @@ export default function AppPreviewPanel({ appData }: Props) {
                                         <div className="w-4 h-4 flex items-center justify-center">
                                             <div className="w-2 h-2 rounded" style={{ backgroundColor: appData.primaryColor }} />
                                         </div>
-                                        <span className="text-xs">{t('apps.preview.community')}</span>
+                                        <span className="text-xs">{tApp('apps.preview.community')}</span>
                                     </div>
                                 )}
 
@@ -285,7 +289,7 @@ export default function AppPreviewPanel({ appData }: Props) {
                                     <div className="w-4 h-4 flex items-center justify-center">
                                         <div className="w-2 h-2 bg-gray-400 rounded" />
                                     </div>
-                                    <span className="text-xs">{t('apps.preview.profile')}</span>
+                                    <span className="text-xs">{tApp('apps.preview.profile')}</span>
                                 </div>
                             </div>
                         </div>

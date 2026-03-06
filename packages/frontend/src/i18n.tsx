@@ -75,3 +75,19 @@ export function useI18n() {
     if (!ctx) throw new Error('useI18n must be used within I18nProvider')
     return ctx
 }
+
+/**
+ * Resolve a translation key for a specific language (without changing global state).
+ * Normalizes 'pt-br' / 'pt-BR' to 'pt'.
+ */
+export function tForLang(lang: string, key: string, vars?: Record<string, any>): string {
+    const normalised = lang.toLowerCase().replace('pt-br', 'pt') as Language
+    const dict = translations[normalised] || translations['en']
+    let str = resolve(dict, key) ?? resolve(translations['en'], key) ?? key
+    if (vars) {
+        Object.entries(vars).forEach(([k, v]) => {
+            str = str.replace(new RegExp(`\\{${k}\\}`, 'g'), String(v))
+        })
+    }
+    return str
+}

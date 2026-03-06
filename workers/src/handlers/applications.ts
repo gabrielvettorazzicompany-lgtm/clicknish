@@ -519,8 +519,6 @@ export async function handleApplications(
         if (request.method === 'DELETE' && pathSegments.length === 1) {
             const appId = pathSegments[0]
 
-            console.log('Deleting application:', appId, 'for user:', userId)
-
             // Verificar ownership antes de deletar
             const { data: appCheck } = await supabase
                 .from('applications')
@@ -530,85 +528,31 @@ export async function handleApplications(
                 .single()
             if (!appCheck) return jsonResponse({ error: 'App not found or access denied' }, 404)
 
-            // 1. Buscar IDs dependentes em paralelo
-            const [
-                { data: postIds },
-                { data: productIds },
-                { data: checkoutIds },
-                { data: offerIds },
-                { data: funnelIds },
-            ] = await Promise.all([
-                supabase.from('community_posts').select('id').eq('application_id', appId),
-                supabase.from('products').select('id').eq('application_id', appId),
-                supabase.from('checkouts').select('id').eq('application_id', appId),
-                supabase.from('checkout_offers').select('id').eq('application_id', appId),
-                supabase.from('funnels').select('id').eq('product_id', appId),
-            ])
+            // user_product_access é a única FK com NO ACTION (não faz cascade automático)
+            // Limpar por application_id e por product_id antes de deletar o app
+            const { data: productIds } = await supabase
+                .from('products')
+                .select('id')
+                .eq('application_id', appId)
 
-            // 2. Deletar filhos profundos (netos): community_comments, product_content,
-            //    checkout_analytics, sale_locations (FK → checkouts),
-            //    offer_analytics (FK → checkout_offers), funnel_pages (FK → funnels)
             await Promise.all([
-                postIds && postIds.length > 0
-                    ? supabase.from('community_comments').delete().in('post_id', postIds.map((p: any) => p.id))
-                    : Promise.resolve(),
-                productIds && productIds.length > 0
-                    ? supabase.from('product_content').delete().in('product_id', productIds.map((p: any) => p.id))
-                    : Promise.resolve(),
-                checkoutIds && checkoutIds.length > 0
-                    ? supabase.from('checkout_analytics').delete().in('checkout_id', checkoutIds.map((c: any) => c.id))
-                    : Promise.resolve(),
-                checkoutIds && checkoutIds.length > 0
-                    ? supabase.from('sale_locations').delete().in('checkout_id', checkoutIds.map((c: any) => c.id))
-                    : Promise.resolve(),
-                offerIds && offerIds.length > 0
-                    ? supabase.from('offer_analytics').delete().in('checkout_offer_id', offerIds.map((o: any) => o.id))
-                    : Promise.resolve(),
-                funnelIds && funnelIds.length > 0
-                    ? supabase.from('funnel_pages').delete().in('funnel_id', funnelIds.map((f: any) => f.id))
-                    : Promise.resolve(),
-            ])
-
-            // 3. Deletar filhos diretos de applications: checkout_offers e funnels
-            await Promise.all([
-                supabase.from('checkout_offers').delete().eq('application_id', appId),
-                supabase.from('funnels').delete().eq('product_id', appId),
-            ])
-
-            // 4. Deletar checkouts ANTES de member_areas (FK checkouts_member_area_id_fkey)
-            await Promise.all([
-                supabase.from('checkouts').delete().eq('application_id', appId),
-                supabase.from('checkout_urls').delete().eq('application_id', appId),
-            ])
-
-            // 5. Deletar member_areas + demais tabelas independentes
-            await Promise.all([
-                supabase.from('member_areas').delete().eq('application_id', appId),
                 supabase.from('user_product_access').delete().eq('application_id', appId),
-                supabase.from('webhook_logs').delete().eq('application_id', appId),
-                supabase.from('app_banners').delete().eq('application_id', appId),
-                supabase.from('app_users').delete().eq('application_id', appId),
-                supabase.from('feed_posts').delete().eq('application_id', appId),
-                supabase.from('push_notifications').delete().eq('application_id', appId),
-                supabase.from('user_notifications').delete().eq('application_id', appId),
-                supabase.from('community_posts').delete().eq('application_id', appId),
-                supabase.from('products').delete().eq('application_id', appId),
-                supabase.from('app_domains').delete().eq('application_id', appId),
-                supabase.from('checkout_sales').delete().eq('application_id', appId),
-                supabase.from('mollie_payments').delete().eq('application_id', appId),
+                productIds && productIds.length > 0
+                    ? supabase.from('user_product_access').delete().in('product_id', productIds.map((p: any) => p.id))
+                    : Promise.resolve({ error: null }),
             ])
 
-            // 6. Finalmente deletar a application
-            const { error } = await supabase
+            // O CASCADE do banco cuida de todas as outras tabelas automaticamente
+            const { error: deleteError } = await supabase
                 .from('applications')
                 .delete()
                 .eq('id', appId)
-                .select('id')
 
-            if (error) {
-                console.error('Error deleting application:', error)
-                throw error
+            if (deleteError) {
+                console.error('[DELETE app] erro:', deleteError)
+                return jsonResponse({ error: deleteError.message }, 500)
             }
+
             return jsonResponse({ success: true })
         }
 

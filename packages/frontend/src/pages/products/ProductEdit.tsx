@@ -93,6 +93,64 @@ export default function ProductEdit() {
     const [editingLessonId, setEditingLessonId] = useState<string | null>(null)
     const [currentUploadTarget, setCurrentUploadTarget] = useState<'module' | 'product'>('module')
 
+    // Drag and drop
+    const dragModuleId = useRef<string | null>(null)
+    const dragOverModuleId = useRef<string | null>(null)
+    const dragLessonId = useRef<string | null>(null)
+    const dragOverLessonId = useRef<string | null>(null)
+    const dragLessonModuleId = useRef<string | null>(null)
+
+    const handleModuleDragStart = (moduleId: string) => {
+        dragModuleId.current = moduleId
+    }
+
+    const handleModuleDragOver = (e: React.DragEvent, moduleId: string) => {
+        e.preventDefault()
+        dragOverModuleId.current = moduleId
+    }
+
+    const handleModuleDrop = async () => {
+        if (!dragModuleId.current || !dragOverModuleId.current || dragModuleId.current === dragOverModuleId.current) return
+        const reordered = [...modules]
+        const fromIdx = reordered.findIndex(m => m.id === dragModuleId.current)
+        const toIdx = reordered.findIndex(m => m.id === dragOverModuleId.current)
+        const [moved] = reordered.splice(fromIdx, 1)
+        reordered.splice(toIdx, 0, moved)
+        const updated = reordered.map((m, i) => ({ ...m, order_position: i }))
+        setModules(updated)
+        dragModuleId.current = null
+        dragOverModuleId.current = null
+        await Promise.all(updated.map(m => supabase.from('community_modules').update({ order_position: m.order_position }).eq('id', m.id)))
+    }
+
+    const handleLessonDragStart = (lessonId: string, moduleId: string) => {
+        dragLessonId.current = lessonId
+        dragLessonModuleId.current = moduleId
+    }
+
+    const handleLessonDragOver = (e: React.DragEvent, lessonId: string) => {
+        e.preventDefault()
+        dragOverLessonId.current = lessonId
+    }
+
+    const handleLessonDrop = async (moduleId: string) => {
+        if (!dragLessonId.current || !dragOverLessonId.current || dragLessonId.current === dragOverLessonId.current) return
+        if (dragLessonModuleId.current !== moduleId) return
+        const module = modules.find(m => m.id === moduleId)
+        if (!module?.lessons) return
+        const reordered = [...module.lessons]
+        const fromIdx = reordered.findIndex(l => l.id === dragLessonId.current)
+        const toIdx = reordered.findIndex(l => l.id === dragOverLessonId.current)
+        const [moved] = reordered.splice(fromIdx, 1)
+        reordered.splice(toIdx, 0, moved)
+        const updated = reordered.map((l, i) => ({ ...l, order_position: i }))
+        setModules(prev => prev.map(m => m.id === moduleId ? { ...m, lessons: updated } : m))
+        dragLessonId.current = null
+        dragOverLessonId.current = null
+        dragLessonModuleId.current = null
+        await Promise.all(updated.map(l => supabase.from('community_lessons').update({ order_position: l.order_position }).eq('id', l.id)))
+    }
+
     // Payment methods
     const togglePaymentMethod = async (method: 'credit_card' | 'paypal') => {
         const current = formData.payment_methods
@@ -283,6 +341,7 @@ export default function ProductEdit() {
                 .from('community_modules')
                 .select('*')
                 .eq('member_area_id', productId)
+                .order('order_position', { ascending: true })
 
             const modulesWithLessons = await Promise.all(
                 (modulesData || []).map(async (module) => {
@@ -1068,18 +1127,6 @@ export default function ProductEdit() {
                                                         onInput={e => (e.currentTarget.setCustomValidity(''))}
                                                     />
                                                 </div>
-                                                <div>
-                                                    <label className="block text-[10px] font-medium text-gray-300 mb-1.5">{t('product_pages.module_name')}</label>
-                                                    <input
-                                                        type="text"
-                                                        value={moduleForm.module_number}
-                                                        onChange={(e) => setModuleForm({ ...moduleForm, module_number: e.target.value })}
-                                                        className="w-full p-2 text-xs bg-[#1a1d2e] text-gray-200 border border-[#252941]/50 rounded-lg focus:outline-none focus:border-blue-500/40"
-                                                        required
-                                                        onInvalid={e => (e.currentTarget.setCustomValidity('Please fill out this field.'))}
-                                                        onInput={e => (e.currentTarget.setCustomValidity(''))}
-                                                    />
-                                                </div>
                                             </div>
 
                                             <div>
@@ -1090,20 +1137,6 @@ export default function ProductEdit() {
                                                     rows={2}
                                                     className="w-full p-2 text-xs bg-[#1a1d2e] text-gray-200 border border-[#252941]/50 rounded-lg focus:outline-none focus:border-blue-500/40"
                                                 />
-                                            </div>
-
-                                            <div>
-                                                <label className="block text-[10px] font-medium text-gray-300 mb-1.5">{t('common.type')}</label>
-                                                <select
-                                                    value={moduleForm.type}
-                                                    onChange={(e) => setModuleForm({ ...moduleForm, type: e.target.value as any })}
-                                                    className="w-full p-2 text-xs bg-[#1a1d2e] text-gray-200 border border-[#252941]/50 rounded-lg focus:outline-none focus:border-blue-500/40"
-                                                >
-                                                    <option value="video">Video</option>
-                                                    <option value="article">Article</option>
-                                                    <option value="group">Group</option>
-                                                    <option value="resource">Resource</option>
-                                                </select>
                                             </div>
 
                                             <div className="flex items-center gap-2">
@@ -1152,7 +1185,14 @@ export default function ProductEdit() {
 
                                 <div className="space-y-4">
                                     {modules.map((module) => (
-                                        <div key={module.id} className="bg-[#1a1d2e] rounded-lg border border-[#1e2139] overflow-hidden">
+                                        <div
+                                            key={module.id}
+                                            className="bg-[#1a1d2e] rounded-lg border border-[#1e2139] overflow-hidden"
+                                            draggable
+                                            onDragStart={() => handleModuleDragStart(module.id)}
+                                            onDragOver={(e) => handleModuleDragOver(e, module.id)}
+                                            onDrop={handleModuleDrop}
+                                        >
                                             {/* Module Header */}
                                             {editingModuleId === module.id ? (
                                                 // Inline Module Edit Form
@@ -1199,16 +1239,7 @@ export default function ProductEdit() {
                                                                     required
                                                                 />
                                                             </div>
-                                                            <div>
-                                                                <label className="block text-xs font-medium text-gray-300 mb-4">{t('product_pages.module_name')}</label>
-                                                                <input
-                                                                    type="text"
-                                                                    value={moduleForm.module_number}
-                                                                    onChange={(e) => setModuleForm({ ...moduleForm, module_number: e.target.value })}
-                                                                    className="w-full p-3 bg-[#1a1d2e] text-gray-200 border border-[#252941] rounded-lg"
-                                                                    required
-                                                                />
-                                                            </div>
+
                                                         </div>
                                                         <div>
                                                             <label className="block text-xs font-medium text-gray-300 mb-4">{t('common.description')}</label>
@@ -1239,7 +1270,7 @@ export default function ProductEdit() {
                                             ) : (
                                                 <div className="p-3 flex items-center justify-between border-b border-[#1e2139]">
                                                     <div className="flex items-center gap-4">
-                                                        <GripVertical size={16} className="text-gray-400" />
+                                                        <GripVertical size={16} className="text-gray-400 cursor-grab active:cursor-grabbing" />
 
                                                         {/* Module Image */}
                                                         {module.image_url ? (
@@ -1288,138 +1319,130 @@ export default function ProductEdit() {
 
                                             {/* Inline Lesson Creation Form */}
                                             {creatingLessonForModule === module.id && (
-                                                <div className="p-2.5 bg-[#0f1117] border-t border-[#1e2139]">
-                                                    <h4 className="text-xs font-semibold text-gray-100 mb-2.5">{t('product_pages.add_lesson')}</h4>
-                                                    <form onSubmit={handleSaveLesson} className="space-y-2.5">
-                                                        <div>
-                                                            <label className="block text-[10px] font-medium text-gray-300 mb-1.5">{t('common.title')}</label>
-                                                            <input
-                                                                type="text"
-                                                                value={lessonForm.title}
-                                                                onChange={(e) => setLessonForm({ ...lessonForm, title: e.target.value })}
-                                                                className="w-full p-2 text-xs bg-[#1a1d2e] text-gray-200 border border-[#252941]/50 rounded-lg"
-                                                                required
-                                                            />
-                                                        </div>
-                                                        <div>
-                                                            <label className="block text-[10px] font-medium text-gray-300 mb-1.5">Description</label>
-                                                            <textarea
-                                                                value={lessonForm.description}
-                                                                onChange={(e) => setLessonForm({ ...lessonForm, description: e.target.value })}
-                                                                rows={2}
-                                                                className="w-full p-2 text-xs bg-[#1a1d2e] text-gray-200 border border-[#252941]/50 rounded-lg"
-                                                            />
-                                                        </div>
-                                                        <div>
-                                                            <label className="block text-[10px] font-medium text-gray-300 mb-1.5">Type</label>
-                                                            <select
-                                                                value={lessonForm.type}
-                                                                onChange={(e) => setLessonForm({ ...lessonForm, type: e.target.value as any })}
-                                                                className="w-full p-2 text-xs bg-[#1a1d2e] text-gray-200 border border-[#252941]/50 rounded-lg"
-                                                            >
-                                                                <option value="video">Video</option>
-                                                                <option value="pdf">PDF</option>
-                                                            </select>
-                                                        </div>
+                                                <div className="ml-10 border-l border-[#252941] border-t border-t-[#1e2139] bg-[#0c0e1a]">
+                                                    <div className="p-2.5">
+                                                        <h4 className="text-xs font-semibold text-gray-100 mb-2.5">{t('product_pages.add_lesson')}</h4>
+                                                        <form onSubmit={handleSaveLesson} className="space-y-2.5">
+                                                            <div>
+                                                                <label className="block text-[10px] font-medium text-gray-300 mb-1.5">{t('common.title')}</label>
+                                                                <input
+                                                                    type="text"
+                                                                    value={lessonForm.title}
+                                                                    onChange={(e) => setLessonForm({ ...lessonForm, title: e.target.value })}
+                                                                    className="w-full p-2 text-xs bg-[#1a1d2e] text-gray-200 border border-[#252941]/50 rounded-lg"
+                                                                    required
+                                                                />
+                                                            </div>
+                                                            <div>
+                                                                <label className="block text-[10px] font-medium text-gray-300 mb-1.5">Description</label>
+                                                                <textarea
+                                                                    value={lessonForm.description}
+                                                                    onChange={(e) => setLessonForm({ ...lessonForm, description: e.target.value })}
+                                                                    rows={2}
+                                                                    className="w-full p-2 text-xs bg-[#1a1d2e] text-gray-200 border border-[#252941]/50 rounded-lg"
+                                                                />
+                                                            </div>
+                                                            <div>
+                                                                <label className="block text-[10px] font-medium text-gray-300 mb-1.5">Type</label>
+                                                                <select
+                                                                    value={lessonForm.type}
+                                                                    onChange={(e) => setLessonForm({ ...lessonForm, type: e.target.value as any })}
+                                                                    className="w-full p-2 text-xs bg-[#1a1d2e] text-gray-200 border border-[#252941]/50 rounded-lg"
+                                                                >
+                                                                    <option value="video">Video</option>
+                                                                    <option value="pdf">PDF</option>
+                                                                </select>
+                                                            </div>
 
-                                                        {/* Conditional fields for Video */}
-                                                        {lessonForm.type === 'video' && (
-                                                            <div className="space-y-2.5">
-                                                                <div>
-                                                                    <label className="block text-[10px] font-medium text-gray-300 mb-1.5">Video URL</label>
-                                                                    <input
-                                                                        type="url"
-                                                                        value={lessonForm.video_url}
-                                                                        onChange={(e) => setLessonForm({ ...lessonForm, video_url: e.target.value })}
-                                                                        className="w-full p-2 text-xs bg-[#1a1d2e] text-gray-200 border border-[#252941]/50 rounded-lg"
-                                                                        placeholder="https://..."
-                                                                    />
+                                                            {/* Conditional fields for Video */}
+                                                            {lessonForm.type === 'video' && (
+                                                                <div className="space-y-2.5">
+                                                                    <div>
+                                                                        <label className="block text-[10px] font-medium text-gray-300 mb-1.5">Video URL</label>
+                                                                        <input
+                                                                            type="url"
+                                                                            value={lessonForm.video_url}
+                                                                            onChange={(e) => setLessonForm({ ...lessonForm, video_url: e.target.value })}
+                                                                            className="w-full p-2 text-xs bg-[#1a1d2e] text-gray-200 border border-[#252941]/50 rounded-lg"
+                                                                            placeholder="https://..."
+                                                                        />
+                                                                    </div>
+                                                                    <div>
+                                                                        <label className="block text-[10px] font-medium text-gray-300 mb-1.5">Video Script/Embed</label>
+                                                                        <textarea
+                                                                            value={lessonForm.video_script}
+                                                                            onChange={(e) => setLessonForm({ ...lessonForm, video_script: e.target.value })}
+                                                                            rows={3}
+                                                                            className="w-full p-2 text-xs bg-[#1a1d2e] text-gray-200 border border-[#252941]/50 rounded-lg font-mono"
+                                                                            placeholder="<iframe src=...></iframe>"
+                                                                        />
+                                                                    </div>
                                                                 </div>
+                                                            )}
+
+                                                            {/* Conditional fields for PDF */}
+                                                            {lessonForm.type === 'pdf' && (
                                                                 <div>
-                                                                    <label className="block text-[10px] font-medium text-gray-300 mb-1.5">Video Script/Embed</label>
-                                                                    <textarea
-                                                                        value={lessonForm.video_script}
-                                                                        onChange={(e) => setLessonForm({ ...lessonForm, video_script: e.target.value })}
-                                                                        rows={3}
-                                                                        className="w-full p-2 text-xs bg-[#1a1d2e] text-gray-200 border border-[#252941]/50 rounded-lg font-mono"
-                                                                        placeholder="<iframe src=...></iframe>"
-                                                                    />
-                                                                </div>
-                                                                <div>
-                                                                    <label className="block text-[10px] font-medium text-gray-300 mb-1.5">Or upload from computer</label>
+                                                                    <label className="block text-[10px] font-medium text-gray-300 mb-1.5">Upload PDF</label>
                                                                     <label className="flex items-center gap-3 w-full px-2 py-1.5 text-xs bg-[#1a1d2e] text-gray-200 border border-[#252941]/50 rounded-lg cursor-pointer hover:bg-[#252941]/30">
-                                                                        <span className="py-1.5 px-2.5 rounded-full text-[10px] font-semibold bg-blue-500/10 text-blue-400">
+                                                                        <span className="py-1.5 px-2.5 rounded-full text-[10px] font-semibold bg-red-500/10 text-red-400">
                                                                             Browse...
                                                                         </span>
                                                                         <span className="text-gray-500 text-[10px]">
-                                                                            {lessonForm.video_file ? lessonForm.video_file.name : 'No file selected'}
+                                                                            {lessonForm.pdf_file ? lessonForm.pdf_file.name : 'No file selected'}
                                                                         </span>
                                                                         <input
                                                                             type="file"
-                                                                            accept="video/*"
-                                                                            onChange={(e) => setLessonForm({ ...lessonForm, video_file: e.target.files?.[0] || null })}
+                                                                            accept=".pdf"
+                                                                            onChange={(e) => setLessonForm({ ...lessonForm, pdf_file: e.target.files?.[0] || null })}
                                                                             className="hidden"
                                                                         />
                                                                     </label>
                                                                 </div>
-                                                            </div>
-                                                        )}
-
-                                                        {/* Conditional fields for PDF */}
-                                                        {lessonForm.type === 'pdf' && (
-                                                            <div>
-                                                                <label className="block text-[10px] font-medium text-gray-300 mb-1.5">Upload PDF</label>
-                                                                <label className="flex items-center gap-3 w-full px-2 py-1.5 text-xs bg-[#1a1d2e] text-gray-200 border border-[#252941]/50 rounded-lg cursor-pointer hover:bg-[#252941]/30">
-                                                                    <span className="py-1.5 px-2.5 rounded-full text-[10px] font-semibold bg-red-500/10 text-red-400">
-                                                                        Browse...
-                                                                    </span>
-                                                                    <span className="text-gray-500 text-[10px]">
-                                                                        {lessonForm.pdf_file ? lessonForm.pdf_file.name : 'No file selected'}
-                                                                    </span>
-                                                                    <input
-                                                                        type="file"
-                                                                        accept=".pdf"
-                                                                        onChange={(e) => setLessonForm({ ...lessonForm, pdf_file: e.target.files?.[0] || null })}
-                                                                        className="hidden"
-                                                                    />
+                                                            )}
+                                                            <div className="flex items-center gap-2">
+                                                                <input
+                                                                    type="checkbox"
+                                                                    id="lesson-locked"
+                                                                    checked={lessonForm.is_locked}
+                                                                    onChange={(e) => setLessonForm({ ...lessonForm, is_locked: e.target.checked })}
+                                                                    className="rounded border-[#252941] w-3.5 h-3.5"
+                                                                />
+                                                                <label htmlFor="lesson-locked" className="text-[10px] text-gray-300">
+                                                                    Locked lesson
                                                                 </label>
                                                             </div>
-                                                        )}
-                                                        <div className="flex items-center gap-2">
-                                                            <input
-                                                                type="checkbox"
-                                                                id="lesson-locked"
-                                                                checked={lessonForm.is_locked}
-                                                                onChange={(e) => setLessonForm({ ...lessonForm, is_locked: e.target.checked })}
-                                                                className="rounded border-[#252941] w-3.5 h-3.5"
-                                                            />
-                                                            <label htmlFor="lesson-locked" className="text-[10px] text-gray-300">
-                                                                Locked lesson
-                                                            </label>
-                                                        </div>
-                                                        <div className="flex gap-2.5 pt-2">
-                                                            <button
-                                                                type="button"
-                                                                onClick={() => setCreatingLessonForModule(null)}
-                                                                className="px-2.5 py-1.5 text-xs text-gray-600 border border-[#252941]/50 rounded-lg hover:bg-[#0f1117]"
-                                                            >
-                                                                {t('common.cancel')}
-                                                            </button>
-                                                            <button
-                                                                type="submit"
-                                                                className="px-2.5 py-1.5 text-xs border border-gray-600 hover:border-gray-500 text-gray-300 hover:text-white rounded-lg bg-transparent transition-colors"
-                                                            >
-                                                                {t('product_pages.add_lesson')}
-                                                            </button>
-                                                        </div>
-                                                    </form>
+                                                            <div className="flex gap-2.5 pt-2">
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => setCreatingLessonForModule(null)}
+                                                                    className="px-2.5 py-1.5 text-xs text-gray-600 border border-[#252941]/50 rounded-lg hover:bg-[#0f1117]"
+                                                                >
+                                                                    {t('common.cancel')}
+                                                                </button>
+                                                                <button
+                                                                    type="submit"
+                                                                    className="px-2.5 py-1.5 text-xs border border-gray-600 hover:border-gray-500 text-gray-300 hover:text-white rounded-lg bg-transparent transition-colors"
+                                                                >
+                                                                    {t('product_pages.add_lesson')}
+                                                                </button>
+                                                            </div>
+                                                        </form>
+                                                    </div>
                                                 </div>
                                             )}
 
                                             {module.lessons && module.lessons.length > 0 && (
-                                                <div className="divide-y divide-gray-200">
+                                                <div className="border-t border-[#1e2139] bg-[#0c0e1a]">
                                                     {module.lessons.map((lesson) => (
-                                                        <div key={lesson.id}>
+                                                        <div
+                                                            key={lesson.id}
+                                                            className="ml-10 border-l border-[#252941]"
+                                                            draggable
+                                                            onDragStart={() => handleLessonDragStart(lesson.id, module.id)}
+                                                            onDragOver={(e) => handleLessonDragOver(e, lesson.id)}
+                                                            onDrop={() => handleLessonDrop(module.id)}
+                                                        >
                                                             {editingLessonId === lesson.id ? (
                                                                 // Inline Lesson Edit Form
                                                                 <div className="p-2.5 bg-blue-500/10">
@@ -1480,23 +1503,6 @@ export default function ProductEdit() {
                                                                                         placeholder="<iframe src=...></iframe>"
                                                                                     />
                                                                                 </div>
-                                                                                <div>
-                                                                                    <label className="block text-[10px] font-medium text-gray-300 mb-1.5">Or upload from computer</label>
-                                                                                    <label className="flex items-center gap-3 w-full px-2 py-1.5 text-xs bg-[#1a1d2e] text-gray-200 border border-[#252941]/50 rounded-lg cursor-pointer hover:bg-[#252941]/30">
-                                                                                        <span className="py-1.5 px-2.5 rounded-full text-[10px] font-semibold bg-blue-500/10 text-blue-400">
-                                                                                            Browse...
-                                                                                        </span>
-                                                                                        <span className="text-gray-500 text-[10px]">
-                                                                                            {lessonForm.video_file ? lessonForm.video_file.name : 'No file selected'}
-                                                                                        </span>
-                                                                                        <input
-                                                                                            type="file"
-                                                                                            accept="video/*"
-                                                                                            onChange={(e) => setLessonForm({ ...lessonForm, video_file: e.target.files?.[0] || null })}
-                                                                                            className="hidden"
-                                                                                        />
-                                                                                    </label>
-                                                                                </div>
                                                                             </div>
                                                                         )}
 
@@ -1554,39 +1560,33 @@ export default function ProductEdit() {
                                                                     </form>
                                                                 </div>
                                                             ) : (
-                                                                <div className="p-3 flex items-center justify-between hover:bg-[#0f1117]">
-                                                                    <div className="flex items-center gap-4 flex-1">
-                                                                        <GripVertical size={16} className="text-gray-400" />
+                                                                <div className="pl-3 pr-3 py-2 flex items-center justify-between hover:bg-[#0f1117] border-b border-[#1e2139]/50">
+                                                                    <div className="flex items-center gap-3 flex-1">
+                                                                        <GripVertical size={14} className="text-gray-600 cursor-grab active:cursor-grabbing" />
                                                                         <div className="flex-1">
-                                                                            <div className="flex items-center gap-4">
-                                                                                <h4 className="font-medium text-gray-100">{lesson.title}</h4>
+                                                                            <div className="flex items-center gap-3">
+                                                                                <h4 className="text-sm text-gray-300">{lesson.title}</h4>
                                                                                 {lesson.duration && (
-                                                                                    <span className="text-xs text-gray-500">• {lesson.duration}</span>
+                                                                                    <span className="text-xs text-gray-600">• {lesson.duration}</span>
                                                                                 )}
                                                                                 {lesson.is_locked && (
-                                                                                    <span className="text-xs px-3 py-3 bg-yellow-100 text-yellow-800 rounded-full">Bloqueada</span>
+                                                                                    <span className="text-[10px] px-2 py-0.5 bg-yellow-500/10 text-yellow-500 rounded-full">Bloqueada</span>
                                                                                 )}
                                                                             </div>
-                                                                            {lesson.description && (
-                                                                                <div
-                                                                                    className="text-xs text-gray-600 mt-3 [&>ul]:list-disc [&>ul]:pl-4 [&>ol]:list-decimal [&>ol]:pl-4 [&>a]:text-blue-400 [&>a]:underline"
-                                                                                    dangerouslySetInnerHTML={{ __html: lesson.description }}
-                                                                                />
-                                                                            )}
                                                                         </div>
                                                                     </div>
-                                                                    <div className="flex items-center gap-4">
+                                                                    <div className="flex items-center gap-1">
                                                                         <button
                                                                             onClick={() => handleEditLesson(lesson)}
-                                                                            className="p-3 text-gray-600 hover:bg-gray-200 rounded-lg"
+                                                                            className="p-1.5 text-gray-600 hover:text-gray-300 rounded-lg transition-colors"
                                                                         >
-                                                                            <Edit size={16} />
+                                                                            <Edit size={14} />
                                                                         </button>
                                                                         <button
                                                                             onClick={() => handleDeleteLesson(lesson.id)}
-                                                                            className="p-3 text-red-600 hover:bg-red-50 rounded-lg"
+                                                                            className="p-1.5 text-red-700 hover:text-red-400 rounded-lg transition-colors"
                                                                         >
-                                                                            <Trash2 size={16} />
+                                                                            <Trash2 size={14} />
                                                                         </button>
                                                                     </div>
                                                                 </div>

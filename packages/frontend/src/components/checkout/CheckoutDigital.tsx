@@ -378,7 +378,7 @@ function CheckoutDigital({
                     <div className="w-full mt-4 px-4 lg:px-0">
                         <div className="relative flex items-center gap-3 my-4">
                             <div className="flex-1 h-px bg-gray-200 dark:bg-white/[0.07]" />
-                            <span className="text-xs text-gray-400 px-2 whitespace-nowrap">{language === 'pt' ? 'Ou pague com' : language === 'es' ? 'O paga con' : 'Or pay with'}</span>
+                            <span className="text-xs text-gray-400 px-2 whitespace-nowrap">{language === 'pt' ? 'Ou pague com' : language === 'es' ? 'O paga con' : language === 'fr' ? 'Ou payez avec' : language === 'de' ? 'Oder zahlen mit' : 'Or pay with'}</span>
                             <div className="flex-1 h-px bg-gray-200 dark:bg-white/[0.07]" />
                         </div>
                         <div className="flex flex-wrap gap-2 justify-center">

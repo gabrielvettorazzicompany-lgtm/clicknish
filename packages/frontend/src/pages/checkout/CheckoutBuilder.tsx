@@ -752,6 +752,8 @@ export default function CheckoutBuilder() {
                                 <option value="es">🇪🇸 ES</option>
                                 <option value="pt">🇧🇷 PT</option>
                                 <option value="nl">🇳🇱 NL</option>
+                                <option value="fr">🇫🇷 FR</option>
+                                <option value="de">🇩🇪 DE</option>
                             </select>
 
                             {/* Preview Button */}
