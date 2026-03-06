@@ -7,6 +7,7 @@ import type { CheckoutLanguage } from '@/components/checkout/translations'
 import type { Testimonial, CheckoutImageBlock, ImageBlockSlot } from '@/components/checkout/types'
 import { supabase } from '@/services/supabase'
 import { useI18n } from '@/i18n'
+import { getMollieIcon } from '@/pages/apps/AppBuilder/AppSettingsTab'
 
 type EditingElement = 'banner' | 'timer' | 'seals' | 'testimonials' | 'imageblock' | null
 
@@ -102,7 +103,7 @@ export default function CheckoutBuilder() {
 
     const [buttonColor, setButtonColor] = useState('#111827')
     const [buttonText, setButtonText] = useState('Complete Purchase')
-    const [paymentMethodsOverride, setPaymentMethodsOverride] = useState<('credit_card' | 'paypal')[] | null>(null)
+    const [paymentMethodsOverride, setPaymentMethodsOverride] = useState<string[] | null>(null)
     const [utmifyToken, setUtmifyToken] = useState('')
     const [utmifyTokenVisible, setUtmifyTokenVisible] = useState(false)
     const [customPixels, setCustomPixels] = useState('')
@@ -143,8 +144,8 @@ export default function CheckoutBuilder() {
                     name: appData.name,
                     price: 0,
                     currency: 'USD',
-                    payment_methods: ['credit_card'],
-                    default_payment_method: 'credit_card',
+                    payment_methods: appData.payment_methods || ['credit_card'],
+                    default_payment_method: appData.default_payment_method || 'credit_card',
                     image_url: appData.logo_url,
                     description: appData.description || ''
                 }
@@ -847,8 +848,8 @@ export default function CheckoutBuilder() {
                                             productName={product.name}
                                             productPrice={checkoutPrice !== '' ? parseFloat(checkoutPrice) || product.price : (checkout.custom_price || product.price)}
                                             productCurrency={product.currency}
-                                            selectedPaymentMethods={(paymentMethodsOverride ?? product.payment_methods) as ('credit_card' | 'paypal')[]}
-                                            defaultPaymentMethod={product.default_payment_method as 'credit_card' | 'paypal'}
+                                            selectedPaymentMethods={paymentMethodsOverride ?? product.payment_methods}
+                                            defaultPaymentMethod={product.default_payment_method}
                                             productImage={product.image_url}
                                             productDescription={product.description}
                                             language={checkoutLanguage}
@@ -1060,16 +1061,16 @@ export default function CheckoutBuilder() {
                                     </div>
                                     <div className="space-y-1.5">
                                         {product.payment_methods.map((method) => {
-                                            const active = (paymentMethodsOverride ?? product.payment_methods!).includes(method as 'credit_card' | 'paypal')
-                                            const label = method === 'credit_card' ? 'Cartão de Crédito' : 'PayPal'
+                                            const active = (paymentMethodsOverride ?? product.payment_methods!).includes(method)
+                                            const label = method === 'credit_card' ? 'Cartão de Crédito' : method === 'paypal' ? 'PayPal' : method.replace('mollie_', '').replace(/(^|\s)\w/g, c => c.toUpperCase())
                                             return (
                                                 <label key={method} className="flex items-center gap-2 cursor-pointer group">
                                                     <div
                                                         onClick={() => {
-                                                            const current = (paymentMethodsOverride ?? product.payment_methods!) as ('credit_card' | 'paypal')[]
-                                                            const updated = current.includes(method as 'credit_card' | 'paypal')
+                                                            const current = paymentMethodsOverride ?? product.payment_methods!
+                                                            const updated = current.includes(method)
                                                                 ? current.filter(m => m !== method)
-                                                                : [...current, method as 'credit_card' | 'paypal']
+                                                                : [...current, method]
                                                             if (updated.length === 0) return // mínimo 1
                                                             setPaymentMethodsOverride(updated)
                                                         }}

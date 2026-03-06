@@ -38,7 +38,11 @@ function makeHeaders(shortId) {
 export default {
     async fetch(request, env, ctx) {
         const url = new URL(request.url)
-        const { pathname } = url
+        // Normaliza barra final: /checkout/abc/ → /checkout/abc
+        // Links do WhatsApp/Instagram costumam adicionar trailing slash
+        const pathname = url.pathname.length > 1 && url.pathname.endsWith('/')
+            ? url.pathname.slice(0, -1)
+            : url.pathname
 
         // ── Rotas não-checkout ──────────────────────────────────────────────────
         // Detecta /c/:shortId  OU  /checkout/:shortId (segmento único — não é URL longa)
@@ -84,7 +88,11 @@ export default {
         const dataPromise = fetchCheckoutData(shortId, env)
 
         const assetResponse = await htmlPromise
-        if (!assetResponse.ok) return assetResponse
+        if (!assetResponse.ok) {
+            // checkout.html não encontrado — serve index.html como fallback
+            // O React Router em App.tsx tem a rota /checkout/:shortId como pública
+            return env.ASSETS.fetch(new Request(`${url.origin}/index.html`))
+        }
 
         const html = await assetResponse.text()
 
