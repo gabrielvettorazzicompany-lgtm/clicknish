@@ -181,10 +181,11 @@ async function handleApiRoute(
             .limit(1)
             .maybeSingle()
         const enabledMethods: string[] = prov?.enabled_methods || []
+        // ?all=1 → modo admin: retorna todos os métodos habilitados sem filtrar por país
+        const skipGeoFilter = url.searchParams.get('all') === '1'
         // Detectar país via Cloudflare (CF-IPCountry header injetado automaticamente)
-        const visitorCountry = (request as any).cf?.country
-            || request.headers.get('CF-IPCountry')
-            || null
+        const visitorCountry = skipGeoFilter ? null
+            : ((request as any).cf?.country || request.headers.get('CF-IPCountry') || null)
         // Buscar métodos habilitados e disponíveis para o país do visitante
         // Métodos com countries = ['*'] aparecem para todos
         let query = supabase
@@ -192,7 +193,7 @@ async function handleApiRoute(
             .select('id, label, description, countries, currencies, icon_url, sort_order')
             .in('id', enabledMethods.length > 0 ? enabledMethods : ['__none__'])
             .order('sort_order')
-        if (visitorCountry) {
+        if (!skipGeoFilter && visitorCountry) {
             // Retorna métodos globais ('*') OU disponíveis no país do visitante
             query = query.or(`countries.cs.{"*"},countries.cs.{"${visitorCountry}"}`)
         }

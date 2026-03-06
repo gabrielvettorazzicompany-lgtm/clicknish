@@ -24,8 +24,11 @@ export default function AppBuilder() {
     activeTab,
     setActiveTab,
     selectedPaymentMethods,
+    setSelectedPaymentMethods,
     defaultPaymentMethod,
     setDefaultPaymentMethod,
+    dynamicCheckout,
+    setDynamicCheckout,
     removeBanner,
     updateBanner,
     togglePaymentMethod,
@@ -123,11 +126,15 @@ export default function AppBuilder() {
                     <AppSettingsTab
                       selectedPaymentMethods={selectedPaymentMethods}
                       defaultPaymentMethod={defaultPaymentMethod}
+                      dynamicCheckout={dynamicCheckout}
                       onTogglePaymentMethod={togglePaymentMethod}
                       onSetDefaultPaymentMethod={setDefaultPaymentMethod}
-                      onSave={async () => {
-                        // Chama a função de salvar do app builder
-                        await handleSaveApp()
+                      onToggleDynamicCheckout={setDynamicCheckout}
+                      onSaveWithValues={async (methods, defaultMethod, isDynamic) => {
+                        setSelectedPaymentMethods(methods)
+                        setDefaultPaymentMethod(defaultMethod)
+                        setDynamicCheckout(isDynamic)
+                        await handleSaveApp({ payment_methods: methods, default_payment_method: defaultMethod, dynamic_checkout: isDynamic })
                       }}
                     />
                   ) : (

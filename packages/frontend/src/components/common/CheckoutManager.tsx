@@ -26,8 +26,8 @@ interface Checkout {
 
 interface CheckoutManagerProps {
     product: Product
-    selectedPaymentMethods?: ('credit_card' | 'paypal')[]
-    defaultPaymentMethod?: 'credit_card' | 'paypal'
+    selectedPaymentMethods?: string[]
+    defaultPaymentMethod?: string
     isApplication?: boolean // true se for uma aplicação, false se for produto do marketplace
 }
 

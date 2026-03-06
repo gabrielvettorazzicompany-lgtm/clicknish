@@ -16,8 +16,9 @@ export function useAppBuilder() {
 
     const [loading, setLoading] = useState(false)
     const [activeTab, setActiveTab] = useState<'general' | 'checkout' | 'products' | 'feed' | 'community' | 'notifications'>('general')
-    const [selectedPaymentMethods, setSelectedPaymentMethods] = useState<('credit_card' | 'paypal')[]>(['credit_card'])
-    const [defaultPaymentMethod, setDefaultPaymentMethod] = useState<'credit_card' | 'paypal'>('credit_card')
+    const [selectedPaymentMethods, setSelectedPaymentMethods] = useState<string[]>(['credit_card'])
+    const [defaultPaymentMethod, setDefaultPaymentMethod] = useState<string>('credit_card')
+    const [dynamicCheckout, setDynamicCheckout] = useState(false)
 
     const wizardState = location.state as {
         name?: string
@@ -100,6 +101,7 @@ export function useAppBuilder() {
                 // Carregar métodos de pagamento salvos
                 setSelectedPaymentMethods(data.payment_methods || ['credit_card'])
                 setDefaultPaymentMethod(data.default_payment_method || 'credit_card')
+                setDynamicCheckout(data.dynamic_checkout ?? false)
 
                 const { data: defaultCheckout } = await supabase
                     .from('checkouts')
@@ -142,7 +144,7 @@ export function useAppBuilder() {
         }))
     }
 
-    const togglePaymentMethod = (method: 'credit_card' | 'paypal') => {
+    const togglePaymentMethod = (method: string) => {
         setSelectedPaymentMethods(prev => {
             if (prev.includes(method)) {
                 if (prev.length === 1) return prev
@@ -152,12 +154,13 @@ export function useAppBuilder() {
                 }
                 return prev.filter(m => m !== method)
             } else {
+                if (prev.length >= 3) return prev // máximo 3
                 return [...prev, method]
             }
         })
     }
 
-    const handleSaveApp = async () => {
+    const handleSaveApp = async (overrides?: { payment_methods?: string[]; default_payment_method?: string; dynamic_checkout?: boolean }) => {
         try {
             setLoading(true)
 
@@ -182,8 +185,9 @@ export function useAppBuilder() {
                 primary_color: appData.primaryColor,
                 secondary_color: appData.secondaryColor,
                 banners: appData.banners,
-                payment_methods: selectedPaymentMethods,
-                default_payment_method: defaultPaymentMethod,
+                payment_methods: overrides?.payment_methods ?? selectedPaymentMethods,
+                default_payment_method: overrides?.default_payment_method ?? defaultPaymentMethod,
+                dynamic_checkout: overrides?.dynamic_checkout ?? dynamicCheckout,
             }
 
             const response = await fetch(url, {
@@ -260,8 +264,11 @@ export function useAppBuilder() {
         activeTab,
         setActiveTab,
         selectedPaymentMethods,
+        setSelectedPaymentMethods,
         defaultPaymentMethod,
         setDefaultPaymentMethod,
+        dynamicCheckout,
+        setDynamicCheckout,
         addBanner,
         removeBanner,
         updateBanner,

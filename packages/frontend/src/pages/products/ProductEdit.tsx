@@ -152,19 +152,20 @@ export default function ProductEdit() {
     }
 
     // Payment methods
-    const togglePaymentMethod = async (method: 'credit_card' | 'paypal') => {
+    const togglePaymentMethod = async (method: string) => {
         const current = formData.payment_methods
         const updated = current.includes(method)
             ? current.filter(m => m !== method)
             : [...current, method]
         if (updated.length === 0) return // ao menos 1 método deve estar ativo
+        if (updated.length > 3) return // máximo 3 métodos
         setFormData(f => ({ ...f, payment_methods: updated }))
         if (productId) {
             await supabase.from('marketplace_products').update({ payment_methods: updated }).eq('id', productId)
         }
     }
 
-    const handleSetDefaultPaymentMethod = async (method: 'credit_card' | 'paypal') => {
+    const handleSetDefaultPaymentMethod = async (method: string) => {
         if (!formData.payment_methods.includes(method)) return
         setFormData(f => ({ ...f, default_payment_method: method }))
         if (productId) {
@@ -233,8 +234,9 @@ export default function ProductEdit() {
         payment_type: 'unique',
         sales_page_url: '',
         recurrence_period: 'monthly',
-        payment_methods: ['credit_card'] as ('credit_card' | 'paypal')[],
-        default_payment_method: 'credit_card' as 'credit_card' | 'paypal',
+        payment_methods: ['credit_card'] as string[],
+        default_payment_method: 'credit_card' as string,
+        dynamic_checkout: false,
         show_in_marketplace: false,
         // Member area settings
         support_enabled: true,
@@ -316,6 +318,7 @@ export default function ProductEdit() {
                 recurrence_period: data.recurrence_period || 'monthly',
                 payment_methods: data.payment_methods || ['credit_card'],
                 default_payment_method: data.default_payment_method || 'credit_card',
+                dynamic_checkout: data.dynamic_checkout ?? false,
                 show_in_marketplace: data.show_in_marketplace || false,
                 // Member area settings
                 support_enabled: data.support_enabled || false,
@@ -380,6 +383,7 @@ export default function ProductEdit() {
                 recurrence_period: formData.recurrence_period,
                 payment_methods: formData.payment_methods,
                 default_payment_method: formData.default_payment_method,
+                dynamic_checkout: formData.dynamic_checkout,
                 show_in_marketplace: formData.show_in_marketplace,
                 // Member area settings
                 support_enabled: formData.support_enabled,
@@ -1003,8 +1007,10 @@ export default function ProductEdit() {
                                     <AppSettingsTab
                                         selectedPaymentMethods={formData.payment_methods}
                                         defaultPaymentMethod={formData.default_payment_method}
+                                        dynamicCheckout={formData.dynamic_checkout}
                                         onTogglePaymentMethod={togglePaymentMethod}
                                         onSetDefaultPaymentMethod={handleSetDefaultPaymentMethod}
+                                        onToggleDynamicCheckout={(v) => setFormData(f => ({ ...f, dynamic_checkout: v }))}
                                         onSave={async () => {
                                             // Não precisamos fazer nada aqui pois as mudanças já são salvas via callbacks
                                             console.log('Configurações de pagamento salvas!')

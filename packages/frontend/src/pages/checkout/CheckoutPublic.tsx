@@ -21,8 +21,9 @@ interface Product {
     price: number
     image_url?: string
     description?: string
-    payment_methods?: ('credit_card' | 'paypal')[]
-    default_payment_method?: 'credit_card' | 'paypal'
+    payment_methods?: string[]
+    default_payment_method?: string
+    dynamic_checkout?: boolean
     productType?: 'app' | 'marketplace'
     applicationId?: string
 }
@@ -248,13 +249,17 @@ export default function CheckoutPublic() {
             .catch(() => setMollieVerifying(false))
     }, [])
 
-    // Buscar métodos Mollie habilitados globalmente na plataforma
+    // Buscar métodos Mollie habilitados — filtra por país se checkout dinâmico estiver ativo
     useEffect(() => {
-        fetch('https://api.clicknich.com/api/mollie/methods')
+        const isDynamic = product?.dynamic_checkout ?? false
+        const url = isDynamic
+            ? 'https://api.clicknich.com/api/mollie/methods'         // com geo-filter (CF-IPCountry)
+            : 'https://api.clicknich.com/api/mollie/methods?all=1'   // sem filtro de país
+        fetch(url)
             .then(r => r.json())
             .then((d: any) => { if (d.methods?.length > 0) setMollieEnabledMethods(d.methods) })
             .catch(() => { })
-    }, [])
+    }, [product?.dynamic_checkout])
 
     const fetchData = useCallback(async () => {
         try {
@@ -521,7 +526,8 @@ export default function CheckoutPublic() {
                         image_url: appData.logo_url,
                         description: appData.description || '',
                         payment_methods: appData.payment_methods,
-                        default_payment_method: appData.default_payment_method
+                        default_payment_method: appData.default_payment_method,
+                        dynamic_checkout: appData.dynamic_checkout ?? false
                     }
                 }
             } else {
@@ -538,7 +544,8 @@ export default function CheckoutPublic() {
                     image_url: productData.image_url,
                     description: productData.description,
                     payment_methods: productData.payment_methods,
-                    default_payment_method: productData.default_payment_method
+                    default_payment_method: productData.default_payment_method,
+                    dynamic_checkout: productData.dynamic_checkout ?? false
                 }
             }
 
