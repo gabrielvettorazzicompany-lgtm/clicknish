@@ -75,15 +75,16 @@ export async function handleSuperadmin(request: Request, env: any, pathSegments:
 
         // GET /api/superadmin/stats
         if (request.method === 'GET' && pathSegments.length === 1 && pathSegments[0] === 'stats') {
-            const [applicationsResult, domainsResult, productsResult, clientsResult] = await Promise.all([
+            const [applicationsResult, domainsResult, productsResult, clientsResult, profilesCountResult] = await Promise.all([
                 supabase.from('applications').select('id, created_at, name, owner_id', { count: 'exact' }),
                 supabase.from('app_domains').select('id, domain, status', { count: 'exact' }),
                 supabase.from('products').select('id', { count: 'exact' }),
-                supabase.from('app_users').select('id', { count: 'exact' })
+                supabase.from('app_users').select('id', { count: 'exact' }),
+                supabase.from('admin_profiles').select('user_id', { count: 'exact' })
             ])
 
-            const uniqueOwners = new Set(applicationsResult.data?.map((app: any) => app.owner_id) || [])
-            const totalUsers = uniqueOwners.size
+            // Total real de owners = total de perfis na plataforma
+            const totalUsers = profilesCountResult.count ?? (profilesCountResult.data?.length || 0)
 
             const { data: allApps } = await supabase.from('applications').select('owner_id')
             const userAppCounts: Record<string, number> = {}
@@ -147,17 +148,26 @@ export async function handleSuperadmin(request: Request, env: any, pathSegments:
         // GET /api/superadmin/users
         if (request.method === 'GET' && pathSegments.length === 1 && pathSegments[0] === 'users') {
             const page = parseInt(url.searchParams.get('page') || '1')
-            const limit = parseInt(url.searchParams.get('limit') || '20')
+            const limit = parseInt(url.searchParams.get('limit') || '50')
             const offset = (page - 1) * limit
             const searchQuery = url.searchParams.get('search') || ''
             const planFilter = url.searchParams.get('plan') || ''
 
+            // Buscar todos os owners da plataforma via admin_profiles
+            const { data: allProfiles, error: profilesError } = await supabase
+                .from('admin_profiles')
+                .select('user_id, full_name, created_at')
+                .order('created_at', { ascending: false })
+
+            if (profilesError) throw profilesError
+
+            // Buscar estatísticas de aplicações por owner
             const { data: allUserApps } = await supabase.from('applications').select('owner_id, created_at')
             const userStats: Record<string, any> = {}
             allUserApps?.forEach((app: any) => {
                 const ownerId = app.owner_id
                 if (!userStats[ownerId]) {
-                    userStats[ownerId] = { owner_id: ownerId, app_count: 0, last_activity: app.created_at }
+                    userStats[ownerId] = { app_count: 0, last_activity: app.created_at }
                 }
                 userStats[ownerId].app_count += 1
                 if (new Date(app.created_at) > new Date(userStats[ownerId].last_activity)) {
@@ -165,32 +175,62 @@ export async function handleSuperadmin(request: Request, env: any, pathSegments:
                 }
             })
 
-            const users = Object.values(userStats).sort((a: any, b: any) => b.app_count - a.app_count).slice(offset, offset + limit)
-
+            // Enriquecer com dados de auth
             const usersWithDetails = await Promise.all(
-                users.map(async (user: any) => {
+                (allProfiles || []).map(async (profile: any) => {
                     try {
-                        const { data: authUser } = await supabase.auth.admin.getUserById(user.owner_id)
-                        const { data: profile } = await supabase.from('admin_profiles').select('name').eq('user_id', user.owner_id).single()
+                        const { data: authUser } = await supabase.auth.admin.getUserById(profile.user_id)
+                        const stats = userStats[profile.user_id] || { app_count: 0, last_activity: null }
                         let plan = 'free'
-                        if (user.app_count >= 5) plan = 'advanced'
-                        else if (user.app_count >= 2) plan = 'pro'
-
+                        if (stats.app_count >= 5) plan = 'advanced'
+                        else if (stats.app_count >= 2) plan = 'pro'
                         return {
-                            id: user.owner_id, name: profile?.name || authUser?.user?.email || 'N/A', email: authUser?.user?.email || 'N/A',
-                            created_at: authUser?.user?.created_at || null, app_count: user.app_count, last_activity: user.last_activity, plan
+                            id: profile.user_id,
+                            name: profile.full_name || authUser?.user?.email || 'N/A',
+                            email: authUser?.user?.email || 'N/A',
+                            created_at: authUser?.user?.created_at || profile.created_at,
+                            app_count: stats.app_count,
+                            last_activity: stats.last_activity || authUser?.user?.last_sign_in_at,
+                            plan,
+                            is_banned: authUser?.user?.banned_until ? new Date(authUser.user.banned_until) > new Date() : false,
                         }
                     } catch {
-                        return { id: user.owner_id, name: 'Erro ao carregar', email: 'Erro ao carregar', created_at: null, app_count: user.app_count, last_activity: user.last_activity, plan: 'free' }
+                        const stats = userStats[profile.user_id] || { app_count: 0, last_activity: null }
+                        return {
+                            id: profile.user_id,
+                            name: profile.full_name || 'N/A',
+                            email: 'N/A',
+                            created_at: profile.created_at,
+                            app_count: stats.app_count,
+                            last_activity: stats.last_activity,
+                            plan: 'free',
+                            is_banned: false,
+                        }
                     }
                 })
             )
 
+            // Aplicar filtros
             let filteredUsers = usersWithDetails
-            if (searchQuery) filteredUsers = filteredUsers.filter(u => u.email.toLowerCase().includes(searchQuery.toLowerCase()) || u.name.toLowerCase().includes(searchQuery.toLowerCase()))
-            if (planFilter && planFilter !== 'all') filteredUsers = filteredUsers.filter(u => u.plan === planFilter)
+            if (searchQuery) {
+                const q = searchQuery.toLowerCase()
+                filteredUsers = filteredUsers.filter((u: any) =>
+                    u.email.toLowerCase().includes(q) ||
+                    u.name.toLowerCase().includes(q)
+                )
+            }
+            if (planFilter && planFilter !== 'all') {
+                filteredUsers = filteredUsers.filter((u: any) => u.plan === planFilter)
+            }
 
-            return new Response(JSON.stringify({ users: filteredUsers, pagination: { page, limit, hasMore: users.length === limit }, filters: { search: searchQuery, plan: planFilter } }), {
+            const paginatedUsers = filteredUsers.slice(offset, offset + limit)
+
+            return new Response(JSON.stringify({
+                users: paginatedUsers,
+                total: filteredUsers.length,
+                pagination: { page, limit, hasMore: filteredUsers.length > offset + limit, total: filteredUsers.length },
+                filters: { search: searchQuery, plan: planFilter }
+            }), {
                 headers: { ...corsHeaders, 'Content-Type': 'application/json' }
             })
         }
@@ -341,6 +381,22 @@ export async function handleSuperadmin(request: Request, env: any, pathSegments:
             return new Response(JSON.stringify({ products: enrichedProducts }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
         }
 
+        // GET /api/superadmin/all-products?status=all|pending_review|approved|rejected
+        if (request.method === 'GET' && pathSegments.length === 1 && pathSegments[0] === 'all-products') {
+            const url = new URL(request.url)
+            const statusFilter = url.searchParams.get('status')
+            let query = supabase.from('member_areas').select('id, name, description, price, currency, category, delivery_type, image_url, owner_id, created_at, review_status, review_notes').order('created_at', { ascending: false })
+            if (statusFilter && statusFilter !== 'all') {
+                query = query.eq('review_status', statusFilter)
+            } else {
+                query = query.in('review_status', ['pending_review', 'approved', 'rejected', 'draft'])
+            }
+            const { data: products, error } = await query
+            if (error) throw error
+            const enrichedProducts = await Promise.all((products || []).map(async (product: any) => { try { const { data: authUser } = await supabase.auth.admin.getUserById(product.owner_id); return { ...product, owner_email: authUser?.user?.email || 'Unknown' } } catch { return { ...product, owner_email: 'Unknown' } } }))
+            return new Response(JSON.stringify({ products: enrichedProducts }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+        }
+
         // PUT /api/superadmin/products/:id/approve
         if (request.method === 'PUT' && pathSegments.length === 3 && pathSegments[0] === 'products' && pathSegments[2] === 'approve') {
             const productId = pathSegments[1]
@@ -372,15 +428,44 @@ export async function handleSuperadmin(request: Request, env: any, pathSegments:
             if (appError || !app) return new Response(JSON.stringify({ error: 'App not found' }), { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
             let ownerEmail = 'Unknown'
             try { const { data: authUser } = await supabase.auth.admin.getUserById(app.owner_id); ownerEmail = authUser?.user?.email || 'Unknown' } catch { }
-            const { data: products } = await supabase.from('products').select('id, name, title, price, currency, description, image_url, is_active, order, created_at').eq('application_id', appId).order('order', { ascending: true })
-            const productIds = (products || []).map((p: any) => p.id)
-            let contents: any[] = []
+
+            // Busca produtos da aplicação (products com application_id)
+            const { data: appProducts } = await supabase.from('products').select('id, name, description, type, cover_url, created_at').eq('application_id', appId).order('created_at', { ascending: false })
+            const productIds = (appProducts || []).map((p: any) => p.id)
+            let modules: any[] = []
             if (productIds.length > 0) {
-                const { data: contentData } = await supabase.from('product_content').select('id, product_id, title, content_type, content_url, order').in('product_id', productIds).order('order', { ascending: true })
-                contents = contentData || []
+                const { data: modulesData } = await supabase.from('community_modules').select('id, member_area_id, title, description, order_position').in('member_area_id', productIds).order('order_position', { ascending: true })
+                modules = modulesData || []
+                const moduleIds = modules.map((m: any) => m.id)
+                if (moduleIds.length > 0) {
+                    const { data: lessonsData } = await supabase.from('community_lessons').select('id, module_id, title, content_type, video_url, order_position').in('module_id', moduleIds).order('order_position', { ascending: true })
+                    modules = modules.map((mod: any) => ({ ...mod, lessons: (lessonsData || []).filter((l: any) => l.module_id === mod.id) }))
+                }
             }
-            const productsWithContents = (products || []).map((product: any) => ({ ...product, contents: contents.filter((c: any) => c.product_id === product.id) }))
-            return new Response(JSON.stringify({ app: { ...app, owner_email: ownerEmail }, products: productsWithContents, stats: { totalProducts: products?.length || 0, totalContents: contents.length } }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+            const productsWithModules = (appProducts || []).map((product: any) => ({ ...product, modules: modules.filter((m: any) => m.member_area_id === product.id) }))
+            const totalLessons = modules.reduce((sum: number, m: any) => sum + (m.lessons?.length || 0), 0)
+
+            return new Response(JSON.stringify({
+                app: { ...app, owner_email: ownerEmail },
+                memberAreas: productsWithModules,
+                stats: { totalMemberAreas: appProducts?.length || 0, totalModules: modules.length, totalLessons }
+            }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+        }
+
+        // GET /api/superadmin/all-apps?status=all|pending_review|approved|rejected|draft
+        if (request.method === 'GET' && pathSegments.length === 1 && pathSegments[0] === 'all-apps') {
+            const url = new URL(request.url)
+            const statusFilter = url.searchParams.get('status')
+            let query = supabase.from('applications').select('id, name, slug, logo_url, app_type, language, owner_id, created_at, review_status, review_notes').order('created_at', { ascending: false })
+            if (statusFilter && statusFilter !== 'all') {
+                query = query.eq('review_status', statusFilter)
+            } else {
+                query = query.in('review_status', ['pending_review', 'approved', 'rejected', 'draft'])
+            }
+            const { data: apps, error } = await query
+            if (error) throw error
+            const enrichedApps = await Promise.all((apps || []).map(async (app: any) => { try { const { data: authUser } = await supabase.auth.admin.getUserById(app.owner_id); return { ...app, owner_email: authUser?.user?.email || 'Unknown' } } catch { return { ...app, owner_email: 'Unknown' } } }))
+            return new Response(JSON.stringify({ apps: enrichedApps }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
         }
 
         // GET /api/superadmin/pending-apps
@@ -466,18 +551,50 @@ export async function handleSuperadmin(request: Request, env: any, pathSegments:
         if (request.method === 'PUT' && pathSegments.length === 2 && pathSegments[0] === 'payment-config') {
             const targetUserId = pathSegments[1]
             const body = await request.json()
-            const { payment_provider, mollie_api_key, stripe_connect_account, override_platform_default, notes } = body
+            const { payment_provider, mollie_api_key, stripe_connect_account, override_platform_default, notes, provider_id } = body
             const { data: adminData } = await supabase.auth.admin.getUserById(userId)
             const adminEmail = adminData?.user?.email || ''
-            const upsertData: any = { user_id: targetUserId, updated_by: userId, updated_at: new Date().toISOString() }
-            if (payment_provider !== undefined) upsertData.payment_provider = payment_provider
-            if (mollie_api_key !== undefined) upsertData.mollie_api_key = mollie_api_key
-            if (stripe_connect_account !== undefined) upsertData.stripe_connect_account = stripe_connect_account
-            if (override_platform_default !== undefined) upsertData.override_platform_default = override_platform_default
-            if (notes !== undefined) upsertData.notes = notes
-            const { error } = await supabase.from('user_payment_config').upsert(upsertData, { onConflict: 'user_id' })
-            if (error) throw error
-            await logAudit(supabase, userId, adminEmail, 'change_payment_provider', 'user', targetUserId, { payment_provider, override_platform_default, notes })
+
+            const updateFields: any = { updated_by: userId, updated_at: new Date().toISOString() }
+            if (payment_provider !== undefined) updateFields.payment_provider = payment_provider
+            if (mollie_api_key !== undefined) updateFields.mollie_api_key = mollie_api_key
+            if (stripe_connect_account !== undefined) updateFields.stripe_connect_account = stripe_connect_account
+            if (override_platform_default !== undefined) updateFields.override_platform_default = override_platform_default
+            if (notes !== undefined) updateFields.notes = notes
+            if (provider_id !== undefined) {
+                updateFields.provider_id = provider_id || null
+                if (provider_id) {
+                    const { data: provRow } = await supabase.from('payment_providers').select('type').eq('id', provider_id).maybeSingle()
+                    if (provRow?.type) updateFields.payment_provider = provRow.type
+                    updateFields.override_platform_default = true
+                } else {
+                    updateFields.override_platform_default = false
+                }
+            }
+
+            // Verifica se já existe registro para o usuário
+            const { data: existing } = await supabase
+                .from('user_payment_config')
+                .select('id')
+                .eq('user_id', targetUserId)
+                .maybeSingle()
+
+            let dbError
+            if (existing?.id) {
+                const { error } = await supabase
+                    .from('user_payment_config')
+                    .update(updateFields)
+                    .eq('user_id', targetUserId)
+                dbError = error
+            } else {
+                const { error } = await supabase
+                    .from('user_payment_config')
+                    .insert({ ...updateFields, user_id: targetUserId, payment_provider: updateFields.payment_provider || 'stripe' })
+                dbError = error
+            }
+
+            if (dbError) throw dbError
+            await logAudit(supabase, userId, adminEmail, 'change_payment_provider', 'user', targetUserId, { provider_id, override_platform_default: updateFields.override_platform_default })
             return new Response(JSON.stringify({ success: true }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
         }
 
@@ -804,6 +921,59 @@ export async function handleSuperadmin(request: Request, env: any, pathSegments:
                 config: configMap[u.id] || null
             }))
             return new Response(JSON.stringify({ users }), {
+                headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+            })
+        }
+
+        // GET /api/superadmin/transactions
+        if (request.method === 'GET' && pathSegments.length === 1 && pathSegments[0] === 'transactions') {
+            const page = parseInt(url.searchParams.get('page') || '1')
+            const limit = parseInt(url.searchParams.get('limit') || '50')
+            const offset = (page - 1) * limit
+
+            const { data: sales, count, error } = await supabase
+                .from('sale_locations')
+                .select('*', { count: 'exact' })
+                .order('sale_date', { ascending: false })
+                .range(offset, offset + limit - 1)
+
+            if (error) throw error
+
+            // Enrich with product names from applications
+            const productIds = [...new Set((sales || []).filter((s: any) => s.product_id).map((s: any) => s.product_id))]
+            let productMap: Record<string, string> = {}
+            if (productIds.length > 0) {
+                const { data: apps } = await supabase
+                    .from('applications')
+                    .select('id, name')
+                    .in('id', productIds)
+                apps?.forEach((a: any) => { productMap[a.id] = a.name })
+            }
+
+            // Global platform fee
+            const { data: feeConfig } = await supabase.from('platform_config').select('value').eq('key', 'platform_fee_percentage').single()
+            const feePercent = parseFloat(feeConfig?.value) || 5
+
+            const transactions = (sales || []).map((s: any) => {
+                const gross = parseFloat(s.amount) || 0
+                return {
+                    id: s.id,
+                    sale_date: s.sale_date || s.created_at,
+                    buyer_email: s.customer_email || '',
+                    product_name: productMap[s.product_id] || 'Produto',
+                    gross_value: gross,
+                    currency: s.currency || 'USD',
+                    payment_method: s.payment_method || 'card',
+                    platform_fee: gross * (feePercent / 100),
+                    net_producer: gross * ((100 - feePercent) / 100),
+                    fee_percent: feePercent,
+                    seller_id: s.user_id,
+                    checkout_id: s.checkout_id,
+                    country: s.country || null,
+                }
+            })
+
+            return new Response(JSON.stringify({ data: transactions, total: count || 0, page, limit, fee_percent: feePercent }), {
                 headers: { ...corsHeaders, 'Content-Type': 'application/json' }
             })
         }

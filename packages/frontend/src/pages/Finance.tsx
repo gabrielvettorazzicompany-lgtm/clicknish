@@ -5,6 +5,7 @@ import { Chip, Spinner, Pagination } from '@heroui/react'
 import Sidebar from '@/components/Sidebar'
 import Header from '@/components/Header'
 import FinanceCard from '@/components/finance/FinanceCard'
+import FinanceFilters from '@/components/finance/FinanceFilters'
 import WithdrawalTable from '@/components/finance/WithdrawalTable'
 import TransfersTable from '@/components/finance/TransfersTable'
 import AnticipationsTable from '@/components/finance/AnticipationsTable'
@@ -28,14 +29,15 @@ export default function Finance() {
     const [withdrawModalOpen, setWithdrawModalOpen] = useState(false)
     const [anticipationModalOpen, setAnticipationModalOpen] = useState(false)
     const [currentPage, setCurrentPage] = useState(1)
+    const [selectedCurrency, setSelectedCurrency] = useState<string>('all')
+    const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined)
     const ITEMS_PER_PAGE = 9
 
-    const dateRange: DateRange | undefined = undefined
     const { withdrawals, transfers, anticipations, loading, stats, statsByCurrency, refresh } = useFinance({
         tab: activeTab,
         searchQuery: '',
         dateRange,
-        selectedCurrency: 'all'
+        selectedCurrency
     })
 
     const activeItems = activeTab === 'withdrawals' ? withdrawals : activeTab === 'transfers' ? transfers : anticipations
@@ -83,7 +85,7 @@ export default function Finance() {
                 userId: user.id,
                 amount,
                 schedule,
-                currency: 'USD',
+                currency: selectedCurrency === 'all' ? 'USD' : selectedCurrency,
             }),
         })
 
@@ -100,7 +102,7 @@ export default function Finance() {
         const response = await fetch('https://api.clicknich.com/api/finance/anticipate', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ userId: user.id, amount, currency: 'USD' }),
+            body: JSON.stringify({ userId: user.id, amount, currency: selectedCurrency === 'all' ? 'USD' : selectedCurrency }),
         })
 
         const data = await response.json()
@@ -123,7 +125,7 @@ export default function Finance() {
                 isOpen={withdrawModalOpen}
                 onClose={() => setWithdrawModalOpen(false)}
                 availableBalance={stats.availableBalance}
-                currency="USD"
+                currency={selectedCurrency === 'all' ? 'USD' : selectedCurrency}
                 onConfirm={handleWithdrawConfirm}
             />
 
@@ -132,7 +134,7 @@ export default function Finance() {
                 isOpen={anticipationModalOpen}
                 onClose={() => setAnticipationModalOpen(false)}
                 pendingBalance={stats.pendingBalance}
-                currency="USD"
+                currency={selectedCurrency === 'all' ? 'USD' : selectedCurrency}
                 onConfirm={handleAnticipationConfirm}
             />
 
@@ -142,29 +144,39 @@ export default function Finance() {
                 <main className="flex-1 overflow-y-auto pt-14 relative z-10">
                     <div className="max-w-7xl mx-auto px-4 lg:px-6 py-8">
 
-                        {/* Header */}
-                        <div className="mb-6">
-                            <h1 className="text-2xl font-semibold text-gray-900 dark:text-gray-100 mb-1">
-                                {t('finance.title')}
-                            </h1>
+                        {/* Header e Filtros */}
+                        <div className="mb-6 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+                            <div>
+                                <h1 className="text-2xl font-semibold text-gray-900 dark:text-gray-100 mb-1">
+                                    {t('finance.title')}
+                                </h1>
+                            </div>
+                            <FinanceFilters
+                                dateRange={dateRange}
+                                onDateRangeChange={setDateRange}
+                                selectedCurrency={selectedCurrency}
+                                onCurrencyChange={setSelectedCurrency}
+                            />
                         </div>
 
                         {/* Cards de Saldo */}
                         {Object.keys(statsByCurrency).length > 0 ? (
                             <div className="space-y-4 mb-8">
-                                {Object.entries(statsByCurrency).map(([currency, currStats]) => (
-                                    <div key={currency} className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                        <FinanceCard type="available" value={currStats.availableBalance} currency={currency} onAction={() => setWithdrawModalOpen(true)} />
-                                        <FinanceCard type="pending" value={currStats.pendingBalance} currency={currency} onAction={() => setAnticipationModalOpen(true)} />
-                                        <FinanceCard type="anticipation" value={currStats.awaitingAnticipation} currency={currency} />
-                                    </div>
-                                ))}
+                                {Object.entries(statsByCurrency)
+                                    .filter(([currency]) => selectedCurrency === 'all' || currency === selectedCurrency.toUpperCase())
+                                    .map(([currency, currStats]) => (
+                                        <div key={currency} className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                            <FinanceCard type="available" value={currStats.availableBalance} currency={currency} onAction={() => setWithdrawModalOpen(true)} />
+                                            <FinanceCard type="pending" value={currStats.pendingBalance} currency={currency} onAction={() => setAnticipationModalOpen(true)} />
+                                            <FinanceCard type="anticipation" value={currStats.awaitingAnticipation} currency={currency} />
+                                        </div>
+                                    ))}
                             </div>
                         ) : (
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-                                <FinanceCard type="available" value={stats.availableBalance} currency="USD" onAction={() => setWithdrawModalOpen(true)} />
-                                <FinanceCard type="pending" value={stats.pendingBalance} currency="USD" onAction={() => setAnticipationModalOpen(true)} />
-                                <FinanceCard type="anticipation" value={stats.awaitingAnticipation} currency="USD" />
+                                <FinanceCard type="available" value={stats.availableBalance} currency={selectedCurrency === 'all' ? 'USD' : selectedCurrency} onAction={() => setWithdrawModalOpen(true)} />
+                                <FinanceCard type="pending" value={stats.pendingBalance} currency={selectedCurrency === 'all' ? 'USD' : selectedCurrency} onAction={() => setAnticipationModalOpen(true)} />
+                                <FinanceCard type="anticipation" value={stats.awaitingAnticipation} currency={selectedCurrency === 'all' ? 'USD' : selectedCurrency} />
                             </div>
                         )}
 

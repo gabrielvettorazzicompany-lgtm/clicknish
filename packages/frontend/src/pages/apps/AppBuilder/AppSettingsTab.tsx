@@ -156,11 +156,11 @@ export default function AppSettingsTab({
                 onClick={handleDynamicToggle}
             >
                 <div className="min-w-0 flex-1 mr-3">
-                    <p className="text-xs font-medium text-gray-300">Checkout Dinâmico</p>
+                    <p className="text-xs font-medium text-gray-300">{t('apps.settings_tab.dynamic_checkout')}</p>
                     <p className="text-[10px] text-gray-600 mt-0.5 leading-tight">
                         {localDynamic
-                            ? 'Métodos filtrados pelo país do visitante (iDEAL para 🇳🇱, etc.)'
-                            : 'Todos os métodos selecionados aparecem para qualquer país'}
+                            ? t('apps.settings_tab.dynamic_checkout_on')
+                            : t('apps.settings_tab.dynamic_checkout_off')}
                     </p>
                 </div>
                 <div className={`w-9 h-5 rounded-full flex-shrink-0 transition-colors relative ${localDynamic ? 'bg-blue-500' : 'bg-gray-700'}`}>

@@ -1,0 +1,17 @@
+# Copie este arquivo para .dev.vars e configure as chaves reais
+# Essas são as variáveis necessárias para desenvolvimento local
+
+# Chave do Supabase (Service Role) - obtenha no dashboard do Supabase
+SUPABASE_SERVICE_ROLE_KEY=your_supabase_service_role_key_here
+
+# Chave da API do Resend - obtenha em https://resend.com/api-keys
+RESEND_API_KEY=your_resend_api_key_here
+
+# Chave do Stripe (Secret Key) - obtenha no dashboard do Stripe
+STRIPE_SECRET_KEY=your_stripe_secret_key_here
+
+# Chave secreta do PayPal - obtenha no dashboard do PayPal
+PAYPAL_CLIENT_SECRET=your_paypal_client_secret_here  
+
+# Chave do webhook do Stripe - configurada nos webhooks do Stripe
+STRIPE_WEBHOOK_SECRET=your_stripe_webhook_secret_here
