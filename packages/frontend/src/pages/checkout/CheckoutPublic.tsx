@@ -403,9 +403,8 @@ export default function CheckoutPublic() {
             // ═══════════════════════════════════════════
             // LEGACY PATH: Long URL or upsell checkout
             // ═══════════════════════════════════════════
-            // ⚡ Import dinâmico — supabase só carrega aqui (KV miss / URL longa)
-            // No path rápido (KV hit + shortId) este código nunca executa
-            const { supabase } = await import('@/services/supabase')
+            // ⚡ usa checkout-supabase (chunk isolado, sem contaminação do hero-ui)
+            const { checkoutSupabase: supabase } = await import('@/services/checkout-supabase')
             let finalProductId = productId
             let finalCheckoutId = checkoutId
             let knownIsApp: boolean | null = null
@@ -664,8 +663,8 @@ export default function CheckoutPublic() {
         isUpsell: boolean
     ) => {
         try {
-            // ⚡ Import dinâmico — só executa no legacy path (nunca no KV hit)
-            const { supabase } = await import('@/services/supabase')
+            // ⚡ usa checkout-supabase (chunk isolado, sem contaminação do hero-ui)
+            const { checkoutSupabase: supabase } = await import('@/services/checkout-supabase')
             if (!isUpsell) {
                 // Strategy 1: funnel_page linked directly to checkout
                 let { data: pages } = await supabase
