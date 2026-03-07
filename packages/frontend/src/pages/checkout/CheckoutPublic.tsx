@@ -305,7 +305,10 @@ export default function CheckoutPublic() {
                         image_url: prod.image_url,
                         description: prod.description || '',
                         productType: rpcResult.productType,
-                        applicationId: prod.applicationId || undefined
+                        applicationId: prod.applicationId || undefined,
+                        payment_methods: prod.payment_methods || ['credit_card'],
+                        default_payment_method: prod.default_payment_method || 'credit_card',
+                        dynamic_checkout: prod.dynamic_checkout || false,
                     }
 
                     const fetchedCheckout: Checkout = {
