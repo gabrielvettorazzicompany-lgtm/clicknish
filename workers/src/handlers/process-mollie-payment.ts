@@ -420,19 +420,16 @@ async function grantMollieAccess(
 
             // Registrar venda
             await Promise.allSettled([
-                supabase.from('checkout_sales').insert({
-                    id: purchaseId,
-                    checkout_id: checkoutId || null,
-                    buyer_email: customerEmail,
-                    buyer_name: customerName || null,
-                    amount: amount,
+                supabase.from('sale_locations').insert({
+                    user_id: sellerId || null,
+                    customer_email: customerEmail,
+                    amount: Number(amount),
                     currency: currency,
-                    payment_provider: 'mollie',
-                    payment_method: method,
-                    status: 'paid',
-                    application_id: applicationId,
-                    seller_id: sellerId || null,
+                    payment_method: method || 'mollie',
+                    checkout_id: checkoutId || null,
+                    product_id: applicationId || productId || null,
                     payout_schedule: producerPayoutSchedule,
+                    sale_date: new Date().toISOString(),
                 }),
                 checkoutId ? supabase.from('checkout_analytics').insert({
                     checkout_id: checkoutId,
@@ -480,19 +477,16 @@ async function grantMollieAccess(
             }
 
             await Promise.allSettled([
-                supabase.from('checkout_sales').insert({
-                    id: purchaseId,
+                supabase.from('sale_locations').insert({
+                    user_id: sellerId || null,
+                    customer_email: customerEmail,
+                    amount: Number(amount),
+                    currency: currency,
+                    payment_method: method || 'mollie',
                     checkout_id: checkoutId || null,
-                    buyer_email: customerEmail,
-                    buyer_name: customerName || null,
-                    amount,
-                    currency,
-                    payment_provider: 'mollie',
-                    payment_method: method,
-                    status: 'paid',
-                    product_id: productId,
-                    seller_id: sellerId || null,
+                    product_id: productId || null,
                     payout_schedule: producerPayoutSchedule,
+                    sale_date: new Date().toISOString(),
                 }),
                 checkoutId ? supabase.from('checkout_analytics').insert({
                     checkout_id: checkoutId,
