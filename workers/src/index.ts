@@ -39,6 +39,8 @@ import { handleCachePurge } from './handlers/purge'
 import { handleSendConfirmationEmail } from './handlers/send-confirmation-email'
 import { handleProcessMolliePayment } from './handlers/process-mollie-payment'
 
+import { handleWeeklyReserve } from './handlers/weekly-reserve'
+
 export interface Env {
     // Variáveis públicas
     SUPABASE_URL: string
@@ -74,7 +76,18 @@ const corsHeaders = {
 
 export default {
     // ⚡ CRON TRIGGER: Pré-aquecimento automático de cache a cada 2 minutos
-    async scheduled(_event: ScheduledEvent, env: Env, _ctx: ExecutionContext) {
+    //                  + Reserva financeira semanal toda segunda-feira
+    async scheduled(event: ScheduledEvent, env: Env, _ctx: ExecutionContext) {
+        const cron = event.cron
+
+        // Toda segunda-feira 06:00 UTC: calcular reserva semanal (15% das vendas)
+        if (cron === '0 6 * * 1') {
+            console.log('💰 Cron: weekly financial reserve starting')
+            await handleWeeklyReserve(env)
+            return
+        }
+
+        // A cada 2 minutos: pré-aquecimento de cache
         console.log('🔥 Cron: cache preloader starting')
         const fakeRequest = new Request('https://api.clicknich.com/api/cache-preloader')
         await handleCachePreloader(fakeRequest, env)

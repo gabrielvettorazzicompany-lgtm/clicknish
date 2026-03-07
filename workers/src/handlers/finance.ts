@@ -163,7 +163,6 @@ export async function handleFinance(
 
         // Calcular totais de vendas por moeda
         const salesByCurrency: Record<string, number> = {}
-        const grossSalesByCurrency: Record<string, number> = {} // antes do spread
 
         // Vendas de apps (USD)
         const seenAppPayments = new Set<string>()
@@ -174,7 +173,6 @@ export async function handleFinance(
                 if (row.payment_status === 'completed') {
                     const price = Number(row.purchase_price ?? 0)
                     salesByCurrency['USD'] = (salesByCurrency['USD'] || 0) + price
-                    grossSalesByCurrency['USD'] = (grossSalesByCurrency['USD'] || 0) + price
                 }
             })
 
@@ -187,7 +185,6 @@ export async function handleFinance(
                 const effectivePrice = currency !== 'USD' ? rawPrice * (1 - NON_USD_SPREAD) : rawPrice
                 if (row.payment_status === 'completed') {
                     salesByCurrency[currency] = (salesByCurrency[currency] || 0) + effectivePrice
-                    grossSalesByCurrency[currency] = (grossSalesByCurrency[currency] || 0) + rawPrice
                 }
             })
 
@@ -204,15 +201,29 @@ export async function handleFinance(
                 }
             })
 
+        // Buscar reservas financeiras reais do banco (ainda bloqueadas)
+        const today = new Date().toISOString().split('T')[0]
+        const { data: reservesData } = await supabase
+            .from('financial_reserves')
+            .select('currency, reserve_amount, released, release_date')
+            .eq('user_id', userId)
+            .eq('released', false)
+            .gt('release_date', today)
+
+        const reserveByCurrency: Record<string, number> = {}
+            ; (reservesData || []).forEach((r: any) => {
+                const cur = r.currency
+                reserveByCurrency[cur] = (reserveByCurrency[cur] || 0) + Number(r.reserve_amount)
+            })
+
         // Calcular stats por moeda
         const statsByCurrency: Record<string, FinanceStats> = {}
         for (const currency of new Set([...Object.keys(salesByCurrency), ...Object.keys(withdrawnByCurrency)])) {
             const totalSales = salesByCurrency[currency] || 0
             const totalWithdrawn = withdrawnByCurrency[currency] || 0
             const pending = pendingByCurrency[currency] || 0
-            // Reserva: 15% do total bruto das vendas (retida por 60 dias)
-            const grossSales = grossSalesByCurrency[currency] || totalSales
-            const financialReserve = parseFloat((grossSales * 0.15).toFixed(2))
+            // Reserva real do banco (liberada automaticamente pelo cron após 60 dias)
+            const financialReserve = parseFloat((reserveByCurrency[currency] || 0).toFixed(2))
             statsByCurrency[currency] = {
                 availableBalance: Math.max(0, totalSales - totalWithdrawn - financialReserve),
                 pendingBalance: pending,
