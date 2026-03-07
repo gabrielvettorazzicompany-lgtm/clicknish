@@ -148,8 +148,8 @@ function CheckoutDigital({
                 ? totalWithBumps * (1 + 0.025 * installments)
                 : totalWithBumps
 
-            // Usar customFormData se fornecido, caso contrário usar formData do estado
-            const finalFormData = customFormData || formData
+            // Mesclar customFormData sobre formData para preservar name/email/phone
+            const finalFormData = customFormData ? { ...formData, ...customFormData } : formData
 
             console.log('📝 Final formData to be used:', finalFormData)
 

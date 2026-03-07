@@ -84,6 +84,8 @@ export const OrderSummary: React.FC<OrderSummaryProps> = ({
 
     if (paymentMethod === 'paypal') {
       onSubmit(undefined, { paymentMethod: 'paypal' })
+    } else if (paymentMethod?.startsWith('mollie_')) {
+      onSubmit(undefined, { paymentMethod })
     } else {
       onSubmit()
     }

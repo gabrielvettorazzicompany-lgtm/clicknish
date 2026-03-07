@@ -445,16 +445,6 @@ export const PaymentForm: React.FC<PaymentFormProps> = ({
               <div className="bg-gray-50 rounded-md p-4 text-center space-y-3">
                 <img src={iconSrc} alt={m.label} className="h-8 w-auto object-contain mx-auto" />
                 <p className="text-[13px] text-gray-600">{m.description || `Pagar com ${m.label}`}</p>
-                {!isPreview && (
-                  <button
-                    type="button"
-                    disabled={processing}
-                    onClick={() => onSubmit(undefined, { ...formData, paymentMethod: `mollie_${rawId}` })}
-                    className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-md transition-colors disabled:opacity-50"
-                  >
-                    {processing ? '...' : `Pagar com ${m.label}`}
-                  </button>
-                )}
               </div>
             </div>
           )
