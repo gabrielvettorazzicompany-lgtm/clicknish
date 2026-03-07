@@ -203,7 +203,7 @@ export const PaymentForm: React.FC<PaymentFormProps> = ({
       : 'top-7 left-3 text-[14px] text-gray-400'
 
   return (
-    <form onSubmit={handleSubmit} className={viewDevice === 'mobile' || isPreview ? 'px-4' : 'px-4 lg:px-0'}>
+    <form id="checkout-payment-form" onSubmit={handleSubmit} className={viewDevice === 'mobile' || isPreview ? 'px-4' : 'px-4 lg:px-0'}>
       {/* Formulário sem card */}
       <div>
 

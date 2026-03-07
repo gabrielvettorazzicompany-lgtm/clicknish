@@ -81,14 +81,7 @@ export const OrderSummary: React.FC<OrderSummaryProps> = ({
 
     // Limpar o estado após 300ms (ou quando processing iniciar de verdade)
     setTimeout(() => setOptimisticClick(false), 300)
-
-    if (paymentMethod === 'paypal') {
-      onSubmit(undefined, { paymentMethod: 'paypal' })
-    } else if (paymentMethod?.startsWith('mollie_')) {
-      onSubmit(undefined, { paymentMethod })
-    } else {
-      onSubmit()
-    }
+    // O submit real é feito pelo atributo form="checkout-payment-form" no botão
   }
 
   // Calcular valor da parcela com juros se aplicavel
@@ -129,6 +122,8 @@ export const OrderSummary: React.FC<OrderSummaryProps> = ({
       <CheckoutImageDisplay imageBlocks={imageBlocks} slot="above_button" className="px-0" isPreview={isPreview} onUpdateImageBlock={onUpdateImageBlock} onDeleteImageBlock={onDeleteImageBlock} />
 
       <button
+        type="submit"
+        form="checkout-payment-form"
         onClick={handleOptimisticClick}
         disabled={processing}
         className={`w-full disabled:opacity-40 disabled:cursor-not-allowed text-white font-medium rounded-lg transition-all duration-200 text-[13px] flex items-center justify-center gap-2 ${isMobile ? 'py-2.5 mb-4' : 'py-2.5'} ${isPreview ? 'cursor-default pointer-events-none' : ''} ${optimisticClick ? 'scale-[0.96] bg-opacity-90' : 'hover:scale-[1.02] active:scale-[0.98]'
