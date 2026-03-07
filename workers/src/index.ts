@@ -182,17 +182,17 @@ async function handleApiRoute(
             .maybeSingle()
         const enabledMethods: string[] = prov?.enabled_methods || []
         // ?all=1 → modo admin (AppSettingsTab do owner): sem filtro de país
-        const skipGeoFilter = url.searchParams.get('all') === '1'
+        const reqUrl = new URL(request.url)
+        const skipGeoFilter = reqUrl.searchParams.get('all') === '1'
         // Detectar país via Cloudflare (CF-IPCountry header injetado automaticamente)
         const visitorCountry = skipGeoFilter ? null
             : ((request as any).cf?.country || request.headers.get('CF-IPCountry') || null)
 
         // Buscar métodos da tabela de referência
-        // Se enabled_methods está configurado, filtra por eles; caso contrário retorna todos
+        // Filtros ANTES do .order() — obrigatório no Supabase JS v2
         let query = supabase
             .from('mollie_payment_methods')
             .select('id, label, description, countries, currencies, icon_url, sort_order')
-            .order('sort_order')
         if (enabledMethods.length > 0) {
             query = query.in('id', enabledMethods)
         }
@@ -200,7 +200,7 @@ async function handleApiRoute(
             // Retorna métodos globais ('*') OU disponíveis no país do visitante
             query = query.or(`countries.cs.{"*"},countries.cs.{"${visitorCountry}"}`)
         }
-        const { data: methodDefs } = await query
+        const { data: methodDefs } = await query.order('sort_order')
         const knownIds = new Set((methodDefs || []).map((m: any) => m.id))
 
         // Fallback: IDs que estão em enabled_methods mas não existem na tabela
