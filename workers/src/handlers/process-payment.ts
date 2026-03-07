@@ -417,6 +417,29 @@ export async function handleProcessPayment(
         )
 
         // ═══════════════════════════════════════════════════════════════════
+        // TAXAS DA PLATAFORMA: buscar plano do produtor e calcular fee por venda
+        // ═══════════════════════════════════════════════════════════════════
+        const PAYOUT_FEES_PP: Record<string, { percentage: number; fixed: number }> = {
+            'D+2':  { percentage: 8.99, fixed: 0.49 },
+            'D+5':  { percentage: 6.99, fixed: 0.49 },
+            'D+12': { percentage: 4.99, fixed: 0.49 },
+        }
+        let producerPayoutSchedule = 'D+5'
+        if (sellerOwnerId) {
+            const { data: producerConfig } = await supabase
+                .from('user_payment_config')
+                .select('payout_schedule')
+                .eq('user_id', sellerOwnerId)
+                .maybeSingle()
+            if (producerConfig?.payout_schedule) {
+                producerPayoutSchedule = producerConfig.payout_schedule
+            }
+        }
+        const producerFee = PAYOUT_FEES_PP[producerPayoutSchedule] || PAYOUT_FEES_PP['D+5']
+        const platformFeeAmt = parseFloat((totalChargeAmount * (producerFee.percentage / 100) + producerFee.fixed).toFixed(2))
+        const saleNetAmount  = parseFloat((totalChargeAmount - platformFeeAmt).toFixed(2))
+
+        // ═══════════════════════════════════════════════════════════════════
         // ⚡ OTIMIZAÇÃO: Gerar IDs ANTES de processar acesso (response streaming)
         // ═══════════════════════════════════════════════════════════════════
         const purchaseId = crypto.randomUUID()
@@ -537,6 +560,10 @@ export async function handleProcessPayment(
                             purchase_price: totalChargeAmount,
                             stripe_customer_id: stripeCustomer.id,
                             stripe_payment_method_id: paymentMethodId,
+                            payout_schedule: producerPayoutSchedule,
+                            platform_fee_pct: producerFee.percentage,
+                            platform_fee_amt: platformFeeAmt,
+                            net_amount: saleNetAmount,
                             created_at: new Date().toISOString(),
                         }))
 
@@ -612,6 +639,10 @@ export async function handleProcessPayment(
                             purchase_price: b.price,
                             stripe_customer_id: stripeCustomer.id,
                             stripe_payment_method_id: paymentMethodId,
+                            payout_schedule: producerPayoutSchedule,
+                            platform_fee_pct: producerFee.percentage,
+                            platform_fee_amt: parseFloat((b.price * (producerFee.percentage / 100) + producerFee.fixed).toFixed(2)),
+                            net_amount: parseFloat((b.price - (b.price * (producerFee.percentage / 100) + producerFee.fixed)).toFixed(2)),
                             created_at: new Date().toISOString(),
                         }))
                         const { error: bumpAccessError } = await supabase
@@ -688,6 +719,10 @@ export async function handleProcessPayment(
                                 payment_method: 'card',
                                 payment_status: 'completed',
                                 purchase_price: totalChargeAmount,
+                                payout_schedule: producerPayoutSchedule,
+                                platform_fee_pct: producerFee.percentage,
+                                platform_fee_amt: platformFeeAmt,
+                                net_amount: saleNetAmount,
                                 created_at: new Date().toISOString(),
                             }, {
                                 onConflict: 'user_id,member_area_id',

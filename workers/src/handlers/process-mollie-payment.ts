@@ -351,7 +351,29 @@ async function grantMollieAccess(
             method,
             session_id: sessionId,
             tracking_parameters: trackingParameters,
+            seller_id: sellerId,
         } = record
+
+        // ─── Calcular taxa de plataforma por venda ────────────────────────
+        const PAYOUT_FEES_PP: Record<string, { percentage: number; fixed: number }> = {
+            'D+2':  { percentage: 8.99, fixed: 0.49 },
+            'D+5':  { percentage: 6.99, fixed: 0.49 },
+            'D+12': { percentage: 4.99, fixed: 0.49 },
+        }
+        let producerPayoutSchedule = 'D+5'
+        if (sellerId) {
+            const { data: producerConfig } = await supabase
+                .from('user_payment_config')
+                .select('payout_schedule')
+                .eq('user_id', sellerId)
+                .maybeSingle()
+            if (producerConfig?.payout_schedule) producerPayoutSchedule = producerConfig.payout_schedule
+        }
+        const producerFee = PAYOUT_FEES_PP[producerPayoutSchedule] || PAYOUT_FEES_PP['D+5']
+        const saleAmount = Number(amount)
+        const platformFeeAmt = parseFloat((saleAmount * (producerFee.percentage / 100) + producerFee.fixed).toFixed(2))
+        const saleNetAmount  = parseFloat((saleAmount - platformFeeAmt).toFixed(2))
+        // ─────────────────────────────────────────────────────────────────
 
         if (productType === 'app') {
             // ─── APP ────────────────────────────────────────────────────────
@@ -419,6 +441,11 @@ async function grantMollieAccess(
                     payment_method: method,
                     status: 'paid',
                     application_id: applicationId,
+                    seller_id: sellerId || null,
+                    payout_schedule: producerPayoutSchedule,
+                    platform_fee_pct: producerFee.percentage,
+                    platform_fee_amt: platformFeeAmt,
+                    net_amount: saleNetAmount,
                 }),
                 checkoutId ? supabase.from('checkout_analytics').insert({
                     checkout_id: checkoutId,
@@ -477,6 +504,11 @@ async function grantMollieAccess(
                     payment_method: method,
                     status: 'paid',
                     product_id: productId,
+                    seller_id: sellerId || null,
+                    payout_schedule: producerPayoutSchedule,
+                    platform_fee_pct: producerFee.percentage,
+                    platform_fee_amt: platformFeeAmt,
+                    net_amount: saleNetAmount,
                 }),
                 checkoutId ? supabase.from('checkout_analytics').insert({
                     checkout_id: checkoutId,
