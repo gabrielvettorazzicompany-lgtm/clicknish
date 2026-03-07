@@ -26,12 +26,15 @@ interface FinanceStats {
     financialReserve: number
 }
 
-// Taxas por modelo de payout (PDF: clicknich_financial_engine_rules_v3)
-const PAYOUT_FEES: Record<string, { percentage: number; fixed: number }> = {
-    'D+2': { percentage: 8.99, fixed: 0.49 },
-    'D+5': { percentage: 6.99, fixed: 0.49 },
-    'D+12': { percentage: 4.99, fixed: 0.49 },
+// Taxas por modelo de payout — percentual cobrado no saque (PDF: clicknich_financial_engine_rules_v3)
+const PAYOUT_FEES: Record<string, { percentage: number }> = {
+    'D+2': { percentage: 8.99 },
+    'D+5': { percentage: 6.99 },
+    'D+12': { percentage: 4.99 },
 }
+
+// Taxa fixa por transação (venda), deduzida do saldo disponível
+const TRANSACTION_FEE = 0.49
 
 // Spread adicional para vendas em moeda não-USD (1.8%)
 const NON_USD_SPREAD = 0.018
@@ -161,8 +164,9 @@ export async function handleFinance(
             completedAt: a.completed_at,
         }))
 
-        // Calcular totais de vendas por moeda
+        // Calcular totais de vendas por moeda e contar transações (para taxa fixa $0.49/venda)
         const salesByCurrency: Record<string, number> = {}
+        const saleCountByCurrency: Record<string, number> = {}
 
         // Vendas de apps (USD)
         const seenAppPayments = new Set<string>()
@@ -173,6 +177,7 @@ export async function handleFinance(
                 if (row.payment_status === 'completed') {
                     const price = Number(row.purchase_price ?? 0)
                     salesByCurrency['USD'] = (salesByCurrency['USD'] || 0) + price
+                    saleCountByCurrency['USD'] = (saleCountByCurrency['USD'] || 0) + 1
                 }
             })
 
@@ -185,6 +190,7 @@ export async function handleFinance(
                 const effectivePrice = currency !== 'USD' ? rawPrice * (1 - NON_USD_SPREAD) : rawPrice
                 if (row.payment_status === 'completed') {
                     salesByCurrency[currency] = (salesByCurrency[currency] || 0) + effectivePrice
+                    saleCountByCurrency[currency] = (saleCountByCurrency[currency] || 0) + 1
                 }
             })
 
@@ -222,10 +228,11 @@ export async function handleFinance(
             const totalSales = salesByCurrency[currency] || 0
             const totalWithdrawn = withdrawnByCurrency[currency] || 0
             const pending = pendingByCurrency[currency] || 0
-            // Reserva real do banco (liberada automaticamente pelo cron após 60 dias)
             const financialReserve = parseFloat((reserveByCurrency[currency] || 0).toFixed(2))
+            // $0.49 por transação descontado do saldo disponível
+            const totalTransactionFees = parseFloat(((saleCountByCurrency[currency] || 0) * TRANSACTION_FEE).toFixed(2))
             statsByCurrency[currency] = {
-                availableBalance: Math.max(0, totalSales - totalWithdrawn - financialReserve),
+                availableBalance: Math.max(0, totalSales - totalWithdrawn - financialReserve - totalTransactionFees),
                 pendingBalance: pending,
                 awaitingAnticipation: 0,
                 financialReserve,
@@ -340,9 +347,9 @@ export async function handleWithdraw(
 
         const supabase = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY)
 
-        // Calcular taxa
+        // Calcular taxa (apenas percentual — $0.49 é cobrado por venda, não por saque)
         const fee = PAYOUT_FEES[schedule as keyof typeof PAYOUT_FEES]
-        const feeAmount = numAmount * (fee.percentage / 100) + fee.fixed
+        const feeAmount = numAmount * (fee.percentage / 100)
         const netAmount = Math.max(0, numAmount - feeAmount)
 
         const { data, error } = await supabase
@@ -353,7 +360,7 @@ export async function handleWithdraw(
                 currency,
                 payout_schedule: schedule,
                 fee_percentage: fee.percentage,
-                fee_fixed: fee.fixed,
+                fee_fixed: 0,
                 fee_amount: parseFloat(feeAmount.toFixed(2)),
                 net_amount: parseFloat(netAmount.toFixed(2)),
                 status: 'processing',
