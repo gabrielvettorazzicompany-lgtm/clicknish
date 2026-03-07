@@ -2,7 +2,7 @@
 # Este arquivo configura o projeto Pages para o deploy via wrangler CLI
 # e define os bindings disponíveis no _worker.js
 
-name = "clicknich-app"        # Nome do projeto no Cloudflare Pages Dashboard
+name = "clicknish"            # Nome do projeto no Cloudflare Pages Dashboard
 pages_build_output_dir = "dist"
 
 compatibility_date = "2024-01-01"

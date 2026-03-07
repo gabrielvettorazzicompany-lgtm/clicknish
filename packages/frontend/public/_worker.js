@@ -145,14 +145,25 @@ async function fetchCheckoutData(shortId, env) {
 }
 
 /**
+ * Serializa JSON de forma segura para embutir em <script>.
+ * Escapa </script> e </head> para evitar que conteúdo HTML em campos
+ * de texto (ex: descrição do produto) encerre prematuramente a tag.
+ */
+function safeJson(value) {
+    return JSON.stringify(value)
+        .replace(/<\/script/gi, '<\\/script')
+        .replace(/<\/head/gi, '<\\/head')
+}
+
+/**
  * Constrói o <script> de injeção de dados.
  * Se não tem dados: dispara o fetch no client (fallback).
  */
 function buildScriptTag(shortId, data) {
     if (data) {
-        return `<script>window.__IS_CHECKOUT_ROUTE__=true;window.__CHECKOUT_SHORT_ID__=${JSON.stringify(shortId)};window.__CHECKOUT_DATA__=${JSON.stringify(data)};window.__checkoutDataPromise=Promise.resolve(window.__CHECKOUT_DATA__);</script>\n`
+        return `<script>window.__IS_CHECKOUT_ROUTE__=true;window.__CHECKOUT_SHORT_ID__=${safeJson(shortId)};window.__CHECKOUT_DATA__=${safeJson(data)};window.__checkoutDataPromise=Promise.resolve(window.__CHECKOUT_DATA__);</script>\n`
     }
-    return `<script>window.__IS_CHECKOUT_ROUTE__=true;window.__CHECKOUT_SHORT_ID__=${JSON.stringify(shortId)};window.__checkoutDataPromise=fetch('https://api.clicknich.com/api/checkout-data/'+${JSON.stringify(shortId)}).then(function(r){return r.ok?r.json():null;}).catch(function(){return null;});</script>\n`
+    return `<script>window.__IS_CHECKOUT_ROUTE__=true;window.__CHECKOUT_SHORT_ID__=${safeJson(shortId)};window.__checkoutDataPromise=fetch('https://api.clicknich.com/api/checkout-data/'+${safeJson(shortId)}).then(function(r){return r.ok?r.json():null;}).catch(function(){return null;});</script>\n`
 }
 
 /** Usado apenas como fallback quando não há </head> no HTML */
