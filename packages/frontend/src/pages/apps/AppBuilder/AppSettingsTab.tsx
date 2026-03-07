@@ -141,13 +141,13 @@ export default function AppSettingsTab({
                 <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                     {t('apps.settings_tab.payment_methods')}
                 </p>
-                <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full ${
+                {!localDynamic && <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full ${
                     localSelected.length >= 3
                         ? 'bg-amber-500/10 text-amber-400'
                         : 'bg-white/5 text-gray-500'
                 }`}>
                     {localSelected.length}/3
-                </span>
+                </span>}
             </div>
 
             {/* Toggle: Checkout Dinâmico */}
@@ -169,7 +169,7 @@ export default function AppSettingsTab({
             </div>
 
             {/* Lista de métodos */}
-            <div className="flex flex-col gap-1.5">
+            {!localDynamic && <div className="flex flex-col gap-1.5">
                 {allMethods.map(method => {
                     const isSelected = localSelected.includes(method.id)
                     const isMaxed = !isSelected && localSelected.length >= 3
@@ -217,9 +217,9 @@ export default function AppSettingsTab({
                         </div>
                     )
                 })}
-            </div>
+            </div>}
 
-            {localSelected.length >= 3 && (
+            {!localDynamic && localSelected.length >= 3 && (
                 <p className="text-[10px] text-amber-500/80 text-center">
                     Máximo de 3 métodos atingido
                 </p>
