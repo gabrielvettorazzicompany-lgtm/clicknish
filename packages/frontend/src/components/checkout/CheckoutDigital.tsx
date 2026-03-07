@@ -162,6 +162,10 @@ function CheckoutDigital({
 
             const result = await onProcessPayment(paymentData)
 
+            // Mollie redirect flow retorna success:false para sinalizar que o utilizador
+            // foi redirecionado — não mostrar sucesso nem chamar callback neste caso
+            if (result?.success === false) return
+
             setPaymentSuccess(true)
 
             // Handle redirect/callback
