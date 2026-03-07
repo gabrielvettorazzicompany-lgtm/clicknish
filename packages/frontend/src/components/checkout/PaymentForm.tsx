@@ -434,21 +434,7 @@ export const PaymentForm: React.FC<PaymentFormProps> = ({
           </div>
         )}
 
-        {/* Mollie redirect method */}
-        {expandedPaymentMethod && expandedPaymentMethod !== 'credit_card' && expandedPaymentMethod !== 'paypal' && (() => {
-          const rawId = expandedPaymentMethod.startsWith('mollie_') ? expandedPaymentMethod.slice(7) : expandedPaymentMethod
-          const m = mollieEnabledMethods?.find(x => x.id === rawId)
-          if (!m) return null
-          const iconSrc = m.icon_url || getMollieIcon(rawId)
-          return (
-            <div className="mt-3">
-              <div className="bg-gray-50 rounded-md p-4 text-center space-y-3">
-                <img src={iconSrc} alt={m.label} className="h-8 w-auto object-contain mx-auto" />
-                <p className="text-[13px] text-gray-600">{m.description || `Pagar com ${m.label}`}</p>
-              </div>
-            </div>
-          )
-        })()}
+
 
       </div>
 
