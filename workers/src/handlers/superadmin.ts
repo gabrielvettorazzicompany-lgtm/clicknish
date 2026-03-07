@@ -1131,90 +1131,88 @@ export async function handleSuperadmin(request: Request, env: any, pathSegments:
             status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         })
 
-    }
+        // ─── PAYOUT PLAN REQUESTS ────────────────────────────────────────────────
 
-    // ─── PAYOUT PLAN REQUESTS ────────────────────────────────────────────────
-
-    // GET /api/superadmin/plan-requests  — lista solicitações de D+2
-    if (request.method === 'GET' && pathSegments.length === 1 && pathSegments[0] === 'plan-requests') {
-        const statusFilter = url.searchParams.get('status') || 'pending'
-        let query = supabase
-            .from('payout_plan_requests')
-            .select('*', { count: 'exact' })
-            .order('created_at', { ascending: false })
-        if (statusFilter !== 'all') query = query.eq('status', statusFilter)
-        const { data, count, error } = await query
-        if (error) throw error
-        const enriched = await Promise.all(
-            (data || []).map(async (row: any) => {
-                try {
-                    const { data: authUser } = await supabase.auth.admin.getUserById(row.user_id)
-                    return { ...row, user_email: authUser?.user?.email || row.user_id }
-                } catch { return { ...row, user_email: row.user_id } }
+        // GET /api/superadmin/plan-requests  — lista solicitações de D+2
+        if (request.method === 'GET' && pathSegments.length === 1 && pathSegments[0] === 'plan-requests') {
+            const statusFilter = url.searchParams.get('status') || 'pending'
+            let query = supabase
+                .from('payout_plan_requests')
+                .select('*', { count: 'exact' })
+                .order('created_at', { ascending: false })
+            if (statusFilter !== 'all') query = query.eq('status', statusFilter)
+            const { data, count, error } = await query
+            if (error) throw error
+            const enriched = await Promise.all(
+                (data || []).map(async (row: any) => {
+                    try {
+                        const { data: authUser } = await supabase.auth.admin.getUserById(row.user_id)
+                        return { ...row, user_email: authUser?.user?.email || row.user_id }
+                    } catch { return { ...row, user_email: row.user_id } }
+                })
+            )
+            return new Response(JSON.stringify({ data: enriched, total: count || 0 }), {
+                headers: { ...corsHeaders, 'Content-Type': 'application/json' }
             })
-        )
-        return new Response(JSON.stringify({ data: enriched, total: count || 0 }), {
+        }
+
+        // PUT /api/superadmin/plan-requests/:id/approve
+        if (request.method === 'PUT' && pathSegments.length === 3 && pathSegments[0] === 'plan-requests' && pathSegments[2] === 'approve') {
+            const reqId = pathSegments[1]
+            const { data: planReq, error: fetchErr } = await supabase
+                .from('payout_plan_requests')
+                .select('user_id, requested_plan')
+                .eq('id', reqId)
+                .single()
+            if (fetchErr || !planReq) {
+                return new Response(JSON.stringify({ error: 'Solicitação não encontrada' }), { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+            }
+            const { data: adminData } = await supabase.auth.admin.getUserById(userId)
+            const adminEmail = adminData?.user?.email || ''
+            // Atualizar plano do produtor
+            const { error: cfgErr } = await supabase
+                .from('user_payment_config')
+                .upsert({ user_id: planReq.user_id, payout_schedule: planReq.requested_plan }, { onConflict: 'user_id' })
+            if (cfgErr) throw cfgErr
+            // Marcar solicitação como aprovada
+            await supabase.from('payout_plan_requests').update({
+                status: 'approved',
+                reviewed_by: userId,
+                reviewed_at: new Date().toISOString(),
+            }).eq('id', reqId)
+            await logAudit(supabase, userId, adminEmail, 'approve_plan_request', 'payout_plan_request', reqId, { plan: planReq.requested_plan, producer: planReq.user_id })
+            return new Response(JSON.stringify({ success: true }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+        }
+
+        // PUT /api/superadmin/plan-requests/:id/reject
+        if (request.method === 'PUT' && pathSegments.length === 3 && pathSegments[0] === 'plan-requests' && pathSegments[2] === 'reject') {
+            const reqId = pathSegments[1]
+            const body: any = await request.json().catch(() => ({}))
+            const { data: adminData } = await supabase.auth.admin.getUserById(userId)
+            const adminEmail = adminData?.user?.email || ''
+            await supabase.from('payout_plan_requests').update({
+                status: 'rejected',
+                reviewed_by: userId,
+                reviewed_at: new Date().toISOString(),
+                admin_notes: body.reason || null,
+            }).eq('id', reqId)
+            await logAudit(supabase, userId, adminEmail, 'reject_plan_request', 'payout_plan_request', reqId, { reason: body.reason })
+            return new Response(JSON.stringify({ success: true }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+        }
+
+        return new Response(JSON.stringify({ error: 'Endpoint não encontrado' }), {
+            status: 404,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        })
+
+    } catch (error: any) {
+        console.error('SuperAdmin function error:', error)
+        return new Response(JSON.stringify({
+            error: error.message,
+            timestamp: new Date().toISOString()
+        }), {
+            status: 500,
             headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         })
     }
-
-    // PUT /api/superadmin/plan-requests/:id/approve
-    if (request.method === 'PUT' && pathSegments.length === 3 && pathSegments[0] === 'plan-requests' && pathSegments[2] === 'approve') {
-        const reqId = pathSegments[1]
-        const { data: planReq, error: fetchErr } = await supabase
-            .from('payout_plan_requests')
-            .select('user_id, requested_plan')
-            .eq('id', reqId)
-            .single()
-        if (fetchErr || !planReq) {
-            return new Response(JSON.stringify({ error: 'Solicitação não encontrada' }), { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
-        }
-        const { data: adminData } = await supabase.auth.admin.getUserById(userId)
-        const adminEmail = adminData?.user?.email || ''
-        // Atualizar plano do produtor
-        const { error: cfgErr } = await supabase
-            .from('user_payment_config')
-            .upsert({ user_id: planReq.user_id, payout_schedule: planReq.requested_plan }, { onConflict: 'user_id' })
-        if (cfgErr) throw cfgErr
-        // Marcar solicitação como aprovada
-        await supabase.from('payout_plan_requests').update({
-            status: 'approved',
-            reviewed_by: userId,
-            reviewed_at: new Date().toISOString(),
-        }).eq('id', reqId)
-        await logAudit(supabase, userId, adminEmail, 'approve_plan_request', 'payout_plan_request', reqId, { plan: planReq.requested_plan, producer: planReq.user_id })
-        return new Response(JSON.stringify({ success: true }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
-    }
-
-    // PUT /api/superadmin/plan-requests/:id/reject
-    if (request.method === 'PUT' && pathSegments.length === 3 && pathSegments[0] === 'plan-requests' && pathSegments[2] === 'reject') {
-        const reqId = pathSegments[1]
-        const body: any = await request.json().catch(() => ({}))
-        const { data: adminData } = await supabase.auth.admin.getUserById(userId)
-        const adminEmail = adminData?.user?.email || ''
-        await supabase.from('payout_plan_requests').update({
-            status: 'rejected',
-            reviewed_by: userId,
-            reviewed_at: new Date().toISOString(),
-            admin_notes: body.reason || null,
-        }).eq('id', reqId)
-        await logAudit(supabase, userId, adminEmail, 'reject_plan_request', 'payout_plan_request', reqId, { reason: body.reason })
-        return new Response(JSON.stringify({ success: true }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
-    }
-
-    return new Response(JSON.stringify({ error: 'Endpoint não encontrado' }), {
-        status: 404,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-    })
-
-} catch (error: any) {
-    console.error('SuperAdmin function error:', error)
-    return new Response(JSON.stringify({
-        error: error.message,
-        timestamp: new Date().toISOString()
-    }), {
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-    })
-}
 }
