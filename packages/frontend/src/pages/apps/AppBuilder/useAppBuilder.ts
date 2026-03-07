@@ -225,6 +225,25 @@ export function useAppBuilder() {
                     }
                 }
 
+                // Purgar cache KV dos checkouts deste app para o checkout público
+                // servir imediatamente os novos métodos de pagamento
+                if (savedAppId) {
+                    supabase
+                        .from('checkouts')
+                        .select('id')
+                        .eq('application_id', savedAppId)
+                        .then(({ data: ckRows }) => {
+                            if (!ckRows) return
+                            ckRows.forEach(ck => {
+                                fetch('https://api.clicknich.com/api/cache/purge', {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({ checkoutId: ck.id }),
+                                }).catch(() => { })
+                            })
+                        })
+                }
+
                 alert(appId ? 'App updated successfully!' : 'App created successfully!')
 
                 if (!appId) {

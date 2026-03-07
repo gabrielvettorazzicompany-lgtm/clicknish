@@ -1056,7 +1056,16 @@ export default function CheckoutPublic() {
                 testimonialsHorizontalMode={testimonialsHorizontalMode}
                 imageBlocks={imageBlocks}
                 onProcessPayment={handleProcessPayment}
-                mollieEnabledMethods={mollieEnabledMethods.length > 0 ? mollieEnabledMethods : undefined}
+                mollieEnabledMethods={(() => {
+                    // Filtra apenas os métodos que o owner selecionou para este checkout
+                    const selected = product.payment_methods || []
+                    const mollieSelected = selected
+                        .filter(m => m.startsWith('mollie_'))
+                        .map(m => m.slice(7)) // remove prefixo 'mollie_'
+                    if (mollieSelected.length === 0 || mollieEnabledMethods.length === 0) return mollieEnabledMethods.length > 0 ? mollieEnabledMethods : undefined
+                    const filtered = mollieEnabledMethods.filter(m => mollieSelected.includes(m.id))
+                    return filtered.length > 0 ? filtered : mollieEnabledMethods
+                })()}
                 onLeadCapture={(data) => {
                     leadDataRef.current = data
                     abandonedFiredRef.current = false
