@@ -61,6 +61,7 @@ export async function handleProcessMolliePayment(
         customerName,
         customerPhone,
         mollieMethod,          // ex: 'ideal', 'bancontact'
+        totalAmount,           // valor total calculado pelo frontend
         selectedOrderBumps = [],
         sessionId,
         trackingParameters,
@@ -143,6 +144,9 @@ export async function handleProcessMolliePayment(
                 }
             }
         }
+
+        // Fallback: usar totalAmount enviado pelo frontend
+        if (finalPrice <= 0 && totalAmount > 0) finalPrice = totalAmount
 
         if (finalPrice <= 0) return json({ error: 'Valor inválido' }, 400)
 

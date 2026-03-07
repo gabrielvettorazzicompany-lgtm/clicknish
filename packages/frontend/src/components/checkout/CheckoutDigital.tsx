@@ -503,6 +503,7 @@ function CheckoutDigitalForm(props: CheckoutDigitalProps) {
                         customerName: formData.name,
                         customerPhone: formData.phone,
                         mollieMethod: mollieMethodId,
+                        totalAmount: paymentData.totalAmount,
                         selectedOrderBumps: paymentData.selectedOrderBumps,
                         sessionId: props.sessionId || undefined,
                         trackingParameters: props.trackingParameters || undefined,

@@ -952,6 +952,7 @@ export default function CheckoutPublic() {
                         customerName: paymentData.formData.name,
                         customerPhone: paymentData.formData.phone,
                         mollieMethod,
+                        totalAmount: paymentData.totalAmount,
                         selectedOrderBumps: paymentData.selectedOrderBumps,
                         sessionId: checkoutSessionId || undefined,
                         trackingParameters: utmParams.current,
