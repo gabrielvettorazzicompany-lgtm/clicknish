@@ -181,24 +181,43 @@ async function handleApiRoute(
             .limit(1)
             .maybeSingle()
         const enabledMethods: string[] = prov?.enabled_methods || []
-        // ?all=1 → modo admin: retorna todos os métodos habilitados sem filtrar por país
+        // ?all=1 → modo admin (AppSettingsTab do owner): sem filtro de país
         const skipGeoFilter = url.searchParams.get('all') === '1'
         // Detectar país via Cloudflare (CF-IPCountry header injetado automaticamente)
         const visitorCountry = skipGeoFilter ? null
             : ((request as any).cf?.country || request.headers.get('CF-IPCountry') || null)
-        // Buscar métodos habilitados e disponíveis para o país do visitante
-        // Métodos com countries = ['*'] aparecem para todos
+
+        // Buscar métodos da tabela de referência
+        // Se enabled_methods está configurado, filtra por eles; caso contrário retorna todos
         let query = supabase
             .from('mollie_payment_methods')
             .select('id, label, description, countries, currencies, icon_url, sort_order')
-            .in('id', enabledMethods.length > 0 ? enabledMethods : ['__none__'])
             .order('sort_order')
+        if (enabledMethods.length > 0) {
+            query = query.in('id', enabledMethods)
+        }
         if (!skipGeoFilter && visitorCountry) {
             // Retorna métodos globais ('*') OU disponíveis no país do visitante
             query = query.or(`countries.cs.{"*"},countries.cs.{"${visitorCountry}"}`)
         }
         const { data: methodDefs } = await query
-        return jsonResponse({ methods: methodDefs || [], country: visitorCountry })
+        const knownIds = new Set((methodDefs || []).map((m: any) => m.id))
+
+        // Fallback: IDs que estão em enabled_methods mas não existem na tabela
+        // (ex: paybybank, wero — retornados pela API Mollie mas não no seed)
+        const fallbackMethods = enabledMethods
+            .filter(id => !knownIds.has(id))
+            .map(id => ({
+                id,
+                label: id.charAt(0).toUpperCase() + id.slice(1),
+                description: null,
+                countries: ['*'],
+                currencies: ['EUR'],
+                icon_url: `https://www.mollie.com/external/icons/payment-methods/${id}.svg`,
+                sort_order: 99,
+            }))
+
+        return jsonResponse({ methods: [...(methodDefs || []), ...fallbackMethods], country: visitorCountry })
     }
 
     // /api/applications/* - CRUD de aplicações

@@ -843,7 +843,7 @@ export async function handleSuperadmin(request: Request, env: any, pathSegments:
                     status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
                 })
             }
-            const { name, credentials, is_active, is_global_default, enabled_methods } = body
+            const { name, credentials, is_active, is_global_default, enabled_methods, available_methods } = body
             const { data: adminData } = await supabase.auth.admin.getUserById(userId)
             const adminEmail = adminData?.user?.email || ''
             const updateData: any = { updated_at: new Date().toISOString() }
@@ -852,6 +852,22 @@ export async function handleSuperadmin(request: Request, env: any, pathSegments:
             if (credentials !== undefined && Object.keys(credentials).length > 0) updateData.credentials = credentials
             if (is_active !== undefined) updateData.is_active = is_active
             if (enabled_methods !== undefined) updateData.enabled_methods = enabled_methods
+            // Sincronizar métodos disponíveis da API Mollie na tabela de referência
+            // (apenas insere métodos novos que ainda não existem — nunca sobrescreve dados existentes)
+            if (available_methods && Array.isArray(available_methods) && available_methods.length > 0) {
+                const rows = available_methods.map((m: any) => ({
+                    id: m.id,
+                    label: m.description || m.id,
+                    icon_url: m.image?.svg || null,
+                    countries: ['*'],
+                    currencies: ['EUR'],
+                    is_redirect: true,
+                    sort_order: 99,
+                }))
+                await supabase
+                    .from('mollie_payment_methods')
+                    .upsert(rows, { onConflict: 'id', ignoreDuplicates: true })
+            }
             if (is_global_default !== undefined) {
                 // Garante que só um pode ser global default
                 if (is_global_default) {

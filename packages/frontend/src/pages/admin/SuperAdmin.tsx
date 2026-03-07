@@ -997,9 +997,10 @@ export default function SuperAdmin() {
             if (Object.keys(editingProviderCreds).length > 0) {
                 payload.credentials = editingProviderCreds
             }
-            // Incluir enabled_methods se estivermos editando um provedor Mollie
+            // Incluir enabled_methods e available_methods se estivermos editando um provedor Mollie
             if (mollieMethodsProviderId === providerId) {
                 payload.enabled_methods = mollieEnabledMethods
+                payload.available_methods = mollieAvailableMethods
             }
             const res = await fetch(`https://api.clicknich.com/api/superadmin/providers/${providerId}`, {
                 method: 'PUT',
