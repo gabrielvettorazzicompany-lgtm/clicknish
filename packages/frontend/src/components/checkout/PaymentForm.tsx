@@ -98,8 +98,10 @@ export const PaymentForm: React.FC<PaymentFormProps> = ({
   onDeleteImageBlock
 }) => {
   const [expandedPaymentMethod, setExpandedPaymentMethodRaw] = useState<string | null>(defaultPaymentMethod)
+  const userSelectedRef = React.useRef(false)
 
   const setExpandedPaymentMethod = (method: string | null) => {
+    userSelectedRef.current = true
     setExpandedPaymentMethodRaw(method)
     if (method && onPaymentMethodChange) onPaymentMethodChange(method)
   }
@@ -152,9 +154,12 @@ export const PaymentForm: React.FC<PaymentFormProps> = ({
     }).format(value)
   }
 
-  // Atualizar método expandido quando defaultPaymentMethod mudar
+  // Atualizar método expandido quando defaultPaymentMethod mudar, mas apenas se o utilizador ainda não selecionou manualmente
   useEffect(() => {
-    setExpandedPaymentMethod(defaultPaymentMethod)
+    if (!userSelectedRef.current) {
+      setExpandedPaymentMethodRaw(defaultPaymentMethod)
+      if (defaultPaymentMethod && onPaymentMethodChange) onPaymentMethodChange(defaultPaymentMethod)
+    }
   }, [defaultPaymentMethod])
 
   // Notificar mudança de parcelas

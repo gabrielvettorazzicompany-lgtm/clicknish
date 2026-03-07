@@ -488,6 +488,35 @@ function CheckoutDigitalForm(props: CheckoutDigitalProps) {
 
             console.log('🔍 Final payment method:', paymentMethod)
 
+            // Processar métodos Mollie (redirect flow)
+            if (paymentMethod.startsWith('mollie_')) {
+                const mollieMethodId = paymentMethod.replace('mollie_', '')
+                const mollieResponse = await fetch('https://api.clicknich.com/api/process-mollie-payment', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        productId: props.productId,
+                        productType: props.productType,
+                        applicationId: props.applicationId,
+                        checkoutId: props.checkoutId,
+                        customerEmail: formData.email,
+                        customerName: formData.name,
+                        customerPhone: formData.phone,
+                        mollieMethod: mollieMethodId,
+                        selectedOrderBumps: paymentData.selectedOrderBumps,
+                        sessionId: props.sessionId || undefined,
+                        trackingParameters: props.trackingParameters || undefined,
+                    }),
+                })
+                const mollieResult = await mollieResponse.json()
+                if (mollieResult.checkoutUrl) {
+                    window.location.href = mollieResult.checkoutUrl
+                    return { success: false }
+                }
+                if (!mollieResult.success) throw new Error(mollieResult.error || 'Mollie payment failed')
+                return { success: true, purchaseId: mollieResult.purchaseId, thankyouToken: mollieResult.thankyouToken }
+            }
+
             // Processar apenas se for cartão de crédito
             if (paymentMethod === 'credit_card') {
                 console.log('🔍 Processing credit card payment...')
