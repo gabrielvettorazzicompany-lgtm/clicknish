@@ -121,8 +121,8 @@ export default function Taxes() {
                         <Section icon={<CreditCard className="w-4 h-4 text-indigo-400" />} title={t('taxes.card_title')} subtitle={t('taxes.card_subtitle')} color="border-indigo-500">
                             <div className="flex flex-col sm:flex-row gap-4">
                                 <PayoutCard period="D+2" percentage="8.99%" fixed="$0.49" days={t('taxes.payout_fast')} t={t} />
-                                <PayoutCard period="D+5" percentage="6.49%" fixed="$0.49" days={t('taxes.payout_standard')} active t={t} />
-                                <PayoutCard period="D+12" percentage="5.99%" fixed="$0.49" days={t('taxes.payout_economy')} t={t} />
+                                <PayoutCard period="D+5" percentage="6.99%" fixed="$0.49" days={t('taxes.payout_standard')} active t={t} />
+                                <PayoutCard period="D+12" percentage="4.99%" fixed="$0.49" days={t('taxes.payout_economy')} t={t} />
                             </div>
                         </Section>
 
@@ -132,6 +132,17 @@ export default function Taxes() {
                                 { label: t('taxes.chargeback_lost'), value: '$15.00', note: t('taxes.chargeback_lost_note') },
                                 { label: t('taxes.chargeback_monitoring'), value: '0.9%', note: t('taxes.chargeback_monitoring_note') },
                             ]} />
+                        </Section>
+
+                        {/* Spread de moeda */}
+                        <Section icon={<ArrowRightLeft className="w-4 h-4 text-cyan-400" />} title="Spread de Moeda" subtitle="Aplicado automaticamente em vendas fora do USD" color="border-cyan-500">
+                            <div className="rounded-2xl border border-cyan-500/20 bg-cyan-500/5 p-5 space-y-3">
+                                <FeeRow label="Vendas em USD" value="Sem spread" />
+                                <FeeRow label="Vendas em EUR, CHF, BRL e outras" value="+1.8%" highlight />
+                                <p className="text-[11px] text-gray-500 dark:text-gray-400 pt-1">
+                                    O spread é deduzido automaticamente do valor líquido do produtor para cobrir o custo de conversão cambial.
+                                </p>
+                            </div>
                         </Section>
 
                         {/* 6. Taxa de Saque */}
@@ -158,10 +169,9 @@ export default function Taxes() {
                         {/* 7. Reserva Financeira */}
                         <Section icon={<ShieldCheck className="w-4 h-4 text-amber-400" />} title={t('taxes.reserve_title')} subtitle={t('taxes.reserve_subtitle')} color="border-amber-500">
                             <div className="rounded-2xl border border-amber-500/30 bg-amber-500/5 p-5 space-y-3">
-                                <FeeRow label={t('taxes.reserve_percent')} value="10% a 20%" sub={t('taxes.reserve_percent_note')} highlight />
+                                <FeeRow label={t('taxes.reserve_percent')} value="15%" sub={t('taxes.reserve_percent_note')} highlight />
                                 <FeeRow label={t('taxes.reserve_period')} value="60 dias" sub={t('taxes.reserve_period_note')} />
-                                <FeeRow label={t('taxes.reserve_auto_release')} value="Chargeback < 0.6%" sub={t('taxes.reserve_auto_note')} />
-                                <FeeRow label={t('taxes.reserve_manual')} value="Via suporte" sub={t('taxes.reserve_manual_note')} />
+                                <FeeRow label={t('taxes.reserve_auto_release')} value="Automático" sub="Liberado automaticamente após 60 dias" />
                             </div>
                         </Section>
 

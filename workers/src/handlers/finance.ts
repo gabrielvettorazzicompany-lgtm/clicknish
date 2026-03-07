@@ -26,12 +26,15 @@ interface FinanceStats {
     financialReserve: number
 }
 
-// Taxas por modelo de payout
+// Taxas por modelo de payout (PDF: clicknich_financial_engine_rules_v3)
 const PAYOUT_FEES: Record<string, { percentage: number; fixed: number }> = {
     'D+2': { percentage: 8.99, fixed: 0.49 },
-    'D+5': { percentage: 6.49, fixed: 0.49 },
-    'D+12': { percentage: 5.99, fixed: 0.49 },
+    'D+5': { percentage: 6.99, fixed: 0.49 },
+    'D+12': { percentage: 4.99, fixed: 0.49 },
 }
+
+// Spread adicional para vendas em moeda não-USD (1.8%)
+const NON_USD_SPREAD = 0.018
 
 function jsonResponse(data: any, status = 200): Response {
     return new Response(JSON.stringify(data), {
@@ -160,6 +163,7 @@ export async function handleFinance(
 
         // Calcular totais de vendas por moeda
         const salesByCurrency: Record<string, number> = {}
+        const grossSalesByCurrency: Record<string, number> = {} // antes do spread
 
         // Vendas de apps (USD)
         const seenAppPayments = new Set<string>()
@@ -168,7 +172,9 @@ export async function handleFinance(
                 if (seenAppPayments.has(paymentKey)) return
                 seenAppPayments.add(paymentKey)
                 if (row.payment_status === 'completed') {
-                    salesByCurrency['USD'] = (salesByCurrency['USD'] || 0) + Number(row.purchase_price ?? 0)
+                    const price = Number(row.purchase_price ?? 0)
+                    salesByCurrency['USD'] = (salesByCurrency['USD'] || 0) + price
+                    grossSalesByCurrency['USD'] = (grossSalesByCurrency['USD'] || 0) + price
                 }
             })
 
@@ -176,8 +182,12 @@ export async function handleFinance(
             ; (memberSalesResult.data || []).forEach((row: any) => {
                 const maInfo = memberAreaInfo.get(row.member_area_id)
                 const currency = (maInfo?.currency ?? 'USD').toUpperCase()
+                const rawPrice = Number(row.purchase_price ?? 0)
+                // Spread 1.8% para vendas em moeda não-USD
+                const effectivePrice = currency !== 'USD' ? rawPrice * (1 - NON_USD_SPREAD) : rawPrice
                 if (row.payment_status === 'completed') {
-                    salesByCurrency[currency] = (salesByCurrency[currency] || 0) + Number(row.purchase_price ?? 0)
+                    salesByCurrency[currency] = (salesByCurrency[currency] || 0) + effectivePrice
+                    grossSalesByCurrency[currency] = (grossSalesByCurrency[currency] || 0) + rawPrice
                 }
             })
 
@@ -200,11 +210,14 @@ export async function handleFinance(
             const totalSales = salesByCurrency[currency] || 0
             const totalWithdrawn = withdrawnByCurrency[currency] || 0
             const pending = pendingByCurrency[currency] || 0
+            // Reserva: 15% do total bruto das vendas (retida por 60 dias)
+            const grossSales = grossSalesByCurrency[currency] || totalSales
+            const financialReserve = parseFloat((grossSales * 0.15).toFixed(2))
             statsByCurrency[currency] = {
-                availableBalance: Math.max(0, totalSales - totalWithdrawn),
+                availableBalance: Math.max(0, totalSales - totalWithdrawn - financialReserve),
                 pendingBalance: pending,
                 awaitingAnticipation: 0,
-                financialReserve: 0,
+                financialReserve,
             }
         }
 
