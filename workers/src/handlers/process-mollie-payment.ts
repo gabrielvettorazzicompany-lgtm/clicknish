@@ -328,7 +328,8 @@ export async function resolveMollieKey(supabase: any, ownerId: string | null): P
 }
 
 /**
- * Libera acesso ao produto após pagamento Mollie confirmado
+ * Libera acesso ao produto após pagamento Mollie confirmado.
+ * Comportamento idêntico ao Stripe: mesmas tabelas, selected_modules, order bumps.
  */
 async function grantMollieAccess(
     supabase: any,
@@ -342,6 +343,7 @@ async function grantMollieAccess(
         const {
             customer_email: customerEmail,
             customer_name: customerName,
+            customer_phone: customerPhone,
             product_type: productType,
             product_id: productId,
             application_id: applicationId,
@@ -350,97 +352,202 @@ async function grantMollieAccess(
             currency,
             method,
             session_id: sessionId,
-            tracking_parameters: trackingParameters,
             seller_id: sellerId,
+            selected_order_bumps: selectedOrderBumps,
+            mollie_payment_id: molliePaymentId,
         } = record
 
-        // Registrar plano de saque vigente na venda (fee calculado apenas no saque)
+        // Plano de saque vigente
         let producerPayoutSchedule = 'D+5'
         if (sellerId) {
-            const { data: producerConfig } = await supabase
+            const { data: pc } = await supabase
                 .from('user_payment_config')
                 .select('payout_schedule')
                 .eq('user_id', sellerId)
                 .maybeSingle()
-            if (producerConfig?.payout_schedule) producerPayoutSchedule = producerConfig.payout_schedule
+            if (pc?.payout_schedule) producerPayoutSchedule = pc.payout_schedule
         }
 
+        const totalAmount = Number(amount)
+
+        // ═══════════════════════════════════════════════════════
+        // FLUXO APP — idêntico ao Stripe
+        // ═══════════════════════════════════════════════════════
         if (productType === 'app') {
-            // ─── APP ────────────────────────────────────────────────────────
-            const [appRes, appUserRes, appProdsRes] = await Promise.all([
+            const selectedBumpIds: string[] = Array.isArray(selectedOrderBumps) ? selectedOrderBumps : []
+
+            const [appRes, appUserRes, appProdsRes, orderBumpsRes, funnelPageRes] = await Promise.all([
                 supabase.from('applications').select('name, slug, owner_id').eq('id', applicationId || productId).single(),
                 supabase.from('app_users').select('user_id').eq('email', customerEmail).eq('application_id', applicationId).maybeSingle(),
                 supabase.from('products').select('id').eq('application_id', applicationId),
+                // Todos os order bumps do checkout (para saber quais excluir do acesso principal)
+                checkoutId
+                    ? supabase.from('checkout_offers')
+                        .select('id, offer_product_id, offer_price, original_price')
+                        .eq('checkout_id', checkoutId)
+                        .eq('offer_type', 'order_bump')
+                        .eq('is_active', true)
+                    : Promise.resolve({ data: [] }),
+                // selected_modules da funnel page
+                checkoutId
+                    ? supabase.from('funnel_pages')
+                        .select('settings')
+                        .eq('checkout_id', checkoutId)
+                        .eq('page_type', 'checkout')
+                        .maybeSingle()
+                    : Promise.resolve({ data: null }),
             ])
 
             const app = appRes.data as any
             if (!app) return
 
-            const appProductIds = ((appProdsRes.data || []) as any[]).map((p: any) => p.id)
+            const appProducts: Array<{ id: string }> = (appProdsRes.data || []) as any[]
+            const allBumps: any[] = (orderBumpsRes.data || []) as any[]
+            const orderBumpProductIds: string[] = allBumps.map((b: any) => b.offer_product_id).filter(Boolean)
+
+            // Módulos de order bump comprados pelo cliente nesta compra
+            const purchasedBumpModules: Array<{ productId: string; price: number }> = allBumps
+                .filter((b: any) => selectedBumpIds.includes(b.id) && b.offer_product_id)
+                .map((b: any) => ({ productId: b.offer_product_id, price: b.offer_price ?? b.original_price ?? 0 }))
+
+            // selected_modules da funnel page (null = liberar todos)
+            const funnelSettings = (funnelPageRes as any)?.data?.settings
+            const funnelSelectedModules: string[] | null =
+                Array.isArray(funnelSettings?.selected_modules) && funnelSettings.selected_modules.length > 0
+                    ? funnelSettings.selected_modules
+                    : null
+
+            // ── Criar/obter usuário ──────────────────────────────────────
             let userId = ''
+            const existingAppUser = (appUserRes as any).data
 
-            if ((appUserRes as any).data?.user_id) {
-                userId = (appUserRes as any).data.user_id
+            if (existingAppUser?.user_id) {
+                userId = existingAppUser.user_id
             } else {
-                // Criar novo usuário
-                const tempPassword = crypto.randomUUID()
-                const { data: newUser } = await supabase.auth.admin.createUser({
+                const { data: authData, error: authError } = await supabase.auth.admin.createUser({
                     email: customerEmail,
-                    password: tempPassword,
                     email_confirm: true,
-                    user_metadata: { full_name: customerName || customerEmail.split('@')[0] },
+                    user_metadata: { created_via: 'purchase', name: customerName, phone: customerPhone },
                 })
-                if (!newUser.user) return
-                userId = newUser.user.id
 
-                await supabase.from('app_users').insert({
+                if (authError) {
+                    const isEmailExists = authError.code === 'email_exists'
+                        || (authError.message || '').toLowerCase().includes('already been registered')
+                        || (authError.message || '').toLowerCase().includes('already registered')
+                    if (!isEmailExists) throw authError
+                    const { data: foundUser } = await supabase.auth.admin.getUserByEmail(customerEmail)
+                    if (!foundUser?.user) throw new Error('Auth user exists but could not be found: ' + customerEmail)
+                    userId = foundUser.user.id
+                } else {
+                    userId = authData.user.id
+                }
+
+                await supabase.from('app_users').upsert({
                     user_id: userId,
                     email: customerEmail,
-                    full_name: customerName || customerEmail.split('@')[0],
+                    full_name: customerName,
+                    phone: customerPhone,
                     application_id: applicationId,
-                })
+                    status: 'active',
+                    created_at: new Date().toISOString(),
+                }, { onConflict: 'application_id,email', ignoreDuplicates: false })
 
-                // Enviar email com senha temporária
+                // Enviar email com password reset link (para cliente criar sua própria senha)
                 if (env.RESEND_API_KEY) {
                     const loginUrl = `${frontendUrl}/access/${app.slug || applicationId}`
-                    await sendMollieAccessEmail(env, customerEmail, customerName, app.name, loginUrl, tempPassword)
+                    await sendMollieAccessEmail(env, customerEmail, customerName, app.name, loginUrl)
                 }
             }
 
-            // Liberar módulos
-            const memberInserts = appProductIds.map((pid: string) => ({
-                user_id: userId,
-                product_id: pid,
-                application_id: applicationId,
-                email: customerEmail,
-            }))
-            if (memberInserts.length > 0) {
-                await supabase.from('member_areas').upsert(memberInserts, { onConflict: 'user_id,product_id', ignoreDuplicates: true })
+            // ── Liberar módulos (com filtro selected_modules e exclusão de bumps) ──
+            if (appProducts.length > 0) {
+                let productsToGrant = [...appProducts]
+
+                if (funnelSelectedModules && funnelSelectedModules.length > 0) {
+                    productsToGrant = productsToGrant.filter(p => funnelSelectedModules.includes(p.id))
+                    console.log(`🔒 Mollie selected_modules: liberando ${productsToGrant.length}/${appProducts.length} módulos`)
+                }
+                if (orderBumpProductIds.length > 0) {
+                    productsToGrant = productsToGrant.filter(p => !orderBumpProductIds.includes(p.id))
+                }
+
+                const accessRecords = productsToGrant.map((p: any) => ({
+                    user_id: userId,
+                    product_id: p.id,
+                    application_id: applicationId,
+                    access_type: 'purchase',
+                    is_active: true,
+                    payment_id: molliePaymentId || record.id,
+                    payment_method: method || 'mollie',
+                    payment_status: 'completed',
+                    purchase_price: totalAmount,
+                    payout_schedule: producerPayoutSchedule,
+                    created_at: new Date().toISOString(),
+                }))
+
+                const { data: batchAccess } = await supabase
+                    .from('user_product_access')
+                    .upsert(accessRecords, { onConflict: 'user_id,product_id', ignoreDuplicates: false })
+                    .select('id')
+
+                await Promise.allSettled([
+                    supabase.from('sale_locations').insert({
+                        user_id: sellerId || null,
+                        customer_email: customerEmail,
+                        amount: totalAmount,
+                        currency,
+                        payment_method: method || 'mollie',
+                        checkout_id: checkoutId || null,
+                        product_id: productId || applicationId || null,
+                        payout_schedule: producerPayoutSchedule,
+                        user_product_access_id: Array.isArray(batchAccess) && batchAccess.length > 0 ? (batchAccess as any[])[0]?.id : null,
+                        sale_date: new Date().toISOString(),
+                    }),
+                    batchAccess && Array.isArray(batchAccess) && batchAccess.length > 0
+                        ? supabase.from('user_product_access').update({
+                            thankyou_token: thankyouToken,
+                            thankyou_token_expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+                            thankyou_max_views: 5,
+                        }).eq('id', (batchAccess as any[])[0].id)
+                        : Promise.resolve(),
+                    checkoutId
+                        ? supabase.from('checkout_analytics').insert({
+                            checkout_id: checkoutId,
+                            event_type: 'conversion',
+                            session_id: sessionId || null,
+                            created_at: new Date().toISOString(),
+                        })
+                        : Promise.resolve(),
+                ])
             }
 
-            // Registrar venda
-            await Promise.allSettled([
-                supabase.from('sale_locations').insert({
-                    user_id: sellerId || null,
-                    customer_email: customerEmail,
-                    amount: Number(amount),
-                    currency: currency,
+            // ── Liberar módulos de order bumps comprados ──────────────────
+            const bumpModulesToGrant = purchasedBumpModules.filter(
+                b => appProducts.some(p => p.id === b.productId)
+            )
+            if (bumpModulesToGrant.length > 0) {
+                console.log(`🛒 Mollie order bump modules: liberando ${bumpModulesToGrant.length}`)
+                const bumpRecords = bumpModulesToGrant.map(b => ({
+                    user_id: userId,
+                    product_id: b.productId,
+                    application_id: applicationId,
+                    access_type: 'purchase',
+                    is_active: true,
+                    payment_id: molliePaymentId || record.id,
                     payment_method: method || 'mollie',
-                    checkout_id: checkoutId || null,
-                    product_id: applicationId || productId || null,
+                    payment_status: 'completed',
+                    purchase_price: b.price,
                     payout_schedule: producerPayoutSchedule,
-                    sale_date: new Date().toISOString(),
-                }),
-                checkoutId ? supabase.from('checkout_analytics').insert({
-                    checkout_id: checkoutId,
-                    event_type: 'conversion',
-                    session_id: sessionId || null,
                     created_at: new Date().toISOString(),
-                }) : Promise.resolve(),
-            ])
+                }))
+                await supabase.from('user_product_access')
+                    .upsert(bumpRecords, { onConflict: 'user_id,product_id', ignoreDuplicates: false })
+            }
 
+            // ═══════════════════════════════════════════════════════
+            // FLUXO MARKETPLACE — idêntico ao Stripe
+            // ═══════════════════════════════════════════════════════
         } else {
-            // ─── MARKETPLACE ────────────────────────────────────────────────
             const [prodRes, memberRes] = await Promise.all([
                 supabase.from('marketplace_products').select('name, slug, owner_id').eq('id', productId).single(),
                 supabase.from('member_profiles').select('id').eq('email', customerEmail).eq('product_id', productId).maybeSingle(),
@@ -449,30 +556,55 @@ async function grantMollieAccess(
             const product = prodRes.data as any
             if (!product) return
 
-            let memberId = (memberRes as any).data?.id
+            let userId = ''
 
-            if (!memberId) {
-                const tempPassword = crypto.randomUUID()
-                const { data: newUser } = await supabase.auth.admin.createUser({
-                    email: customerEmail,
-                    password: tempPassword,
-                    email_confirm: true,
-                    user_metadata: { full_name: customerName || customerEmail.split('@')[0] },
-                })
+            // Criar/obter usuário auth
+            const { data: authData, error: authError } = await supabase.auth.admin.createUser({
+                email: customerEmail,
+                email_confirm: true,
+                user_metadata: { created_via: 'purchase', name: customerName, phone: customerPhone },
+            })
 
-                if (newUser.user) {
-                    const { data: profileData } = await supabase.from('member_profiles').insert({
-                        user_id: newUser.user.id,
-                        product_id: productId,
-                        email: customerEmail,
-                        full_name: customerName || customerEmail.split('@')[0],
-                    }).select('id').single()
-                    memberId = (profileData as any)?.id
+            if (authError) {
+                const isEmailExists = authError.code === 'email_exists'
+                    || (authError.message || '').toLowerCase().includes('already been registered')
+                    || (authError.message || '').toLowerCase().includes('already registered')
+                if (!isEmailExists) throw authError
+                console.log('ℹ️ Mollie marketplace: auth user already exists for', customerEmail)
+            } else {
+                userId = authData.user.id
+            }
 
-                    if (env.RESEND_API_KEY) {
-                        const loginUrl = `${frontendUrl}/members-login/${product.slug || productId}`
-                        await sendMollieAccessEmail(env, customerEmail, customerName, product.name, loginUrl, tempPassword)
-                    }
+            // Upsert member_profile
+            const { error: memberProfileError } = await supabase.from('member_profiles').upsert({
+                email: customerEmail,
+                name: customerName,
+                phone: customerPhone,
+                product_id: productId,
+                ...(userId ? { user_id: userId } : {}),
+            }, { onConflict: 'email,product_id', ignoreDuplicates: false })
+            if (memberProfileError) console.error('❌ member_profiles upsert failed:', memberProfileError)
+
+            // Liberar acesso em user_member_area_access (mesma tabela do Stripe)
+            if (userId) {
+                const { error: accessError } = await supabase.from('user_member_area_access').upsert({
+                    user_id: userId,
+                    member_area_id: productId,
+                    access_type: 'purchase',
+                    is_active: true,
+                    payment_id: molliePaymentId || record.id,
+                    payment_method: method || 'mollie',
+                    payment_status: 'completed',
+                    purchase_price: totalAmount,
+                    payout_schedule: producerPayoutSchedule,
+                    created_at: new Date().toISOString(),
+                }, { onConflict: 'user_id,member_area_id', ignoreDuplicates: false })
+                if (accessError) console.error('❌ user_member_area_access upsert failed:', accessError)
+
+                // Email de boas-vindas para marketplace
+                if (env.RESEND_API_KEY && !(memberRes as any).data?.id) {
+                    const loginUrl = `${frontendUrl}/members-login/${product.slug || productId}`
+                    await sendMollieAccessEmail(env, customerEmail, customerName, product.name, loginUrl)
                 }
             }
 
@@ -480,20 +612,22 @@ async function grantMollieAccess(
                 supabase.from('sale_locations').insert({
                     user_id: sellerId || null,
                     customer_email: customerEmail,
-                    amount: Number(amount),
-                    currency: currency,
+                    amount: totalAmount,
+                    currency,
                     payment_method: method || 'mollie',
                     checkout_id: checkoutId || null,
                     product_id: productId || null,
                     payout_schedule: producerPayoutSchedule,
                     sale_date: new Date().toISOString(),
                 }),
-                checkoutId ? supabase.from('checkout_analytics').insert({
-                    checkout_id: checkoutId,
-                    event_type: 'conversion',
-                    session_id: sessionId || null,
-                    created_at: new Date().toISOString(),
-                }) : Promise.resolve(),
+                checkoutId
+                    ? supabase.from('checkout_analytics').insert({
+                        checkout_id: checkoutId,
+                        event_type: 'conversion',
+                        session_id: sessionId || null,
+                        created_at: new Date().toISOString(),
+                    })
+                    : Promise.resolve(),
             ])
         }
 
@@ -514,7 +648,6 @@ async function sendMollieAccessEmail(
     customerName: string,
     productName: string,
     loginUrl: string,
-    tempPassword: string
 ) {
     try {
         const html = `<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto">
@@ -525,17 +658,12 @@ async function sendMollieAccessEmail(
 <div style="background:#f9fafb;padding:40px;border-radius:0 0 8px 8px">
   <p style="color:#333;font-size:16px">Olá, <strong>${customerName || customerEmail.split('@')[0]}</strong>!</p>
   <p style="color:#666;font-size:14px">Seu pagamento foi confirmado. Seu acesso a <strong>${productName}</strong> está pronto.</p>
-  <div style="background:white;padding:20px;border-radius:8px;margin:20px 0;border-left:4px solid #ff6b35">
-    <p style="margin:0 0 8px;color:#333;font-size:13px"><strong>Seus dados de acesso:</strong></p>
-    <p style="margin:0;color:#666;font-size:13px">Email: <strong>${customerEmail}</strong></p>
-    <p style="margin:4px 0 0;color:#666;font-size:13px">Senha temporária: <strong>${tempPassword}</strong></p>
-  </div>
   <div style="text-align:center;margin:30px 0">
     <a href="${loginUrl}" style="background:#ff6b35;color:white;padding:14px 32px;text-decoration:none;border-radius:6px;display:inline-block;font-weight:bold;font-size:16px">
       Acessar Agora
     </a>
   </div>
-  <p style="color:#999;font-size:12px;text-align:center">Recomendamos alterar sua senha após o primeiro acesso.</p>
+  <p style="color:#999;font-size:12px;text-align:center">Use o e-mail <strong>${customerEmail}</strong> para fazer login.</p>
 </div></div>`
 
         await fetch('https://api.resend.com/emails', {
