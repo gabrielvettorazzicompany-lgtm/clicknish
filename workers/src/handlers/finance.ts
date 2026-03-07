@@ -378,3 +378,64 @@ export async function handleWithdraw(
         return jsonResponse({ error: error.message || 'Internal error' }, 500)
     }
 }
+
+// POST /api/finance/request-plan — Produtor solicita upgrade para D+2
+export async function handleRequestPlan(
+    request: Request,
+    env: Env,
+): Promise<Response> {
+    if (request.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
+    if (request.method !== 'POST') return new Response('Method not allowed', { status: 405, headers: corsHeaders })
+
+    try {
+        const body: any = await request.json()
+        const { userId, reason } = body
+
+        if (!userId) return jsonResponse({ error: 'userId é obrigatório' }, 400)
+
+        const supabase = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY)
+
+        // Verificar se já tem solicitação pendente
+        const { data: existing } = await supabase
+            .from('payout_plan_requests')
+            .select('id, status')
+            .eq('user_id', userId)
+            .eq('status', 'pending')
+            .maybeSingle()
+
+        if (existing) {
+            return jsonResponse({ error: 'Você já tem uma solicitação pendente de plano D+2' }, 409)
+        }
+
+        // Verificar plano atual
+        const { data: cfg } = await supabase
+            .from('user_payment_config')
+            .select('payout_schedule')
+            .eq('user_id', userId)
+            .maybeSingle()
+
+        if (cfg?.payout_schedule === 'D+2') {
+            return jsonResponse({ error: 'Você já está no plano D+2' }, 409)
+        }
+
+        const { data, error } = await supabase
+            .from('payout_plan_requests')
+            .insert({
+                user_id: userId,
+                requested_plan: 'D+2',
+                current_plan: cfg?.payout_schedule || 'D+5',
+                reason: reason || null,
+                status: 'pending',
+            })
+            .select()
+            .single()
+
+        if (error) throw error
+
+        return jsonResponse({ success: true, request: data }, 201)
+
+    } catch (error: any) {
+        console.error('RequestPlan handler error:', error)
+        return jsonResponse({ error: error.message || 'Internal error' }, 500)
+    }
+}
