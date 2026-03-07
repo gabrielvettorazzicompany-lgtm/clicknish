@@ -181,43 +181,65 @@ async function handleApiRoute(
             .limit(1)
             .maybeSingle()
         const enabledMethods: string[] = prov?.enabled_methods || []
-        // ?all=1 → modo admin (AppSettingsTab do owner): sem filtro de país
         const reqUrl = new URL(request.url)
+        // ?all=1  → modo admin (AppSettingsTab do owner): sem filtro de país, sem limite
+        // ?dynamic=1 → checkout dinâmico: filtro por país + ordenar por popularidade + limitar a 2
         const skipGeoFilter = reqUrl.searchParams.get('all') === '1'
+        const isDynamic = reqUrl.searchParams.get('dynamic') === '1'
         // Detectar país via Cloudflare (CF-IPCountry header injetado automaticamente)
         const visitorCountry = skipGeoFilter ? null
             : ((request as any).cf?.country || request.headers.get('CF-IPCountry') || null)
 
         // Buscar métodos da tabela de referência
-        // Filtros ANTES do .order() — obrigatório no Supabase JS v2
         let query = supabase
             .from('mollie_payment_methods')
-            .select('id, label, description, countries, currencies, icon_url, sort_order')
+            .select('id, label, description, countries, currencies, icon_url, sort_order, country_popularity')
         if (enabledMethods.length > 0) {
             query = query.in('id', enabledMethods)
         }
         if (!skipGeoFilter && visitorCountry) {
-            // Retorna métodos globais ('*') OU disponíveis no país do visitante
             query = query.or(`countries.cs.{"*"},countries.cs.{"${visitorCountry}"}`)
         }
         const { data: methodDefs } = await query.order('sort_order')
         const knownIds = new Set((methodDefs || []).map((m: any) => m.id))
 
-        // Fallback: IDs que estão em enabled_methods mas não existem na tabela
-        // (ex: paybybank, wero — retornados pela API Mollie mas não no seed)
-        const fallbackMethods = enabledMethods
-            .filter(id => !knownIds.has(id))
-            .map(id => ({
-                id,
-                label: id.charAt(0).toUpperCase() + id.slice(1),
-                description: null,
-                countries: ['*'],
-                currencies: ['EUR'],
-                icon_url: `https://www.mollie.com/external/icons/payment-methods/${id}.svg`,
-                sort_order: 99,
-            }))
+        let methods = [...(methodDefs || [])]
 
-        return jsonResponse({ methods: [...(methodDefs || []), ...fallbackMethods], country: visitorCountry })
+        // Modo dinâmico: ordenar por popularidade do país e limitar a 2
+        if (isDynamic && visitorCountry && methods.length > 0) {
+            methods = methods
+                .map(m => ({
+                    ...m,
+                    _rank: m.country_popularity?.[visitorCountry] ?? 99,
+                }))
+                .filter(m => m._rank < 99) // só métodos com rank definido para o país
+                .sort((a, b) => a._rank - b._rank)
+                .slice(0, 2)
+                .map(({ _rank, ...m }) => m)
+
+            // Se não há métodos com rank para este país, retornar os 2 com menor sort_order
+            if (methods.length === 0) {
+                methods = (methodDefs || []).slice(0, 2)
+            }
+        }
+
+        // Fallback: IDs que estão em enabled_methods mas não existem na tabela
+        if (!isDynamic) {
+            const fallbackMethods = enabledMethods
+                .filter(id => !knownIds.has(id))
+                .map(id => ({
+                    id,
+                    label: id.charAt(0).toUpperCase() + id.slice(1),
+                    description: null,
+                    countries: ['*'],
+                    currencies: ['EUR'],
+                    icon_url: `https://www.mollie.com/external/icons/payment-methods/${id}.svg`,
+                    sort_order: 99,
+                }))
+            methods = [...methods, ...fallbackMethods]
+        }
+
+        return jsonResponse({ methods, country: visitorCountry })
     }
 
     // /api/applications/* - CRUD de aplicações

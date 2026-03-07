@@ -252,12 +252,17 @@ export default function CheckoutPublic() {
             .catch(() => setMollieVerifying(false))
     }, [])
 
-    // Buscar métodos Mollie habilitados — filtra por país se checkout dinâmico estiver ativo
+    // Buscar métodos Mollie habilitados — filtros dependem do modo
     useEffect(() => {
         const isDynamic = product?.dynamic_checkout ?? false
-        const url = isDynamic
-            ? 'https://api.clicknich.com/api/mollie/methods'         // com geo-filter (CF-IPCountry)
-            : 'https://api.clicknich.com/api/mollie/methods?all=1'   // sem filtro de país
+        let url: string
+        if (isDynamic) {
+            // Modo dinâmico: filtro por país + top 2 por popularidade
+            url = 'https://api.clicknich.com/api/mollie/methods?dynamic=1'
+        } else {
+            // Modo manual: todos os métodos habilitados (sem filtro de país)
+            url = 'https://api.clicknich.com/api/mollie/methods?all=1'
+        }
         fetch(url)
             .then(r => r.json())
             .then((d: any) => { if (d.methods?.length > 0) setMollieEnabledMethods(d.methods) })
@@ -1034,7 +1039,14 @@ export default function CheckoutPublic() {
                 productPrice={checkout.custom_price || product.price}
                 productImage={product.image_url}
                 productDescription={product.description}
-                selectedPaymentMethods={product.payment_methods || ['credit_card']}
+                selectedPaymentMethods={(() => {
+                    if (product.dynamic_checkout && mollieEnabledMethods.length > 0) {
+                        // Modo dinâmico: credit_card sempre + top 2 métodos Mollie do país
+                        const top2 = mollieEnabledMethods.slice(0, 2).map(m => `mollie_${m.id}`)
+                        return ['credit_card', ...top2]
+                    }
+                    return product.payment_methods || ['credit_card']
+                })()}
                 defaultPaymentMethod={product.default_payment_method || 'credit_card'}
                 productType={product.productType}
                 applicationId={product.applicationId}
@@ -1061,11 +1073,15 @@ export default function CheckoutPublic() {
                 imageBlocks={imageBlocks}
                 onProcessPayment={handleProcessPayment}
                 mollieEnabledMethods={(() => {
-                    // Filtra apenas os métodos que o owner selecionou para este checkout
+                    if (product.dynamic_checkout) {
+                        // Modo dinâmico: passar todos os métodos geo-filtrados sem restrição adicional
+                        return mollieEnabledMethods.length > 0 ? mollieEnabledMethods : undefined
+                    }
+                    // Modo manual: filtrar pelos métodos que o owner selecionou
                     const selected = product.payment_methods || []
                     const mollieSelected = selected
                         .filter(m => m.startsWith('mollie_'))
-                        .map(m => m.slice(7)) // remove prefixo 'mollie_'
+                        .map(m => m.slice(7))
                     if (mollieSelected.length === 0 || mollieEnabledMethods.length === 0) return mollieEnabledMethods.length > 0 ? mollieEnabledMethods : undefined
                     const filtered = mollieEnabledMethods.filter(m => mollieSelected.includes(m.id))
                     return filtered.length > 0 ? filtered : mollieEnabledMethods
