@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useParams, Link, useNavigate, useSearchParams } from 'react-router-dom'
-import { Eye, Play, FileText, Download, Users, Lock, ArrowRight, Home, MessageSquare, User, Heart, Send, Plus, Camera, Bell, X } from 'lucide-react'
-import { useI18n } from '@/i18n'
+import { Eye, Play, FileText, Download, Users, Lock, ArrowRight, Home, MessageSquare, User, Heart, Send, Plus, Camera, Bell, X, RotateCcw, CheckCircle } from 'lucide-react'
+import { useI18n, tForLang } from '@/i18n'
 import { useAuthStore } from '@/stores/authStore'
 import { supabase, supabaseFetch, supabaseRestFetch } from '@/services/supabase'
 
@@ -91,6 +91,12 @@ export default function AppDashboard() {
   const [showNotifications, setShowNotifications] = useState(false)
   const [notifications, setNotifications] = useState<any[]>([])
   const [unreadCount, setUnreadCount] = useState(0)
+
+  // Refund request states
+  const [showRefundModal, setShowRefundModal] = useState(false)
+  const [refundReason, setRefundReason] = useState('')
+  const [refundSubmitting, setRefundSubmitting] = useState(false)
+  const [refundDone, setRefundDone] = useState(false)
 
   // Profile states
   const [userProfile, setUserProfile] = useState<any>(null)
@@ -630,21 +636,32 @@ export default function AppDashboard() {
             <h1 className={`text-xl font-bold ${app?.theme === 'dark' ? 'text-white' : 'text-gray-100'}`}>{app?.name}</h1>
           </div>
 
-          {/* Botão de Notificações */}
-          <button
-            onClick={() => {
-              setShowNotifications(true)
-              markNotificationsAsRead() // Marcar como lidas ao abrir
-            }}
-            className={`relative p-2 ${app?.theme === 'dark' ? 'hover:bg-gray-700' : 'hover:bg-[#252941]'} rounded-lg transition-colors`}
-          >
-            <Bell className={`w-6 h-6 ${app?.theme === 'dark' ? 'text-gray-300' : 'text-gray-300'}`} />
-            {unreadCount > 0 && (
-              <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
-                {unreadCount > 9 ? '9+' : unreadCount}
-              </span>
-            )}
-          </button>
+          <div className="flex items-center gap-1">
+            {/* Botão de Reembolso */}
+            <button
+              onClick={() => { setRefundDone(false); setRefundReason(''); setShowRefundModal(true) }}
+              className={`p-2 ${app?.theme === 'dark' ? 'hover:bg-gray-700' : 'hover:bg-[#252941]'} rounded-lg transition-colors`}
+              title="Solicitar reembolso"
+            >
+              <RotateCcw className="w-5 h-5 text-gray-400" />
+            </button>
+
+            {/* Botão de Notificações */}
+            <button
+              onClick={() => {
+                setShowNotifications(true)
+                markNotificationsAsRead()
+              }}
+              className={`relative p-2 ${app?.theme === 'dark' ? 'hover:bg-gray-700' : 'hover:bg-[#252941]'} rounded-lg transition-colors`}
+            >
+              <Bell className={`w-6 h-6 ${app?.theme === 'dark' ? 'text-gray-300' : 'text-gray-300'}`} />
+              {unreadCount > 0 && (
+                <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
+                  {unreadCount > 9 ? '9+' : unreadCount}
+                </span>
+              )}
+            </button>
+          </div>
         </div>
       </div>
 
@@ -1169,6 +1186,108 @@ export default function AppDashboard() {
       {(() => {
         return null
       })()}
+
+      {/* Modal de Solicitação de Reembolso */}
+      {showRefundModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-60 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4" onClick={() => setShowRefundModal(false)}>
+          <div
+            className={`${app?.theme === 'dark' ? 'bg-gray-800' : 'bg-[#0d1117]'} w-full sm:max-w-md rounded-t-2xl sm:rounded-2xl overflow-hidden border ${app?.theme === 'dark' ? 'border-gray-700' : 'border-white/[0.08]'}`}
+            onClick={e => e.stopPropagation()}
+          >
+            {/* Header do Modal */}
+            <div className={`px-5 py-4 border-b ${app?.theme === 'dark' ? 'border-gray-700' : 'border-white/[0.06]'} flex items-center justify-between`}>
+              <div className="flex items-center gap-2">
+                <RotateCcw className="w-4 h-4 text-orange-400" />
+                <h2 className="text-base font-semibold text-white">{tForLang(app?.language || 'pt', 'apps.refund_request')}</h2>
+              </div>
+              <button onClick={() => setShowRefundModal(false)} className="text-gray-500 hover:text-gray-300 transition-colors">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {refundDone ? (
+              /* Tela de sucesso */
+              <div className="px-5 py-10 flex flex-col items-center gap-3 text-center">
+                <CheckCircle className="w-12 h-12 text-green-400" />
+                <p className="text-white font-semibold text-base">{tForLang(app?.language || 'pt', 'apps.refund_success_title')}</p>
+                <p className="text-gray-500 text-sm">{tForLang(app?.language || 'pt', 'apps.refund_success_desc')}</p>
+                <button
+                  onClick={() => setShowRefundModal(false)}
+                  className="mt-2 px-6 py-2 bg-white/[0.06] border border-white/[0.1] text-gray-300 rounded-lg text-sm hover:bg-white/[0.1] transition-colors"
+                >
+                  {tForLang(app?.language || 'pt', 'apps.refund_close')}
+                </button>
+              </div>
+            ) : (
+              /* Formulário */
+              <div className="px-5 py-5 space-y-4">
+                <p className="text-gray-500 text-xs leading-relaxed">
+                  {tForLang(app?.language || 'pt', 'apps.refund_description')} <span className="text-gray-300">{tForLang(app?.language || 'pt', 'apps.refund_business_days')}</span>.
+                </p>
+
+                {/* Motivo */}
+                <div>
+                  <label className="block text-xs font-medium text-gray-400 mb-1.5 uppercase tracking-wider">{tForLang(app?.language || 'pt', 'apps.refund_reason_label')}</label>
+                  <textarea
+                    value={refundReason}
+                    onChange={e => setRefundReason(e.target.value)}
+                    rows={4}
+                    placeholder={tForLang(app?.language || 'pt', 'apps.refund_reason_placeholder')}
+                    className={`w-full px-3 py-2.5 text-sm rounded-lg border ${app?.theme === 'dark' ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-500' : 'bg-white/[0.04] border-white/[0.08] text-white placeholder-gray-600'} focus:outline-none focus:border-orange-500/50 resize-none`}
+                  />
+                </div>
+
+                {/* Botões */}
+                <div className="flex gap-3 pt-1">
+                  <button
+                    onClick={() => setShowRefundModal(false)}
+                    className="flex-1 py-2.5 text-sm border border-white/[0.08] text-gray-400 rounded-lg hover:bg-white/[0.04] transition-colors"
+                  >
+                    {tForLang(app?.language || 'pt', 'apps.refund_cancel')}
+                  </button>
+                  <button
+                    disabled={!refundReason.trim() || refundSubmitting}
+                    onClick={async () => {
+                      setRefundSubmitting(true)
+                      try {
+                        const { data: { user: authUserData } } = await supabase.auth.getUser()
+                        const userData = localStorage.getItem('user_data')
+                        let buyerEmail = authUserData?.email || ''
+                        let buyerName = authUserData?.user_metadata?.name || 'Cliente'
+                        if (!buyerEmail && userData) {
+                          try { const p = JSON.parse(userData); buyerEmail = p.email || ''; buyerName = p.name || 'Cliente' } catch { }
+                        }
+                        await fetch(`https://api.clicknich.com/api/apps/refund-request`, {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({
+                            appId,
+                            buyerEmail,
+                            buyerName,
+                            reason: refundReason.trim(),
+                          }),
+                        })
+                        setRefundDone(true)
+                      } catch {
+                        setRefundDone(true) // Mostrar sucesso mesmo assim (não penalizar o usuário por erro de rede)
+                      } finally {
+                        setRefundSubmitting(false)
+                      }
+                    }}
+                    className="flex-1 py-2.5 text-sm bg-orange-500 hover:bg-orange-400 disabled:opacity-40 disabled:cursor-not-allowed text-white font-medium rounded-lg transition-colors flex items-center justify-center gap-2"
+                  >
+                    {refundSubmitting ? (
+                      <><RotateCcw className="w-3.5 h-3.5 animate-spin" /> {tForLang(app?.language || 'pt', 'apps.refund_sending')}</>
+                    ) : (
+                      tForLang(app?.language || 'pt', 'apps.refund_submit')
+                    )}
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Modal de Notificações */}
       {showNotifications && (

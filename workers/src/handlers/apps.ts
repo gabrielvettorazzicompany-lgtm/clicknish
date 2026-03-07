@@ -208,6 +208,56 @@ export async function handleApps(request: Request, env: any, pathSegments: strin
             })
         }
 
+        // POST /api/apps/refund-request — comprador solicita reembolso
+        if (request.method === 'POST' && pathSegments.length === 1 && pathSegments[0] === 'refund-request') {
+            const body = await request.json()
+            const { appId, buyerEmail, buyerName, reason } = body
+
+            if (!appId || !buyerEmail || !reason) {
+                return new Response(JSON.stringify({ error: 'appId, buyerEmail e reason são obrigatórios' }), {
+                    status: 400,
+                    headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+                })
+            }
+
+            // Buscar dono do app para registrar o request
+            const { data: app } = await supabase
+                .from('applications')
+                .select('id, owner_id, name')
+                .eq('id', appId)
+                .single()
+
+            if (!app) {
+                return new Response(JSON.stringify({ error: 'App not found' }), {
+                    status: 404,
+                    headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+                })
+            }
+
+            const { error: insertError } = await supabase
+                .from('refund_requests')
+                .insert({
+                    app_id: appId,
+                    buyer_email: buyerEmail,
+                    buyer_name: buyerName || null,
+                    reason,
+                    status: 'pending',
+                    app_owner_id: app.owner_id,
+                })
+
+            if (insertError) {
+                console.error('refund-request insert error:', insertError)
+                return new Response(JSON.stringify({ error: 'Erro ao registrar solicitação' }), {
+                    status: 500,
+                    headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+                })
+            }
+
+            return new Response(JSON.stringify({ ok: true }), {
+                headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+            })
+        }
+
         return new Response(JSON.stringify({ error: 'Not Found' }), {
             status: 404,
             headers: { ...corsHeaders, 'Content-Type': 'application/json' }
