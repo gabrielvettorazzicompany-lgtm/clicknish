@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { CreditCard, DollarSign, AlertTriangle, ArrowDownCircle, ShieldCheck, Users, ArrowRightLeft, CheckCircle2 } from 'lucide-react'
+import { CreditCard, DollarSign, AlertTriangle, ArrowDownCircle, ShieldCheck, Users, CheckCircle2 } from 'lucide-react'
 import Sidebar from '@/components/Sidebar'
 import Header from '@/components/Header'
 import { useI18n } from '@/i18n'
@@ -132,17 +132,6 @@ export default function Taxes() {
                                 { label: t('taxes.chargeback_lost'), value: '$15.00', note: t('taxes.chargeback_lost_note') },
                                 { label: t('taxes.chargeback_monitoring'), value: '0.9%', note: t('taxes.chargeback_monitoring_note') },
                             ]} />
-                        </Section>
-
-                        {/* Spread de moeda */}
-                        <Section icon={<ArrowRightLeft className="w-4 h-4 text-cyan-400" />} title="Spread de Moeda" subtitle="Aplicado automaticamente em vendas fora do USD" color="border-cyan-500">
-                            <div className="rounded-2xl border border-cyan-500/20 bg-cyan-500/5 p-5 space-y-3">
-                                <FeeRow label="Vendas em USD" value="Sem spread" />
-                                <FeeRow label="Vendas em EUR, CHF, BRL e outras" value="+1.8%" highlight />
-                                <p className="text-[11px] text-gray-500 dark:text-gray-400 pt-1">
-                                    O spread é deduzido automaticamente do valor líquido do produtor para cobrir o custo de conversão cambial.
-                                </p>
-                            </div>
                         </Section>
 
                         {/* 6. Taxa de Saque */}
