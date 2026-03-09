@@ -354,6 +354,16 @@ export async function handleProcessPayment(
             .map(b => b.toString(16).padStart(2, '0'))
             .join('')
 
+        // Attach PaymentMethod ao customer ANTES de criar o PaymentIntent
+        // Isso permite reusar o pm_ em retentativas sem o erro "previously used without being attached"
+        try {
+            await stripe.paymentMethods.attach(paymentMethodId, { customer: stripeCustomer.id })
+        } catch (attachErr: any) {
+            if (attachErr?.code !== 'resource_already_exists') {
+                console.warn('Could not attach payment method:', attachErr.message)
+            }
+        }
+
         const paymentIntent = await stripe.paymentIntents.create(
             {
                 amount: Math.round(totalChargeAmount * 100),
@@ -402,16 +412,6 @@ export async function handleProcessPayment(
             city: request.headers.get('cf-ipcity') || null,
             timezone: request.headers.get('cf-timezone') || null
         }
-
-        // Attach PaymentMethod em background
-        ctx.waitUntil(
-            stripe.paymentMethods.attach(paymentMethodId, { customer: stripeCustomer.id })
-                .catch((err: any) => {
-                    if (err?.code !== 'resource_already_exists') {
-                        console.warn('Could not attach payment method:', err.message)
-                    }
-                })
-        )
 
         // ═══════════════════════════════════════════════════════════════════
         // Registrar plano de saque vigente na venda (fee calculado apenas no saque)
