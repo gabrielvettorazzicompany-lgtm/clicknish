@@ -299,7 +299,19 @@ export async function handleStripeWebhook(
 
     const rawBody = await request.text()
     const signature = request.headers.get('stripe-signature') || ''
-    const webhookSecret = env.STRIPE_WEBHOOK_SECRET
+
+    // Busca webhook_secret: env tem prioridade, senão busca do banco (credentials.webhook_secret)
+    let webhookSecret = env.STRIPE_WEBHOOK_SECRET
+    if (!webhookSecret) {
+        const { data: provider } = await supabase
+            .from('payment_providers')
+            .select('credentials')
+            .in('type', ['stripe', 'stripe_connect'])
+            .eq('is_active', true)
+            .eq('is_global_default', true)
+            .maybeSingle()
+        webhookSecret = provider?.credentials?.webhook_secret || ''
+    }
 
     // Verificar assinatura se secret configurado
     if (webhookSecret) {
