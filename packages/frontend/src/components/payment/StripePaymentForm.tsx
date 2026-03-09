@@ -1,5 +1,4 @@
 import { useState } from 'react'
-import { loadStripe } from '@stripe/stripe-js'
 import {
     Elements,
     CardNumberElement,
@@ -10,9 +9,9 @@ import {
 } from '@stripe/react-stripe-js'
 import { CreditCard, Lock, CheckCircle, AlertCircle, ShieldCheck } from 'lucide-react'
 import { useI18n } from '@/i18n'
+import { getStripePromise } from '@/lib/stripe-singleton'
 
-// Inicializar Stripe com sua chave pública
-const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLIC_KEY || '')
+const stripePromise = getStripePromise()
 
 const SUPABASE_URL = 'https://cgeqtodbisgwvhkaahiy.supabase.co'
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNnZXF0b2RiaXNnd3Zoa2FhaGl5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjkxMTk1MDIsImV4cCI6MjA4NDY5NTUwMn0.Ov6_rRlThZUBIoL4oT6BGozEhvTUdFsWB6KylDXpFoY'
