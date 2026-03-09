@@ -18,7 +18,7 @@ self.addEventListener('activate', (event) => {
 })
 
 
-const CACHE_VERSION = 'checkout-v7'
+const CACHE_VERSION = 'checkout-v8'
 const STATIC_CACHE = `${CACHE_VERSION}-static`
 const DYNAMIC_CACHE = `${CACHE_VERSION}-dynamic`
 const CHECKOUT_DATA_CACHE = `${CACHE_VERSION}-data`
