@@ -112,7 +112,8 @@ export default function Login() {
               body: JSON.stringify({
                 email,
                 fullName,
-                token: data.user.id // Usar user ID como identificador
+                token: data.user.id, // Usar user ID como identificador
+                language,
               }),
             })
           } catch (emailError) {

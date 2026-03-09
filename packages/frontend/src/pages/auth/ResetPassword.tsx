@@ -52,7 +52,7 @@ export default function ResetPassword() {
             const res = await fetch(`${apiBase}/request-password-reset`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ email })
+                body: JSON.stringify({ email, language })
             })
 
             if (!res.ok) {
