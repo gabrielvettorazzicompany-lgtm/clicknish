@@ -11,11 +11,10 @@ import type { Env } from '../index'
  * Resolve a chave Stripe correta para o vendedor:
  * 1. Verifica se o vendedor tem provedor individual (override)
  * 2. Senão, usa o provedor padrão global da plataforma
- * 3. Fallback final: variável de ambiente STRIPE_SECRET_KEY
  */
-async function resolveStripeKey(supabase: any, ownerId: string | null, fallbackKey: string): Promise<string> {
-    if (!ownerId) return fallbackKey
-    try {
+async function resolveStripeKey(supabase: any, ownerId: string | null): Promise<string> {
+    // 1. Provedor individual do vendedor
+    if (ownerId) {
         const { data: userConfig } = await supabase
             .from('user_payment_config')
             .select('provider_id, override_platform_default')
@@ -36,22 +35,22 @@ async function resolveStripeKey(supabase: any, ownerId: string | null, fallbackK
                 return key
             }
         }
-
-        const { data: globalProvider } = await supabase
-            .from('payment_providers')
-            .select('credentials, type')
-            .eq('is_global_default', true)
-            .eq('is_active', true)
-            .maybeSingle()
-        const globalKey = globalProvider?.credentials?.secret_key || globalProvider?.credentials?.api_key
-        if (globalKey) {
-            console.log(`[resolveStripeKey] Using global default provider for owner ${ownerId}`)
-            return globalKey
-        }
-    } catch (e) {
-        console.warn('[resolveStripeKey] Error resolving provider, using fallback env key:', e)
     }
-    return fallbackKey
+
+    // 2. Provedor padrão global
+    const { data: globalProvider } = await supabase
+        .from('payment_providers')
+        .select('credentials, type')
+        .eq('is_global_default', true)
+        .eq('is_active', true)
+        .maybeSingle()
+    const globalKey = globalProvider?.credentials?.secret_key || globalProvider?.credentials?.api_key
+    if (globalKey) {
+        console.log(`[resolveStripeKey] Using global default provider for owner ${ownerId}`)
+        return globalKey
+    }
+
+    throw new Error('Nenhum provedor de pagamento configurado. Cadastre um provedor no painel de administração.')
 }
 
 const corsHeaders = {
@@ -77,8 +76,8 @@ export async function handleProcessUpsell(
 
         // Inicializar clientes
         const supabase = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY)
-        // stripe é substituído após conhecermos o dono do produto
-        let stripe = createStripeClient(env.STRIPE_SECRET_KEY)
+        // stripe é atribuído após resolução do provedor do vendedor
+        let stripe: ReturnType<typeof createStripeClient>
 
         // 1. Fetch the offer details
         const { data: offer, error: offerError } = await supabase
@@ -146,7 +145,7 @@ export async function handleProcessUpsell(
             (parentApplicationId
                 ? (await supabase.from('applications').select('owner_id').eq('id', parentApplicationId).maybeSingle()).data?.owner_id
                 : null)
-        stripe = createStripeClient(await resolveStripeKey(supabase, productOwnerId || null, env.STRIPE_SECRET_KEY))
+        stripe = createStripeClient(await resolveStripeKey(supabase, productOwnerId || null))
 
         // 3. Find the original purchase to get stripe customer/payment method
         let stripeCustomerId: string | null = null

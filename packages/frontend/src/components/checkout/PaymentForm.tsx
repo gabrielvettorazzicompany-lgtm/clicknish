@@ -49,7 +49,9 @@ const FloatingInput: React.FC<{
   autoCorrect?: string
   autoCapitalize?: string
   inputMode?: React.HTMLAttributes<HTMLInputElement>['inputMode']
-}> = ({ name, value, onChange, onBlur, label, inputPlaceholder, type = 'text', autoComplete, autoCorrect, autoCapitalize, inputMode }) => (
+  hasError?: boolean
+  errorMessage?: string
+}> = ({ name, value, onChange, onBlur, label, inputPlaceholder, type = 'text', autoComplete, autoCorrect, autoCapitalize, inputMode, hasError, errorMessage }) => (
   <div className="relative pt-4">
     <input
       type={type}
@@ -62,14 +64,23 @@ const FloatingInput: React.FC<{
       autoCorrect={autoCorrect}
       autoCapitalize={autoCapitalize as any}
       inputMode={inputMode}
-      className="w-full px-4 py-2.5 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500/15 focus:border-blue-400 transition-all text-[14px] bg-white text-gray-900 peer"
+      className={`w-full px-4 py-2.5 border rounded-md focus:outline-none focus:ring-2 transition-all text-[14px] bg-white text-gray-900 peer ${hasError
+          ? 'border-red-400 focus:ring-red-500/15 focus:border-red-400'
+          : 'border-gray-300 focus:ring-blue-500/15 focus:border-blue-400'
+        }`}
       data-placeholder={inputPlaceholder}
       onFocus={e => { if (inputPlaceholder) e.currentTarget.placeholder = inputPlaceholder }}
       onBlurCapture={e => { if (inputPlaceholder && !e.currentTarget.value) e.currentTarget.placeholder = ' ' }}
     />
-    <label className="absolute left-2.5 top-6.5 text-[14px] text-gray-600 transition-all duration-200 pointer-events-none peer-focus:top-0.5 peer-focus:left-2 peer-focus:text-[11px] peer-focus:text-blue-500 peer-[:not(:placeholder-shown)]:top-0.5 peer-[:not(:placeholder-shown)]:left-2 peer-[:not(:placeholder-shown)]:text-[11px] peer-[:not(:placeholder-shown)]:text-gray-700">
+    <label className={`absolute left-2.5 top-6.5 text-[14px] transition-all duration-200 pointer-events-none peer-focus:top-0.5 peer-focus:left-2 peer-focus:text-[11px] peer-[:not(:placeholder-shown)]:top-0.5 peer-[:not(:placeholder-shown)]:left-2 peer-[:not(:placeholder-shown)]:text-[11px] ${hasError
+        ? 'text-red-500 peer-focus:text-red-500 peer-[:not(:placeholder-shown)]:text-red-500'
+        : 'text-gray-600 peer-focus:text-blue-500 peer-[:not(:placeholder-shown)]:text-gray-700'
+      }`}>
       {label}
     </label>
+    {hasError && errorMessage && (
+      <p className="text-red-500 text-[12px] mt-1 ml-1">{errorMessage}</p>
+    )}
   </div>
 )
 
@@ -107,6 +118,8 @@ export const PaymentForm: React.FC<PaymentFormProps> = ({
   }
 
   const [installments, setInstallments] = useState(1)
+  const [fieldErrors, setFieldErrors] = useState<{ name?: string; email?: string }>({})
+
   const [cardNumberFocused, setCardNumberFocused] = useState(false)
   const [cardNumberFilled, setCardNumberFilled] = useState(false)
   const [cardExpiryFocused, setCardExpiryFocused] = useState(false)
@@ -172,6 +185,9 @@ export const PaymentForm: React.FC<PaymentFormProps> = ({
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target
     onFormDataChange({ ...formData, [name]: value })
+    if (fieldErrors[name as keyof typeof fieldErrors]) {
+      setFieldErrors(prev => ({ ...prev, [name]: undefined }))
+    }
   }
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -180,14 +196,12 @@ export const PaymentForm: React.FC<PaymentFormProps> = ({
     if (isPreview) return
 
     // Validação
-    if (!formData.name || !formData.email) {
-      console.error('Fill required fields')
-      return
-    }
-
-    // Validar formato de email
-    if (!isValidEmail(formData.email)) {
-      console.error('Invalid email')
+    const errors: { name?: string; email?: string } = {}
+    if (!formData.name?.trim()) errors.name = t.fillRequiredFields
+    if (!formData.email) errors.email = t.fillRequiredFields
+    else if (!isValidEmail(formData.email)) errors.email = t.invalidEmail
+    if (Object.keys(errors).length > 0) {
+      setFieldErrors(errors)
       return
     }
 
@@ -225,6 +239,8 @@ export const PaymentForm: React.FC<PaymentFormProps> = ({
           label={t.fullName || t.fullNamePlaceholder}
           inputPlaceholder={t.fullNamePlaceholder}
           autoComplete="name"
+          hasError={!!fieldErrors.name}
+          errorMessage={fieldErrors.name}
         />
 
         {/* E-mail */}
@@ -245,6 +261,8 @@ export const PaymentForm: React.FC<PaymentFormProps> = ({
             autoCorrect="off"
             autoCapitalize="off"
             inputMode="email"
+            hasError={!!fieldErrors.email}
+            errorMessage={fieldErrors.email}
           />
         </div>
 

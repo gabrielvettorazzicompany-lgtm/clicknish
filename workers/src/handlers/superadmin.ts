@@ -432,23 +432,35 @@ export async function handleSuperadmin(request: Request, env: any, pathSegments:
             // Busca produtos da aplicação (products com application_id)
             const { data: appProducts } = await supabase.from('products').select('id, name, description, type, cover_url, created_at').eq('application_id', appId).order('created_at', { ascending: false })
             const productIds = (appProducts || []).map((p: any) => p.id)
+
+            // Busca community_modules E product_content em paralelo
             let modules: any[] = []
+            let productContents: any[] = []
             if (productIds.length > 0) {
-                const { data: modulesData } = await supabase.from('community_modules').select('id, member_area_id, title, description, order_position').in('member_area_id', productIds).order('order_position', { ascending: true })
-                modules = modulesData || []
+                const [modulesResult, contentsResult] = await Promise.all([
+                    supabase.from('community_modules').select('id, member_area_id, title, description, order_position').in('member_area_id', productIds).order('order_position', { ascending: true }),
+                    supabase.from('product_content').select('id, product_id, title, content_type, content_url, text_content, order').in('product_id', productIds).order('order', { ascending: true })
+                ])
+                modules = modulesResult.data || []
+                productContents = contentsResult.data || []
                 const moduleIds = modules.map((m: any) => m.id)
                 if (moduleIds.length > 0) {
                     const { data: lessonsData } = await supabase.from('community_lessons').select('id, module_id, title, content_type, video_url, order_position').in('module_id', moduleIds).order('order_position', { ascending: true })
                     modules = modules.map((mod: any) => ({ ...mod, lessons: (lessonsData || []).filter((l: any) => l.module_id === mod.id) }))
                 }
             }
-            const productsWithModules = (appProducts || []).map((product: any) => ({ ...product, modules: modules.filter((m: any) => m.member_area_id === product.id) }))
+            const productsWithContent = (appProducts || []).map((product: any) => ({
+                ...product,
+                modules: modules.filter((m: any) => m.member_area_id === product.id),
+                contents: productContents.filter((c: any) => c.product_id === product.id)
+            }))
             const totalLessons = modules.reduce((sum: number, m: any) => sum + (m.lessons?.length || 0), 0)
+            const totalContents = productContents.length
 
             return new Response(JSON.stringify({
                 app: { ...app, owner_email: ownerEmail },
-                memberAreas: productsWithModules,
-                stats: { totalMemberAreas: appProducts?.length || 0, totalModules: modules.length, totalLessons }
+                memberAreas: productsWithContent,
+                stats: { totalMemberAreas: appProducts?.length || 0, totalModules: modules.length, totalLessons, totalContents }
             }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
         }
 

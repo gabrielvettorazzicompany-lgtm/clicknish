@@ -11,12 +11,10 @@ import type { Env } from '../index'
  * Resolve a chave Stripe correta para o vendedor:
  * 1. Verifica se o vendedor tem provedor individual (override)
  * 2. Senão, usa o provedor padrão global da plataforma
- * 3. Fallback final: variável de ambiente STRIPE_SECRET_KEY
  */
-async function resolveStripeKey(supabase: any, ownerId: string | null, fallbackKey: string): Promise<string> {
-    if (!ownerId) return fallbackKey
-    try {
-        // 1. Provedor individual do vendedor
+async function resolveStripeKey(supabase: any, ownerId: string | null): Promise<string> {
+    // 1. Provedor individual do vendedor
+    if (ownerId) {
         const { data: userConfig } = await supabase
             .from('user_payment_config')
             .select('provider_id, override_platform_default')
@@ -37,23 +35,22 @@ async function resolveStripeKey(supabase: any, ownerId: string | null, fallbackK
                 return key
             }
         }
-
-        // 2. Provedor padrão global da plataforma
-        const { data: globalProvider } = await supabase
-            .from('payment_providers')
-            .select('credentials, type')
-            .eq('is_global_default', true)
-            .eq('is_active', true)
-            .maybeSingle()
-        const globalKey = globalProvider?.credentials?.secret_key || globalProvider?.credentials?.api_key
-        if (globalKey) {
-            console.log(`[resolveStripeKey] Using global default provider for owner ${ownerId}`)
-            return globalKey
-        }
-    } catch (e) {
-        console.warn('[resolveStripeKey] Error resolving provider, using fallback env key:', e)
     }
-    return fallbackKey
+
+    // 2. Provedor padrão global da plataforma
+    const { data: globalProvider } = await supabase
+        .from('payment_providers')
+        .select('credentials, type')
+        .eq('is_global_default', true)
+        .eq('is_active', true)
+        .maybeSingle()
+    const globalKey = globalProvider?.credentials?.secret_key || globalProvider?.credentials?.api_key
+    if (globalKey) {
+        console.log(`[resolveStripeKey] Using global default provider for owner ${ownerId}`)
+        return globalKey
+    }
+
+    throw new Error('Nenhum provedor de pagamento configurado. Cadastre um provedor no painel de administração.')
 }
 
 const corsHeaders = {
@@ -121,8 +118,8 @@ export async function handleProcessPayment(
 
         // Continuar com Stripe (método padrão)
         const supabase = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY)
-        // stripe é inicializado com fallback e substituído após conhecermos o vendedor
-        let stripe = createStripeClient(env.STRIPE_SECRET_KEY)
+        // stripe é inicializado após resolveStripeKey identificar o provedor correto
+        let stripe: ReturnType<typeof createStripeClient>
 
         // ═══════════════════════════════════════════════════════════════════
         // BUSCAR DADOS EM PARALELO
@@ -170,7 +167,7 @@ export async function handleProcessPayment(
             currency = kvSession.currency
             sellerOwnerId = kvSession.sellerOwnerId
             // Resolve o stripe correto para este vendedor (individual > global > fallback)
-            stripe = createStripeClient(await resolveStripeKey(supabase, sellerOwnerId, env.STRIPE_SECRET_KEY))
+            stripe = createStripeClient(await resolveStripeKey(supabase, sellerOwnerId))
 
             // Preços verificados: filtrar apenas os bumps que o cliente selecionou
             for (const offer of kvSession.bumpOffers) {
@@ -279,7 +276,7 @@ export async function handleProcessPayment(
             }
 
             // Fase 2: agora que sabemos o vendedor, resolver o Stripe correto e buscar o customer
-            stripe = createStripeClient(await resolveStripeKey(supabase, sellerOwnerId, env.STRIPE_SECRET_KEY))
+            stripe = createStripeClient(await resolveStripeKey(supabase, sellerOwnerId))
             const stripeResult = await stripe.customers.list({ email: customerEmail, limit: 1 })
 
             stripeCustomersResult = stripeResult
