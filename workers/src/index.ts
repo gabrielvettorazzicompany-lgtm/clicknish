@@ -165,6 +165,22 @@ async function handleApiRoute(
         return handleCachePreloader(request, env)
     }
 
+    // GET /api/stripe-public-key — retorna publishable key do provider Stripe ativo (chave pública, sem auth)
+    if (pathname === '/api/stripe-public-key' && request.method === 'GET') {
+        const { createClient } = await import('./lib/supabase')
+        const supabase = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY)
+        const { data: provider } = await supabase
+            .from('payment_providers')
+            .select('credentials')
+            .in('type', ['stripe', 'stripe_connect'])
+            .eq('is_active', true)
+            .order('is_global_default', { ascending: false })
+            .limit(1)
+            .maybeSingle()
+        const publishableKey = provider?.credentials?.publishable_key || null
+        return jsonResponse({ publishable_key: publishableKey })
+    }
+
     // POST /api/process-payment
     if (pathname === '/api/process-payment' && request.method === 'POST') {
         return handleProcessPayment(request, env, ctx)

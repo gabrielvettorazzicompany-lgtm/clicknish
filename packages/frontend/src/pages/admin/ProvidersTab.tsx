@@ -22,10 +22,12 @@ const PROVIDER_COLORS: Record<string, { bg: string; text: string; border: string
 
 const CREDENTIAL_FIELDS: Record<string, Array<{ key: string; label: string; placeholder: string }>> = {
     stripe: [
+        { key: 'publishable_key', label: 'Publishable Key', placeholder: 'pk_live_...' },
         { key: 'secret_key', label: 'Secret Key', placeholder: 'sk_live_...' },
         { key: 'webhook_secret', label: 'Webhook Secret', placeholder: 'whsec_...' },
     ],
     stripe_connect: [
+        { key: 'publishable_key', label: 'Publishable Key', placeholder: 'pk_live_...' },
         { key: 'secret_key', label: 'Secret Key', placeholder: 'sk_live_...' },
         { key: 'webhook_secret', label: 'Webhook Secret', placeholder: 'whsec_...' },
     ],

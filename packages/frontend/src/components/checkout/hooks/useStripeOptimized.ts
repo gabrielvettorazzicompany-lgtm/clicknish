@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
-import { loadStripe, Stripe } from '@stripe/stripe-js'
+import { Stripe } from '@stripe/stripe-js'
+import { getStripePromise } from '@/lib/stripe-singleton'
 
 // ✅ CACHE: Instância global do Stripe  
 let stripeInstanceCache: Stripe | null = null
@@ -7,9 +8,9 @@ let stripeLoadingPromise: Promise<Stripe | null> | null = null
 
 // ✅ PRELOAD: Carregar Stripe em background quando necessário
 export const preloadStripe = () => {
-    if (!stripeInstanceCache && !stripeLoadingPromise && import.meta.env.VITE_STRIPE_PUBLIC_KEY) {
+    if (!stripeInstanceCache && !stripeLoadingPromise) {
         console.log('🚀 Preloading Stripe in background...')
-        stripeLoadingPromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLIC_KEY)
+        stripeLoadingPromise = (getStripePromise() ?? Promise.resolve(null))
             .then(stripe => {
                 stripeInstanceCache = stripe
                 console.log('✅ Stripe preloaded successfully')
@@ -32,7 +33,7 @@ export const useStripeOptimized = (shouldLoad: boolean = true) => {
     const loadingRef = useRef(false)
 
     useEffect(() => {
-        if (!shouldLoad || !import.meta.env.VITE_STRIPE_PUBLIC_KEY) {
+        if (!shouldLoad) {
             return
         }
 
@@ -66,7 +67,7 @@ export const useStripeOptimized = (shouldLoad: boolean = true) => {
 
         console.log('🔄 Loading Stripe...')
 
-        stripeLoadingPromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLIC_KEY)
+        stripeLoadingPromise = getStripePromise() ?? Promise.resolve(null)
 
         stripeLoadingPromise
             .then(stripeInstance => {
@@ -96,7 +97,7 @@ export const useStripeOptimized = (shouldLoad: boolean = true) => {
 
 // ✅ UTILITY: Verificar se Stripe está disponível sem carregar
 export const isStripeAvailable = () => {
-    return !!import.meta.env.VITE_STRIPE_PUBLIC_KEY
+    return true
 }
 
 // ✅ UTILITY: Get Stripe instance de forma otimizada
