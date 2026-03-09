@@ -826,6 +826,89 @@ export async function handleSuperadmin(request: Request, env: any, pathSegments:
             }
         }
 
+        // GET /api/superadmin/providers/:id/stripe-methods
+        // Busca métodos disponíveis na conta Stripe deste provedor via payment_method_configurations
+        if (request.method === 'GET' && pathSegments.length === 3 && pathSegments[0] === 'providers' && pathSegments[2] === 'stripe-methods') {
+            const providerId = pathSegments[1]
+            const { data: prov } = await supabase
+                .from('payment_providers')
+                .select('credentials, type, enabled_methods')
+                .eq('id', providerId)
+                .single()
+            if (!prov || !['stripe', 'stripe_connect'].includes(prov.type)) {
+                return new Response(JSON.stringify({ error: 'Provedor não encontrado ou não é Stripe' }), { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+            }
+            const secretKey = prov.credentials?.secret_key
+            if (!secretKey) {
+                return new Response(JSON.stringify({ error: 'Secret Key Stripe não configurada neste provedor' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+            }
+            try {
+                const stripeRes = await fetch('https://api.stripe.com/v1/payment_method_configurations', {
+                    headers: { 'Authorization': `Bearer ${secretKey}` }
+                })
+                if (!stripeRes.ok) {
+                    const err = await stripeRes.json().catch(() => ({})) as any
+                    throw new Error(err?.error?.message || stripeRes.statusText)
+                }
+                const stripeData = await stripeRes.json() as any
+                const config = stripeData.data?.[0] || {}
+
+                const STRIPE_METHOD_LABELS: Record<string, string> = {
+                    card: 'Card (Visa, Mastercard, etc.)',
+                    ideal: 'iDEAL',
+                    sepa_debit: 'SEPA Direct Debit',
+                    bancontact: 'Bancontact',
+                    giropay: 'Giropay',
+                    sofort: 'Sofort',
+                    klarna: 'Klarna',
+                    afterpay_clearpay: 'Afterpay / Clearpay',
+                    affirm: 'Affirm',
+                    p24: 'Przelewy24',
+                    eps: 'EPS',
+                    bacs_debit: 'Bacs Direct Debit',
+                    au_becs_debit: 'BECS Direct Debit',
+                    boleto: 'Boleto',
+                    oxxo: 'OXXO',
+                    konbini: 'Konbini',
+                    paynow: 'PayNow',
+                    promptpay: 'PromptPay',
+                    wechat_pay: 'WeChat Pay',
+                    alipay: 'Alipay',
+                    cashapp: 'Cash App Pay',
+                    amazon_pay: 'Amazon Pay',
+                    revolut_pay: 'Revolut Pay',
+                    mobilepay: 'MobilePay',
+                    twint: 'TWINT',
+                    multibanco: 'Multibanco',
+                    link: 'Link',
+                    paypal: 'PayPal',
+                }
+
+                const skipFields = new Set(['id', 'object', 'application', 'is_default', 'livemode', 'name', 'parent', 'metadata'])
+                const available: Array<{ id: string; label: string; active: boolean }> = []
+                for (const [key, val] of Object.entries(config)) {
+                    if (skipFields.has(key)) continue
+                    if (typeof val !== 'object' || val === null) continue
+                    const method = val as any
+                    if ('available' in method) {
+                        const isOn = method.display_preference?.value === 'on'
+                        available.push({
+                            id: key,
+                            label: STRIPE_METHOD_LABELS[key] || key,
+                            active: isOn,
+                        })
+                    }
+                }
+
+                return new Response(JSON.stringify({
+                    available,
+                    enabled: prov.enabled_methods || [],
+                }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+            } catch (stripeErr: any) {
+                return new Response(JSON.stringify({ error: `Erro Stripe: ${stripeErr.message}` }), { status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+            }
+        }
+
         // GET /api/superadmin/mollie/enabled-methods  (métodos habilitados globalmente)
         if (request.method === 'GET' && pathSegments.length === 2 && pathSegments[0] === 'mollie' && pathSegments[1] === 'enabled-methods') {
             const { data: prov } = await supabase

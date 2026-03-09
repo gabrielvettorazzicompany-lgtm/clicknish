@@ -66,7 +66,11 @@ export function ProvidersTab({ userId }: { userId: string }) {
     const [mollieEnabled, setMollieEnabled] = useState<string[]>([])
     const [loadingMollie, setLoadingMollie] = useState(false)
     const [mollieProviderId, setMollieProviderId] = useState<string | null>(null)
-
+    // Stripe methods
+    const [stripeAvailable, setStripeAvailable] = useState<Array<{ id: string; label: string; active: boolean }>>([])
+    const [stripeEnabled, setStripeEnabled] = useState<string[]>([])
+    const [loadingStripe, setLoadingStripe] = useState(false)
+    const [stripeProviderId, setStripeProviderId] = useState<string | null>(null)
     // User override
     const [userSearch, setUserSearch] = useState('')
     const [searchResults, setSearchResults] = useState<Array<{ id: string; email: string; config: any }> | null>(null)
@@ -128,10 +132,11 @@ export function ProvidersTab({ userId }: { userId: string }) {
             const payload: any = { name: editingName }
             if (Object.keys(editingCreds).length > 0) payload.credentials = editingCreds
             if (mollieProviderId === id) { payload.enabled_methods = mollieEnabled; payload.available_methods = mollieAvailable }
+            if (stripeProviderId === id) { payload.enabled_methods = stripeEnabled }
             const res = await adminFetch(`/providers/${id}`, userId, { method: 'PUT', body: JSON.stringify(payload) })
             if (res.ok) {
                 setProviders(prev => prev.map(p => p.id === id ? { ...p, name: editingName, ...(Object.keys(editingCreds).length ? { credentials: editingCreds } : {}) } : p))
-                setEditingId(null); setMollieProviderId(null); setMollieAvailable([]); setMollieEnabled([])
+                setEditingId(null); setMollieProviderId(null); setMollieAvailable([]); setMollieEnabled([]); setStripeProviderId(null); setStripeAvailable([]); setStripeEnabled([])
             } else { const e = await res.json().catch(() => ({})); alert(e.error || `Erro (${res.status})`) }
         } catch (e) { console.error(e) } finally { setSaving(false) }
     }
@@ -149,6 +154,14 @@ export function ProvidersTab({ userId }: { userId: string }) {
         if (res.ok) { const d = await res.json(); setMollieAvailable(d.available || []); setMollieEnabled(d.enabled || []) }
         else { const e = await res.json().catch(() => ({})); alert(e.error || 'Erro ao carregar métodos Mollie') }
         setLoadingMollie(false)
+    }
+
+    const handleLoadStripe = async (id: string) => {
+        setLoadingStripe(true); setStripeProviderId(id)
+        const res = await adminFetch(`/providers/${id}/stripe-methods`, userId)
+        if (res.ok) { const d = await res.json(); setStripeAvailable(d.available || []); setStripeEnabled(d.enabled || []) }
+        else { const e = await res.json().catch(() => ({})); alert(e.error || 'Erro ao carregar métodos Stripe') }
+        setLoadingStripe(false)
     }
 
     const handleSearchUser = async () => {
@@ -351,8 +364,36 @@ export function ProvidersTab({ userId }: { userId: string }) {
                                                 </div>
                                             )}
 
+                                            {(provider.type === 'stripe' || provider.type === 'stripe_connect') && (
+                                                <div className="border border-white/[0.06] p-3 space-y-3 bg-white/[0.01]">
+                                                    <div className="flex items-center justify-between">
+                                                        <div>
+                                                            <p className="text-xs font-semibold text-white">Métodos Stripe</p>
+                                                            <p className="text-[10px] text-gray-600 mt-0.5">Ative os métodos visíveis no checkout</p>
+                                                        </div>
+                                                        <button onClick={() => handleLoadStripe(provider.id)} disabled={loadingStripe} className="text-[10px] px-2 py-0.5 text-gray-400 hover:text-gray-300 border border-white/[0.07] hover:border-white/[0.15] transition-colors disabled:opacity-50">
+                                                            {loadingStripe && stripeProviderId === provider.id ? 'Carregando...' : 'Carregar da API'}
+                                                        </button>
+                                                    </div>
+                                                    {stripeProviderId === provider.id && stripeAvailable.length > 0 && (
+                                                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                                                            {stripeAvailable.map(method => {
+                                                                const enabled = stripeEnabled.includes(method.id)
+                                                                return (
+                                                                    <label key={method.id} className={`flex items-center gap-2 px-2.5 py-2 border cursor-pointer transition-all ${enabled ? 'bg-white/[0.04] border-white/[0.12] text-white' : 'bg-white/[0.01] border-white/[0.05] text-gray-500 hover:border-white/[0.1]'}`}>
+                                                                        <input type="checkbox" checked={enabled} onChange={() => setStripeEnabled(prev => enabled ? prev.filter(m => m !== method.id) : [...prev, method.id])} className="w-3 h-3 flex-shrink-0" />
+                                                                        <span className="text-[10px] font-medium truncate flex-1">{method.label}</span>
+                                                                        {method.active && <span className="text-[9px] text-emerald-400 border border-emerald-500/30 px-1 flex-shrink-0">on</span>}
+                                                                    </label>
+                                                                )
+                                                            })}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            )}
+
                                             <div className="flex gap-2 pt-1">
-                                                <button onClick={() => { setEditingId(null); setMollieProviderId(null); setMollieAvailable([]); setMollieEnabled([]) }} className="px-3 py-1.5 text-gray-500 hover:text-gray-300 border border-white/[0.07] text-xs transition-colors">Cancelar</button>
+                                                <button onClick={() => { setEditingId(null); setMollieProviderId(null); setMollieAvailable([]); setMollieEnabled([]); setStripeProviderId(null); setStripeAvailable([]); setStripeEnabled([]) }} className="px-3 py-1.5 text-gray-500 hover:text-gray-300 border border-white/[0.07] text-xs transition-colors">Cancelar</button>
                                                 <button onClick={() => handleSaveEdit(provider.id)} disabled={saving} className="px-4 py-1.5 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white text-xs font-semibold transition-colors">
                                                     {saving ? <div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin mx-auto" /> : 'Salvar'}
                                                 </button>
