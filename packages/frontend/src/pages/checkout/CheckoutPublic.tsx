@@ -74,6 +74,7 @@ function buildInitialState(raw: any) {
         applicationId: prod.applicationId || undefined,
         payment_methods: (customFields.paymentMethods ?? prod.payment_methods) as ('credit_card' | 'paypal')[] | undefined,
         default_payment_method: prod.default_payment_method as 'credit_card' | 'paypal' | undefined,
+        dynamic_checkout: prod.dynamic_checkout ?? false,
     }
     const checkout: Checkout = {
         id: ck.id,
@@ -387,6 +388,11 @@ export default function CheckoutPublic() {
                     }
                     if (customFields.customUtms) {
                         setCustomUtms(customFields.customUtms)
+                    }
+                    // Aplicar override de métodos de pagamento por checkout (fast path)
+                    if (customFields.paymentMethods && Array.isArray(customFields.paymentMethods)) {
+                        fetchedProduct.payment_methods = customFields.paymentMethods as ('credit_card' | 'paypal')[]
+                        setProduct({ ...fetchedProduct })
                     }
 
                     // Criar sessão KV em background: pré-carrega todos os dados para o processo
