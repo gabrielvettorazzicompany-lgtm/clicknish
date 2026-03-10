@@ -208,6 +208,25 @@ export async function handleCheckoutData(
             console.warn('[checkout-data] Could not resolve stripe publishable key:', keyErr)
         }
 
+        // Sanitiza offers: PostgreSQL serializa NaN numeric como string "NaN" no JSON.
+        // Substituímos pelo preço correto (original_price) ou 0, para evitar $NaN no checkout.
+        if (finalResult?.offers?.length > 0) {
+            finalResult.offers = finalResult.offers.map((offer: any) => {
+                const safeNum = (v: any): number | null => {
+                    if (v == null) return null
+                    const n = Number(v)
+                    return isNaN(n) ? null : n
+                }
+                const offerPrice = safeNum(offer.offer_price)
+                const originalPrice = safeNum(offer.original_price)
+                return {
+                    ...offer,
+                    offer_price: offerPrice ?? originalPrice ?? 0,
+                    original_price: originalPrice ?? 0,
+                }
+            })
+        }
+
         if (env.CACHE && finalResult) {
             const serialized = JSON.stringify(finalResult)
             const mainCachePromise = env.CACHE.put(cacheKey, serialized, { expirationTtl: 86400 })

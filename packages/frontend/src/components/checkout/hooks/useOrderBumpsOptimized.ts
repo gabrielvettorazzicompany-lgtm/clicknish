@@ -15,16 +15,19 @@ const toSafeNum = (v: any): number | null => {
 }
 
 // Normaliza um offer raw (de get_checkout_data_v2) ou já transformado para OrderBump
-// get_checkout_data_v2 retorna campos: id, product_id, offer_price, offer_image, product_name, ...
+// get_checkout_data_v2 retorna campos: id, product_id, offer_price, original_price, offer_image, product_name, ...
 // get_checkout_order_bumps_optimized retorna: offer_id, product_id, offer_price, product_price, ...
 const normalizeOffer = (item: any): OrderBump => {
     const offerPrice = toSafeNum(item.offer_price) ?? toSafeNum(item.custom_price)
+    const originalPrice = toSafeNum(item.original_price)
     const productPrice = toSafeNum(item.product_price) ?? toSafeNum(item.offer_product_price)
+    // Prioridade: offer_price > original_price > product_price > 0
+    const displayPrice = offerPrice ?? originalPrice ?? productPrice ?? 0
     return {
         id: item.offer_id || item.id,
         offer_product_id: item.product_id || item.offer_product_id,
         offer_product_name: item.product_name || item.offer_product_name,
-        offer_product_price: offerPrice ?? productPrice ?? 0,
+        offer_product_price: displayPrice,
         offer_product_currency: item.currency || item.offer_product_currency || 'USD',
         offer_product_image: item.offer_image || item.offer_product_image,
         custom_price: offerPrice ?? undefined,
