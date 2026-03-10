@@ -31,7 +31,6 @@ interface Transaction {
     date: string
     buyerName: string
     buyerEmail: string
-    sellerEmail: string
     product: string
     grossValue: number
     paymentMethod: PaymentMethod
@@ -43,7 +42,6 @@ interface Transaction {
     releaseDate: string
     releaseStatus: ReleaseStatus
     currency: string
-    sellerId: string
 }
 
 interface Withdrawal {
@@ -431,7 +429,7 @@ export function FinanceiroTab() {
     // ── State ─────────────────────────────────────────────────
     const [period, setPeriod] = useState<'hoje' | '7d' | '30d' | 'mes'>('30d')
     const [search, setSearch] = useState('')
-    const [producerFilter, setProducerFilter] = useState<string>('all')
+    const [currencyFilter, setCurrencyFilter] = useState<string>('all')
     const [page, setPage] = useState(1)
     const [sortField, setSortField] = useState<keyof Transaction>('date')
     const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc')
@@ -476,8 +474,6 @@ export function FinanceiroTab() {
                     date: saleDate ? new Date(saleDate).toLocaleString('pt-BR') : '—',
                     buyerName: s.buyer_email ? s.buyer_email.split('@')[0] : '—',
                     buyerEmail: s.buyer_email || '—',
-                    sellerEmail: s.seller_email || '—',
-                    sellerId: s.seller_id || '',
                     product: s.product_name || 'Produto',
                     grossValue: s.gross_value || 0,
                     paymentMethod: mapPaymentMethod(s.payment_method || ''),
@@ -550,20 +546,19 @@ export function FinanceiroTab() {
         fetchFinancial()
     }, [fetchTransactions, fetchWithdrawals, fetchFinancial])
 
-    // ── Lista de produtores únicos das transações ────────────
-    const producerList = useMemo(() => {
-        const map = new Map<string, string>()
-        transactions.forEach(t => { if (t.sellerId) map.set(t.sellerId, t.sellerEmail || t.sellerId) })
-        return Array.from(map.entries()).map(([id, email]) => ({ id, email }))
-    }, [transactions])
+    // ── fmt dinâmico por moeda selecionada
+    const fmtFiltered = useMemo(() => {
+        const cur = currencyFilter === 'all' ? 'BRL' : currencyFilter
+        return makeFmt(cur)
+    }, [currencyFilter])
 
     // ── Computed KPIs ─────────────────────────────────────────
     const kpis = useMemo(() => {
-        const txForKpi = producerFilter === 'all' ? transactions : transactions.filter(t => t.sellerId === producerFilter)
-        const gross = producerFilter === 'all'
+        const txForKpi = currencyFilter === 'all' ? transactions : transactions.filter(t => t.currency === currencyFilter)
+        const gross = currencyFilter === 'all'
             ? (financialData?.gmv ?? txForKpi.reduce((a, t) => a + t.grossValue, 0))
             : txForKpi.reduce((a, t) => a + t.grossValue, 0)
-        const commission = producerFilter === 'all'
+        const commission = currencyFilter === 'all'
             ? (financialData?.platform_revenue ?? txForKpi.reduce((a, t) => a + t.platformFee, 0))
             : txForKpi.reduce((a, t) => a + t.platformFee, 0)
         const pendingRelease = txForKpi
@@ -580,7 +575,7 @@ export function FinanceiroTab() {
             cbCount: urgentCbs.length,
             wdAmount: pendingWds.reduce((a, w) => a + w.requestedAmount, 0),
             wdCount: pendingWds.length,
-            approvedCount: txForKpi.filter(t => t.paymentStatus === 'Aprovado').length || (producerFilter === 'all' ? (financialData?.total_conversions ?? 0) : 0),
+            approvedCount: txForKpi.filter(t => t.paymentStatus === 'Aprovado').length || (currencyFilter === 'all' ? (financialData?.total_conversions ?? 0) : 0),
             pendingCount: txForKpi.filter(t => t.paymentStatus === 'Pendente').length,
             refundedCount: txForKpi.filter(t => t.paymentStatus === 'Reembolsado').length,
         }
@@ -613,8 +608,8 @@ export function FinanceiroTab() {
     const filteredTx = useMemo(() => {
         const q = search.toLowerCase()
         return transactions
-            .filter(t => !q || t.buyerName.toLowerCase().includes(q) || t.product.toLowerCase().includes(q) || t.buyerEmail.toLowerCase().includes(q) || t.sellerEmail.toLowerCase().includes(q))
-            .filter(t => producerFilter === 'all' || t.sellerId === producerFilter)
+            .filter(t => !q || t.buyerName.toLowerCase().includes(q) || t.product.toLowerCase().includes(q) || t.buyerEmail.toLowerCase().includes(q))
+            .filter(t => currencyFilter === 'all' || t.currency === currencyFilter)
             .sort((a, b) => {
                 const cmp = String(a[sortField]).localeCompare(String(b[sortField]))
                 return sortDir === 'asc' ? cmp : -cmp
@@ -624,6 +619,19 @@ export function FinanceiroTab() {
     const PER_PAGE = 7
     const paged = filteredTx.slice((page - 1) * PER_PAGE, page * PER_PAGE)
     const totalPages = Math.max(1, Math.ceil(filteredTx.length / PER_PAGE))
+
+    // ── Currency summary ─────────────────────────────────────
+    const currencySummary = useMemo(() => {
+        const summary: Record<string, { total: number; count: number }> = {}
+        transactions.forEach(t => {
+            if (!summary[t.currency]) {
+                summary[t.currency] = { total: 0, count: 0 }
+            }
+            summary[t.currency].total += t.grossValue
+            summary[t.currency].count += 1
+        })
+        return summary
+    }, [transactions])
 
     const onSort = (f: keyof Transaction) => {
         if (sortField === f) setSortDir(d => d === 'asc' ? 'desc' : 'asc')
@@ -753,17 +761,15 @@ export function FinanceiroTab() {
                         className="w-full pl-9 pr-4 py-1.5 bg-white/[0.02] border border-white/[0.06] text-xs text-white placeholder-gray-700 focus:outline-none focus:border-blue-500/40" />
                 </div>
 
-                {producerList.length > 0 && (
-                    <div className="min-w-[180px]">
-                        <select value={producerFilter} onChange={e => { setProducerFilter(e.target.value); setPage(1) }}
-                            className="w-full px-3 py-1.5 bg-white/[0.02] border border-white/[0.06] text-xs text-white focus:outline-none focus:border-blue-500/40">
-                            <option value="all">Todos os produtores</option>
-                            {producerList.map(p => (
-                                <option key={p.id} value={p.id}>{p.email}</option>
-                            ))}
-                        </select>
-                    </div>
-                )}
+                <div className="min-w-[120px]">
+                    <select value={currencyFilter} onChange={e => { setCurrencyFilter(e.target.value); setPage(1) }}
+                        className="w-full px-3 py-1.5 bg-white/[0.02] border border-white/[0.06] text-xs text-white focus:outline-none focus:border-blue-500/40">
+                        <option value="all">Todas as moedas</option>
+                        <option value="BRL">BRL</option>
+                        <option value="USD">USD</option>
+                        <option value="EUR">EUR</option>
+                    </select>
+                </div>
 
                 <div className="flex items-center gap-2 ml-auto">
                     <button onClick={() => { fetchTransactions(); fetchWithdrawals(); fetchFinancial() }}
@@ -784,12 +790,12 @@ export function FinanceiroTab() {
             {/* ── KPI Cards ─────────────────────────────────── */}
             <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3">
                 {[
-                    { label: 'Saldo Plataforma', value: fmt(kpis.balance), sub: 'comissões acumuladas', icon: <Wallet className="w-4 h-4" />, accent: '#3b82f6' },
-                    { label: 'Vendas Brutas', value: fmt(kpis.gross), sub: `${kpis.approvedCount} transações`, icon: <TrendingUp className="w-4 h-4" />, accent: '#3b82f6' },
-                    { label: `Comissão (${financialData?.fee_percent ?? 5}%)`, value: fmt(kpis.commission), sub: 'receita da plataforma', icon: <DollarSign className="w-4 h-4" />, accent: '#3b82f6' },
-                    { label: 'Pendente Repasse', value: fmt(kpis.pendingRelease), sub: 'a liberar p/ produtores', icon: <Clock className="w-4 h-4" />, accent: '#3b82f6' },
-                    { label: 'Chargebacks', value: `${kpis.cbCount} · ${fmt(kpis.cbAmount)}`, sub: 'pendentes urgentes', icon: <AlertCircle className="w-4 h-4" />, accent: '#3b82f6' },
-                    { label: 'Saques Aguardando', value: `${kpis.wdCount} · ${fmt(kpis.wdAmount)}`, sub: 'aprovação pendente', icon: <ArrowUpRight className="w-4 h-4" />, accent: '#3b82f6' },
+                    { label: 'Saldo Plataforma', value: fmtFiltered(kpis.balance), sub: 'comissões acumuladas', icon: <Wallet className="w-4 h-4" />, accent: '#3b82f6' },
+                    { label: 'Vendas Brutas', value: fmtFiltered(kpis.gross), sub: `${kpis.approvedCount} transações`, icon: <TrendingUp className="w-4 h-4" />, accent: '#3b82f6' },
+                    { label: `Comissão (${financialData?.fee_percent ?? 5}%)`, value: fmtFiltered(kpis.commission), sub: 'receita da plataforma', icon: <DollarSign className="w-4 h-4" />, accent: '#3b82f6' },
+                    { label: 'Pendente Repasse', value: fmtFiltered(kpis.pendingRelease), sub: 'a liberar p/ produtores', icon: <Clock className="w-4 h-4" />, accent: '#3b82f6' },
+                    { label: 'Chargebacks', value: `${kpis.cbCount} · ${fmtFiltered(kpis.cbAmount)}`, sub: 'pendentes urgentes', icon: <AlertCircle className="w-4 h-4" />, accent: '#3b82f6' },
+                    { label: 'Saques Aguardando', value: `${kpis.wdCount} · ${fmtFiltered(kpis.wdAmount)}`, sub: 'aprovação pendente', icon: <ArrowUpRight className="w-4 h-4" />, accent: '#3b82f6' },
                 ].map(k => (
                     <div key={k.label} className="relative bg-[#0d1829] border border-white/[0.06] p-4 overflow-hidden group hover:border-white/[0.14] transition-all duration-300">
                         <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300" style={{ background: `radial-gradient(ellipse at top left, ${k.accent}18 0%, transparent 60%)` }} />
@@ -802,7 +808,35 @@ export function FinanceiroTab() {
                 ))}
             </div>
 
+            {/* ── Currency Summary ──────────────────────────── */}
+            {Object.keys(currencySummary).length > 1 && (
+                <div className="bg-[#0d1829] border border-white/[0.06] p-4">
+                    <p className="text-xs font-semibold text-white mb-3">Resumo por Moeda</p>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                        {Object.entries(currencySummary).map(([currency, data]) => {
+                            const formatValue = (value: number) => {
+                                const currencySymbols = { BRL: 'R$', USD: '$', EUR: '€' }
+                                const symbol = currencySymbols[currency as keyof typeof currencySymbols] || currency
+                                return value.toLocaleString('pt-BR', {
+                                    style: 'currency',
+                                    currency: currency === 'BRL' ? 'BRL' : currency === 'USD' ? 'USD' : 'EUR',
+                                    minimumFractionDigits: 2
+                                }).replace(/^[^0-9]*/, symbol + ' ')
+                            }
 
+                            return (
+                                <div key={currency} className="bg-white/[0.02] border border-white/[0.04] p-3 hover:border-white/[0.08] transition-colors">
+                                    <div className="flex items-center justify-between mb-2">
+                                        <span className="text-xs font-semibold text-blue-400">{currency}</span>
+                                        <span className="text-[10px] text-gray-600">{data.count} vendas</span>
+                                    </div>
+                                    <p className="text-sm font-bold text-white">{formatValue(data.total)}</p>
+                                </div>
+                            )
+                        })}
+                    </div>
+                </div>
+            )}
 
             {/* ── Chart + Resumo ────────────────────────────── */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
@@ -912,7 +946,7 @@ export function FinanceiroTab() {
                                                     <p className="text-gray-600 mt-0.5">{tx.buyerEmail}</p>
                                                 </td>
                                                 <td className="px-3 py-2.5 text-gray-300 max-w-[130px] truncate">{tx.product}</td>
-                                                <td className="px-3 py-2.5 text-white font-semibold whitespace-nowrap">{makeFmt(tx.currency)(tx.grossValue)}</td>
+                                                <td className="px-3 py-2.5 text-white font-semibold whitespace-nowrap">{fmt(tx.grossValue)}</td>
                                                 <td className="px-3 py-2.5">
                                                     <span className="text-xs font-semibold text-blue-400 bg-blue-500/10 border border-blue-500/20 px-2 py-0.5">
                                                         {tx.currency}
@@ -924,16 +958,16 @@ export function FinanceiroTab() {
                                                     </span>
                                                 </td>
                                                 <td className="px-3 py-2.5"><PayBadge status={tx.paymentStatus} /></td>
-                                                <td className="px-3 py-2.5 text-gray-500">{tx.platformFee > 0 ? makeFmt(tx.currency)(tx.platformFee) : '—'}</td>
+                                                <td className="px-3 py-2.5 text-gray-500">{tx.platformFee > 0 ? fmt(tx.platformFee) : '—'}</td>
                                                 <td className="px-3 py-2.5">
                                                     {tx.affiliatePercent > 0 ? (
                                                         <div>
-                                                            <span className="text-amber-400">{makeFmt(tx.currency)(tx.affiliateComission)}</span>
+                                                            <span className="text-amber-400">{fmt(tx.affiliateComission)}</span>
                                                             <span className="text-gray-700 ml-1">({tx.affiliatePercent}%)</span>
                                                         </div>
                                                     ) : <span className="text-gray-700">—</span>}
                                                 </td>
-                                                <td className="px-3 py-2.5 text-emerald-400 font-semibold whitespace-nowrap">{tx.netProducer > 0 ? makeFmt(tx.currency)(tx.netProducer) : '—'}</td>
+                                                <td className="px-3 py-2.5 text-emerald-400 font-semibold whitespace-nowrap">{tx.netProducer > 0 ? fmt(tx.netProducer) : '—'}</td>
                                                 <td className="px-3 py-2.5 text-gray-500 whitespace-nowrap">{tx.releaseDate}</td>
                                                 <td className="px-3 py-2.5"><ReleaseBadge status={tx.releaseStatus} /></td>
                                                 <td className="px-3 py-2.5">
