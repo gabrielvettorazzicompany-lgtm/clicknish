@@ -101,10 +101,12 @@ export default {
 
         const fullHtml = buildInjectedHtml(html, shortId, checkoutData)
 
-        // Grava no KV em background para próximas requisições (TTL 24h)
+        // Grava no KV em background para próximas requisições (TTL 30s)
+        // TTL curto garante que mudanças de config (redirect, preço, etc.) refletem rápido.
+        // Performance vem do cache de dados (checkout-data:, TTL 24h) — não do HTML.
         if (env.CACHE && checkoutData) {
             ctx.waitUntil(
-                env.CACHE.put(`html:${shortId}`, fullHtml, { expirationTtl: 86400 }).catch(() => { })
+                env.CACHE.put(`html:${shortId}`, fullHtml, { expirationTtl: 30 }).catch(() => { })
             )
         }
 
@@ -115,27 +117,19 @@ export default {
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
 /**
- * Busca dados do checkout:
- * 1. KV local (Pages binding) → ~1ms
- * 2. API Worker (que também tem KV cache) → ~5-15ms no hit, ~150ms no miss
+ * Busca dados do checkout sempre via API Worker.
+ * O API Worker já tem cache KV próprio (~5ms no hit) e é a fonte de verdade.
+ * Ler do KV local do Pages causava staleness por consistência eventual do KV
+ * entre PoPs diferentes (Pages PoP vs API PoP podiam ter dados diferentes).
  */
 async function fetchCheckoutData(shortId, env) {
-    if (env.CACHE) {
-        try {
-            const cached = await env.CACHE.get(`checkout-data:${shortId}`, 'json')
-            if (cached) return cached
-        } catch (_) { }
-    }
-
     // Tenta 2 vezes com 1s de intervalo (novo checkout pode não estar no cache da API ainda)
     for (let attempt = 0; attempt < 2; attempt++) {
         try {
             if (attempt > 0) await new Promise(r => setTimeout(r, 1000))
-            // Sem cf.cacheEverything: evita cachear respostas de erro da API
             const res = await fetch(`${CHECKOUT_API}/api/checkout-data/${shortId}`)
             if (res.ok) {
                 const data = await res.json()
-                // Não usa dados com erro mesmo que status seja 200
                 if (data && !data.error) return data
             }
         } catch (_) { }
