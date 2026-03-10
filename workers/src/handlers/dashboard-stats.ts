@@ -105,6 +105,7 @@ export async function handleDashboardStats(
         let appRefunds: any[] = []
         let marketplaceAttempts: any[] = []
         let appAttempts: any[] = []
+        let allSalesFromLoc: any[] = []
 
         // 1. Tentativas de pagamento marketplace (todos os status exceto refunded/reversed)
         if (shouldFetchMarketplace) {
@@ -312,16 +313,39 @@ export async function handleDashboardStats(
             })
         }
 
+        // ── SALES SOURCE: sale_locations (1 linha = 1 venda, sem duplicatas de produtos) ──
+        // user_product_access tem N linhas por pedido (uma por produto do app), causando
+        // contagem incorreta. sale_locations é inserido uma única vez por PaymentIntent.
+        {
+            let saleLq = supabase
+                .from('sale_locations')
+                .select('amount, currency, payment_method, sale_date')
+                .eq('user_id', userId)
+
+            if (selectedApp) {
+                saleLq = saleLq.eq('product_id', selectedApp)
+            } else if (selectedMarketplace) {
+                saleLq = saleLq.eq('product_id', selectedMarketplace)
+            } else if (selectedCurrency) {
+                saleLq = (saleLq as any).ilike('currency', selectedCurrency)
+            }
+
+            if (fromDateObj) saleLq = saleLq.gte('sale_date', fromDateObj.toISOString())
+            if (endOfDay) saleLq = saleLq.lte('sale_date', endOfDay.toISOString())
+
+            const { data: saleLocData } = await saleLq
+            allSalesFromLoc = saleLocData || []
+        }
+
         // Calcular estatísticas
-        const allSales = [...marketplaceSales, ...appSales]
+        const allSales = allSalesFromLoc
         const allCheckouts = [...marketplaceCheckouts, ...appCheckouts]
         const allPending = [...marketplacePending, ...appPending]
         const allRefunds = [...marketplaceRefunds, ...appRefunds]
         const allAttempts = [...marketplaceAttempts, ...appAttempts]
 
         const totalSales = allSales.reduce((sum, sale) => {
-            const price = sale.price || sale.purchase_price || 0
-            return sum + parseFloat(price)
+            return sum + parseFloat(sale.amount || 0)
         }, 0)
 
         const salesCount = allSales.length
@@ -333,9 +357,8 @@ export async function handleDashboardStats(
         // Calcular vendas diárias
         const salesByDate: Record<string, number> = {}
         allSales.forEach(sale => {
-            const date = new Date(sale.created_at).toISOString().split('T')[0]
-            const price = sale.price || sale.purchase_price || 0
-            salesByDate[date] = (salesByDate[date] || 0) + parseFloat(price)
+            const date = new Date(sale.sale_date).toISOString().split('T')[0]
+            salesByDate[date] = (salesByDate[date] || 0) + parseFloat(sale.amount || 0)
         })
 
         const dailySales = Object.entries(salesByDate)
@@ -385,7 +408,7 @@ export async function handleDashboardStats(
         allSales.forEach((sale: any) => {
             const key = normalizeMethod(sale.payment_method)
             if (!methodGroups[key]) methodGroups[key] = { value: 0, count: 0 }
-            methodGroups[key].value += parseFloat(sale.price || sale.purchase_price || 0)
+            methodGroups[key].value += parseFloat(sale.amount || 0)
             methodGroups[key].count += 1
         })
 
