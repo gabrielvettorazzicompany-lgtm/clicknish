@@ -233,14 +233,22 @@ function generateWidgetScript(
   }
   const typeEmoji = typeEmojis[pageType] || '✨'
 
+  // Escape </script> para não quebrar a tag ao embutir JSON
+  const safeJSON = (obj: any): string => JSON.stringify(obj).replace(/<\//g, '<\\/')
+
   return `
 (function() {
   'use strict';
   
   console.log('[Clicknish] Widget initialized for ${pageType}');
   
-  const OFFER = ${JSON.stringify(offer)};
-  const PRODUCT = ${JSON.stringify(product)};
+  const OFFER = ${safeJSON(offer)};
+  const PRODUCT = ${safeJSON(product)};
+
+  // Sanitiza strings antes de injetar no HTML (prevenção de XSS)
+  function esc(str) {
+    return String(str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+  }
   const PAGE_TYPE = '${pageType}';
   const FUNNEL_ID = '${funnelId}';
   const PAGE_ID = '${pageId}';
@@ -335,11 +343,11 @@ function generateWidgetScript(
           </div>
           
           <h2 style="color: #fff; font-size: 32px; font-weight: 800; margin: 0 0 16px 0; text-align: center;">
-            \${OFFER.title || PRODUCT.name}
+            \${esc(OFFER.title || PRODUCT.name)}
           </h2>
           
           <p style="color: #9ca3af; font-size: 17px; margin: 0 0 32px 0; text-align: center;">
-            \${OFFER.description || PRODUCT.description || 'Take advantage of this exclusive limited-time offer'}
+            \${esc(OFFER.description || PRODUCT.description || 'Take advantage of this exclusive limited-time offer')}
           </p>
           
           <div style="
@@ -370,7 +378,7 @@ function generateWidgetScript(
             font-weight: 700;
             cursor: pointer;
             margin-bottom: 14px;
-          ">\${OFFER.button_text || 'Yes, I Want It!'}</button>
+          ">\${esc(OFFER.button_text || 'Yes, I Want It!')}</button>
           
           <button id="huskyapp-offer-decline" style="
             width: 100%;

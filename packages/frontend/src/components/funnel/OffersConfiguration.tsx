@@ -83,23 +83,43 @@ export default function OffersConfiguration({ funnels, onRefresh }: OffersConfig
             setLoading(true)
             const { data, error } = await supabase
                 .from('checkout_offers')
-                .select(`
-                    *,
-                    member_areas!checkout_offers_product_id_fkey (
-                        name
-                    )
-                `)
+                .select('*')
                 .eq('funnel_id', selectedFunnel)
 
             if (error) throw error
 
-            const formattedOffers = (data || []).map((offer: any) => ({
+            const offersRaw = data || []
+
+            // Coletar IDs únicos de produtos por tipo
+            const memberAreaIds = [...new Set(offersRaw.filter((o: any) => o.product_type === 'member_area' || !o.product_type).map((o: any) => o.product_id).filter(Boolean))]
+            const applicationIds = [...new Set(offersRaw.filter((o: any) => o.product_type === 'application').map((o: any) => o.product_id).filter(Boolean))]
+            const appProductIds = [...new Set(offersRaw.filter((o: any) => o.product_type === 'app_product').map((o: any) => o.product_id).filter(Boolean))]
+
+            // Buscar nomes em paralelo
+            const [memberAreasRes, appsRes, appProdsRes] = await Promise.all([
+                memberAreaIds.length > 0
+                    ? supabase.from('member_areas').select('id, name').in('id', memberAreaIds)
+                    : Promise.resolve({ data: [] }),
+                applicationIds.length > 0
+                    ? supabase.from('applications').select('id, name').in('id', applicationIds)
+                    : Promise.resolve({ data: [] }),
+                appProductIds.length > 0
+                    ? supabase.from('products').select('id, name').in('id', appProductIds)
+                    : Promise.resolve({ data: [] }),
+            ])
+
+            const nameMap: Record<string, string> = {}
+            for (const r of (memberAreasRes.data || [])) nameMap[r.id] = r.name
+            for (const r of (appsRes.data || [])) nameMap[r.id] = r.name
+            for (const r of (appProdsRes.data || [])) nameMap[r.id] = r.name
+
+            const formattedOffers = offersRaw.map((offer: any) => ({
                 id: offer.id,
                 type: offer.offer_type,
                 title: offer.title,
                 description: offer.description || '',
                 product_id: offer.product_id,
-                product_name: offer.member_areas?.name || 'Product not found',
+                product_name: nameMap[offer.product_id] || 'Product not found',
                 original_price: offer.original_price,
                 offer_price: offer.offer_price,
                 discount_percentage: offer.discount_percentage,

@@ -183,6 +183,8 @@ export async function handleProcessUpsell(
         }
 
         // 5. Create PaymentIntent with off_session (automatic charge)
+        // Idempotency key previne cobrança dupla se a request for retentada
+        const idempotencyKey = `upsell_${purchase_id}_${offer_id}`
         const paymentIntent = await stripe.paymentIntents.create({
             amount: Math.round(finalPrice * 100),
             currency: currency,
@@ -203,7 +205,7 @@ export async function handleProcessUpsell(
                 is_upsell: 'true',
             },
             description: `${offer.offer_type === 'upsell' ? 'Upsell' : 'Downsell'}: ${product.name}`,
-        })
+        }, { idempotencyKey })
 
         if (paymentIntent.status !== 'succeeded') {
             throw new Error(`Payment failed with status: ${paymentIntent.status}`)

@@ -19,12 +19,17 @@ export class StripeClient {
     private async request(endpoint: string, options: {
         method?: string
         body?: Record<string, any>
+        idempotencyKey?: string
     } = {}) {
-        const { method = 'GET', body } = options
+        const { method = 'GET', body, idempotencyKey } = options
 
         const headers: Record<string, string> = {
             'Authorization': `Bearer ${this.secretKey}`,
             'Content-Type': 'application/x-www-form-urlencoded',
+        }
+
+        if (idempotencyKey) {
+            headers['Idempotency-Key'] = idempotencyKey
         }
 
         let fetchBody: string | undefined
@@ -136,8 +141,8 @@ export class StripeClient {
             }
             metadata?: Record<string, string>
             description?: string
-        }) => {
-            return this.request('/payment_intents', { method: 'POST', body: params })
+        }, options?: { idempotencyKey?: string }) => {
+            return this.request('/payment_intents', { method: 'POST', body: params, idempotencyKey: options?.idempotencyKey })
         },
 
         retrieve: async (paymentIntentId: string) => {
