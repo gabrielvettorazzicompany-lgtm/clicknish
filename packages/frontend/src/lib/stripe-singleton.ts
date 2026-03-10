@@ -18,13 +18,10 @@ const cache = new Map<string, ReturnType<typeof loadStripe>>()
 export const getStripePromise = (shortId?: string): ReturnType<typeof loadStripe> => {
     const key = shortId ?? '__global__'
     if (!cache.has(key)) {
-        const envKey = import.meta.env.VITE_STRIPE_PUBLIC_KEY as string | undefined
-        const promise = envKey
-            ? loadStripe(envKey)
-            : fetch(`${API_BASE}/stripe-public-key${shortId ? `?shortId=${encodeURIComponent(shortId)}` : ''}`)
-                .then(r => r.json())
-                .then((d: { publishable_key: string | null }) => d.publishable_key ? loadStripe(d.publishable_key) : null)
-                .catch(() => null)
+        const promise = fetch(`${API_BASE}/stripe-public-key${shortId ? `?shortId=${encodeURIComponent(shortId)}` : ''}`)
+            .then(r => r.json())
+            .then((d: { publishable_key: string | null }) => d.publishable_key ? loadStripe(d.publishable_key) : null)
+            .catch(() => null)
         cache.set(key, promise as ReturnType<typeof loadStripe>)
     }
     return cache.get(key)!

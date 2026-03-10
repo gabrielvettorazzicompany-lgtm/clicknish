@@ -85,7 +85,7 @@ export async function handleCheckoutSession(
             // 1. Produto / App
             productType === 'app'
                 ? supabase.from('applications')
-                    .select('id, name, user_id')
+                    .select('id, name, owner_id')
                     .eq('id', applicationId || productId)
                     .single()
                 : supabase.from('marketplace_products')
@@ -141,7 +141,7 @@ export async function handleCheckoutSession(
         let sellerOwnerId: string | null
 
         if (productType === 'app') {
-            sellerOwnerId = productData.user_id || null
+            sellerOwnerId = productData.owner_id || null
             finalPrice = (checkoutResult.data as any)?.custom_price || 0
             productName = (productData as any).name
             currency = 'usd'
