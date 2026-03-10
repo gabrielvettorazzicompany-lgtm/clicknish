@@ -439,7 +439,7 @@ export function ReviewsTab({ userId, onPendingCountChange }: { userId: string; o
                                     </div>
                                     {appDetailsData?.stats && (
                                         <div className="flex gap-6 border-t border-b border-white/[0.05] py-3">
-                                            {[['Produtos', appDetailsData.stats.totalMemberAreas], ['Módulos', appDetailsData.stats.totalModules], ['Aulas', appDetailsData.stats.totalLessons]].map(([l, v]) => (
+                                            {[['Produtos', appDetailsData.stats.totalMemberAreas], ['Módulos', appDetailsData.stats.totalModules], ['Aulas', appDetailsData.stats.totalLessons], ['Conteúdo', appDetailsData.stats.totalContents ?? 0]].map(([l, v]) => (
                                                 <div key={l}><p className="text-xs text-gray-500">{l}</p><p className="text-sm font-semibold text-white mt-0.5">{v}</p></div>
                                             ))}
                                             <div><p className="text-xs text-gray-500">Owner</p><p className="text-xs text-white mt-0.5">{appDetailsData?.app?.owner_email || selectedApp.owner_email || 'Unknown'}</p></div>
@@ -487,6 +487,31 @@ export function ReviewsTab({ userId, onPendingCountChange }: { userId: string; o
                                                                         )}
                                                                     </div>
                                                                 ))}
+                                                            </div>
+                                                        )}
+                                                        {area.contents?.length > 0 && (
+                                                            <div>
+                                                                <div className="px-3 py-1.5 bg-white/[0.02] border-b border-white/[0.04] flex items-center gap-1.5">
+                                                                    <span className="text-[10px] text-gray-500 uppercase tracking-wider">Conteúdo</span>
+                                                                    <span className="text-[10px] text-gray-600">({area.contents.length})</span>
+                                                                </div>
+                                                                <div className="divide-y divide-white/[0.03]">
+                                                                    {area.contents.map((item: any, cIdx: number) => (
+                                                                        <div key={item.id} className="px-4 py-2 flex items-start gap-3">
+                                                                            <span className="text-[10px] text-gray-600 w-4 mt-0.5 flex-shrink-0">{cIdx + 1}.</span>
+                                                                            <div className="flex-1 min-w-0">
+                                                                                <p className="text-xs text-gray-200">{item.title || 'Sem título'}</p>
+                                                                                {item.text_content && (
+                                                                                    <p className="text-[11px] text-gray-500 mt-0.5 line-clamp-2">{item.text_content.replace(/<[^>]*>/g, ' ').trim()}</p>
+                                                                                )}
+                                                                            </div>
+                                                                            <div className="flex items-center gap-2 flex-shrink-0">
+                                                                                <span className="text-[10px] px-1.5 py-0.5 bg-white/[0.04] border border-white/[0.07] text-gray-400 capitalize">{item.content_type || 'content'}</span>
+                                                                                {item.content_url && <a href={item.content_url} target="_blank" rel="noopener noreferrer" className="text-[11px] text-blue-500 hover:text-blue-400">↗</a>}
+                                                                            </div>
+                                                                        </div>
+                                                                    ))}
+                                                                </div>
                                                             </div>
                                                         )}
                                                     </div>
