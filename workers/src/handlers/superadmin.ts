@@ -614,54 +614,41 @@ export async function handleSuperadmin(request: Request, env: any, pathSegments:
 
         // GET /api/superadmin/financial
         if (request.method === 'GET' && pathSegments.length === 1 && pathSegments[0] === 'financial') {
-            const { data: allOrders } = await supabase
-                .from('checkout_analytics')
-                .select('checkout_id, created_at')
-                .eq('event_type', 'conversion')
+            // Buscar todas as vendas reais da sale_locations
+            const { data: allSales } = await supabase
+                .from('sale_locations')
+                .select('id, amount, currency, sale_date, created_at, user_id')
+                .order('sale_date', { ascending: false })
 
-            // GMV via checkouts + member_areas price
-            const checkoutIds = [...new Set((allOrders || []).map((o: any) => o.checkout_id))]
-            let totalGmv = 0
-            let monthlyGmv: Record<string, number> = {}
+            // Calcular GMV real agrupado por moeda e por mês
+            let totalGmvBRL = 0
+            let totalGmvUSD = 0
+            const monthlyGmv: Record<string, number> = {}
 
-            if (checkoutIds.length > 0) {
-                const { data: checkouts } = await supabase
-                    .from('checkouts')
-                    .select('id, price, currency, application_id')
-                    .in('id', checkoutIds)
+                ; (allSales || []).forEach((s: any) => {
+                    const amount = parseFloat(s.amount) || 0
+                    const currency = (s.currency || 'USD').toUpperCase()
+                    const dateStr: string = s.sale_date || s.created_at || ''
+                    const month = dateStr.substring(0, 7)
 
-                checkouts?.forEach((c: any) => {
-                    const price = parseFloat(c.price) || 0
-                    totalGmv += price
+                    if (currency === 'BRL') totalGmvBRL += amount
+                    else totalGmvUSD += amount
+
+                    if (month) {
+                        monthlyGmv[month] = (monthlyGmv[month] || 0) + amount
+                    }
                 })
 
-                    ; (allOrders || []).forEach((o: any) => {
-                        const month = o.created_at?.substring(0, 7) || ''
-                        if (month) {
-                            const checkout = checkouts?.find((c: any) => c.id === o.checkout_id)
-                            const price = parseFloat(checkout?.price) || 0
-                            monthlyGmv[month] = (monthlyGmv[month] || 0) + price
-                        }
-                    })
-            }
+            // GMV total (BRL + USD convertido 1:1 para referência)
+            const totalGmv = totalGmvBRL + totalGmvUSD
 
             // Taxa padrão da plataforma
             const { data: feeConfig } = await supabase.from('platform_config').select('value').eq('key', 'platform_fee_percentage').single()
             const feePercent = parseFloat(feeConfig?.value) || 5
             const totalRevenue = totalGmv * (feePercent / 100)
 
-            // Total de conversões
-            const totalConversions = allOrders?.length || 0
-
-            // Total de page_views
-            const { count: totalViews } = await supabase
-                .from('checkout_analytics')
-                .select('id', { count: 'exact', head: true })
-                .eq('event_type', 'page_view')
-
-            const conversionRate = totalViews && totalViews > 0
-                ? ((totalConversions / totalViews) * 100).toFixed(2)
-                : '0.00'
+            // Total de conversões = total de vendas
+            const totalConversions = allSales?.length || 0
 
             // Novos usuários últimos 30 dias
             const thirtyDaysAgo = new Date()
@@ -671,13 +658,13 @@ export async function handleSuperadmin(request: Request, env: any, pathSegments:
                 (allAppsForowners || []).filter((a: any) => new Date(a.created_at) > thirtyDaysAgo).map((a: any) => a.owner_id)
             )
 
-            // Top sellers por apps criados (proxy de atividade)
-            const ownerAppCount: Record<string, number> = {}
-                ; (allAppsForowners || []).forEach((a: any) => {
-                    ownerAppCount[a.owner_id] = (ownerAppCount[a.owner_id] || 0) + 1
+            // Top sellers por volume de vendas
+            const sellerSales: Record<string, number> = {}
+                ; (allSales || []).forEach((s: any) => {
+                    if (s.user_id) sellerSales[s.user_id] = (sellerSales[s.user_id] || 0) + 1
                 })
             const topSellers = await Promise.all(
-                Object.entries(ownerAppCount)
+                Object.entries(sellerSales)
                     .sort((a, b) => (b[1] as number) - (a[1] as number))
                     .slice(0, 10)
                     .map(async ([ownerId, count]) => {
@@ -690,11 +677,12 @@ export async function handleSuperadmin(request: Request, env: any, pathSegments:
 
             return new Response(JSON.stringify({
                 gmv: totalGmv,
+                gmv_brl: totalGmvBRL,
+                gmv_usd: totalGmvUSD,
                 platform_revenue: totalRevenue,
                 fee_percent: feePercent,
                 total_conversions: totalConversions,
-                total_page_views: totalViews || 0,
-                conversion_rate: conversionRate,
+                conversion_rate: '0.00',
                 new_users_30d: recentOwners.size,
                 monthly_gmv: monthlyGmv,
                 top_sellers: topSellers
