@@ -73,53 +73,24 @@ export async function handleFinance(
         const fromDateObj = fromDate ? new Date(fromDate) : undefined
         let endOfDay: Date | undefined
         if (toDate) {
-            // Adiciona 24h-1ms ao início do dia local enviado pelo frontend (em UTC),
-            // evitando o bug de timezone do setHours em ambiente UTC do worker.
             endOfDay = new Date(new Date(toDate).getTime() + 24 * 60 * 60 * 1000 - 1)
         }
 
-        // Buscar apps e member_areas do usuário em paralelo
-        const [userAppsResult, userMemberAreasResult] = await Promise.all([
-            supabase.from('applications').select('id, name').eq('owner_id', userId),
-            supabase.from('member_areas').select('id, name, currency').eq('owner_id', userId)
-        ])
+        // ── Fonte primária de vendas: sale_locations (user_id = produtor, 1 linha/venda) ──
+        // user_product_access tem N linhas por pedido (uma por módulo do app), causando
+        // contagem duplicada. sale_locations é inserido uma única vez por PaymentIntent.
+        let salesQuery = supabase
+            .from('sale_locations')
+            .select('amount, currency, sale_date')
+            .eq('user_id', userId)
+            .order('sale_date', { ascending: false })
+            .limit(1000)
+        if (fromDateObj) salesQuery = salesQuery.gte('sale_date', fromDateObj.toISOString())
+        if (endOfDay) salesQuery = salesQuery.lte('sale_date', endOfDay.toISOString())
 
-        const appIds = userAppsResult.data?.map((a: any) => a.id) || []
-        const appNames = new Map(userAppsResult.data?.map((a: any) => [a.id, a.name]) || [])
-        const memberAreaIds = userMemberAreasResult.data?.map((m: any) => m.id) || []
-        const memberAreaInfo = new Map(userMemberAreasResult.data?.map((m: any) => [m.id, { name: m.name, currency: m.currency }]) || [])
-
-        const emptyResult = () => Promise.resolve({ data: [], error: null })
-
-        // Queries em paralelo: vendas de apps + vendas marketplace + pedidos de saque
-        const [appSalesResult, memberSalesResult, withdrawalsResult, anticipationsResult] = await Promise.all([
-            appIds.length > 0 ? (() => {
-                let q = supabase
-                    .from('user_product_access')
-                    .select('id, payment_id, purchase_price, payment_status, payment_method, created_at, application_id')
-                    .in('application_id', appIds)
-                    .not('payment_status', 'eq', 'failed')
-                    .order('created_at', { ascending: false })
-                    .limit(500)
-                if (fromDateObj) q = q.gte('created_at', fromDateObj.toISOString())
-                if (endOfDay) q = q.lte('created_at', endOfDay.toISOString())
-                return q
-            })() : emptyResult(),
-
-            memberAreaIds.length > 0 ? (() => {
-                let q = supabase
-                    .from('user_member_area_access')
-                    .select('id, member_area_id, purchase_price, payment_status, payment_method, created_at')
-                    .in('member_area_id', memberAreaIds)
-                    .not('payment_status', 'eq', 'failed')
-                    .order('created_at', { ascending: false })
-                    .limit(500)
-                if (fromDateObj) q = q.gte('created_at', fromDateObj.toISOString())
-                if (endOfDay) q = q.lte('created_at', endOfDay.toISOString())
-                return q
-            })() : emptyResult(),
-
-            // Buscar pedidos de saque e antecipações do usuário
+        // Buscar pedidos de saque, antecipações e vendas em paralelo
+        const [salesResult, withdrawalsResult, anticipationsResult] = await Promise.all([
+            salesQuery,
             supabase
                 .from('withdrawal_requests')
                 .select('id, amount, currency, payout_schedule, fee_percentage, fee_fixed, fee_amount, net_amount, status, created_at, completed_at')
@@ -164,35 +135,18 @@ export async function handleFinance(
             completedAt: a.completed_at,
         }))
 
-        // Calcular totais de vendas por moeda e contar transações (para taxa fixa $0.49/venda)
+        // Calcular totais de vendas por moeda a partir de sale_locations
         const salesByCurrency: Record<string, number> = {}
         const saleCountByCurrency: Record<string, number> = {}
 
-        // Vendas de apps (USD)
-        const seenAppPayments = new Set<string>()
-            ; (appSalesResult.data || []).forEach((row: any) => {
-                const paymentKey = row.payment_id ?? row.id
-                if (seenAppPayments.has(paymentKey)) return
-                seenAppPayments.add(paymentKey)
-                if (row.payment_status === 'completed') {
-                    const price = Number(row.purchase_price ?? 0)
-                    salesByCurrency['USD'] = (salesByCurrency['USD'] || 0) + price
-                    saleCountByCurrency['USD'] = (saleCountByCurrency['USD'] || 0) + 1
-                }
-            })
-
-            // Vendas de marketplace
-            ; (memberSalesResult.data || []).forEach((row: any) => {
-                const maInfo = memberAreaInfo.get(row.member_area_id)
-                const currency = (maInfo?.currency ?? 'USD').toUpperCase()
-                const rawPrice = Number(row.purchase_price ?? 0)
-                // Spread 1.8% para vendas em moeda não-USD
-                const effectivePrice = currency !== 'USD' ? rawPrice * (1 - NON_USD_SPREAD) : rawPrice
-                if (row.payment_status === 'completed') {
-                    salesByCurrency[currency] = (salesByCurrency[currency] || 0) + effectivePrice
-                    saleCountByCurrency[currency] = (saleCountByCurrency[currency] || 0) + 1
-                }
-            })
+        ;(salesResult.data || []).forEach((row: any) => {
+            const cur = (row.currency || 'USD').toUpperCase()
+            const amount = Number(row.amount ?? 0)
+            // Spread 1.8% para vendas em moeda não-USD
+            const effectiveAmount = cur !== 'USD' ? amount * (1 - NON_USD_SPREAD) : amount
+            salesByCurrency[cur] = (salesByCurrency[cur] || 0) + effectiveAmount
+            saleCountByCurrency[cur] = (saleCountByCurrency[cur] || 0) + 1
+        })
 
         // Calcular saldo disponível: vendas completadas - total sacado (completed + processing)
         const withdrawnByCurrency: Record<string, number> = {}
