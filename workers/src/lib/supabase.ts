@@ -332,6 +332,12 @@ class SupabaseQuery {
         return this
     }
 
+    range(from: number, to: number) {
+        this.queryParams.push(`offset=${from}`)
+        this.queryParams.push(`limit=${to - from + 1}`)
+        return this
+    }
+
     single() {
         this.singleResult = true
         this.returnData = true
