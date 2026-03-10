@@ -30,23 +30,25 @@ export default function FunnelRow({ funnel, actions }: FunnelRowProps) {
                 .select('checkout_id')
                 .eq('funnel_id', funnel.id)
                 .eq('page_type', 'checkout')
-                .single()
+                .maybeSingle()
 
-            if (!checkoutPage?.checkout_id) {
+            // Fallback: tenta checkout_id direto no funil se a página não tiver
+            const checkoutId = checkoutPage?.checkout_id || (funnel as any).checkout_id
+
+            if (!checkoutId) {
                 alert('Nenhum checkout configurado neste funil.')
                 return
             }
 
-            const checkoutId = checkoutPage.checkout_id
-
-            // Buscar ou criar URL curta
-            const { data: existingUrl } = await supabase
+            // Buscar URL curta existente — usa limit(1) para evitar falha com múltiplas linhas
+            const { data: existingUrls } = await supabase
                 .from('checkout_urls')
                 .select('id')
                 .eq('checkout_id', checkoutId)
-                .maybeSingle()
+                .order('created_at', { ascending: false })
+                .limit(1)
 
-            let shortId = existingUrl?.id
+            let shortId = existingUrls?.[0]?.id
 
             if (!shortId) {
                 const { data: checkoutData } = await supabase
@@ -62,13 +64,24 @@ export default function FunnelRow({ funnel, actions }: FunnelRowProps) {
                     insertData.member_area_id = checkoutData.member_area_id
                 }
 
-                const { data: newUrl } = await supabase
+                const { data: newUrl, error: insertError } = await supabase
                     .from('checkout_urls')
                     .insert(insertData)
                     .select('id')
                     .single()
 
-                shortId = newUrl?.id
+                if (insertError) {
+                    // Pode ter ocorrido conflito de chave única — tenta buscar novamente
+                    const { data: retryUrls } = await supabase
+                        .from('checkout_urls')
+                        .select('id')
+                        .eq('checkout_id', checkoutId)
+                        .order('created_at', { ascending: false })
+                        .limit(1)
+                    shortId = retryUrls?.[0]?.id
+                } else {
+                    shortId = newUrl?.id
+                }
             }
 
             if (shortId) {
