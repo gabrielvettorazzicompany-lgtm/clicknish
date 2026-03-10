@@ -1,4 +1,4 @@
-appimport { useState, useEffect, forwardRef, useImperativeHandle } from 'react'
+import { useState, useEffect, forwardRef, useImperativeHandle } from 'react'
 import { Package, Trash2, AlertCircle, Check, Zap, ChevronDown, ChevronUp } from 'lucide-react'
 import { supabase } from '@/services/supabase'
 import { useAuthStore } from '@/stores/authStore'
