@@ -1069,13 +1069,25 @@ export async function handleSuperadmin(request: Request, env: any, pathSegments:
                     })
             }
 
+            // Buscar email dos produtores (seller) via auth
+            const sellerIds = [...new Set((saleLoc || []).filter((s: any) => s.user_id).map((s: any) => s.user_id))]
+            const sellerEmailById: Record<string, string> = {}
+            await Promise.all(sellerIds.map(async (uid: string) => {
+                try {
+                    const { data } = await supabase.auth.admin.getUserById(uid)
+                    if (data?.user?.email) sellerEmailById[uid] = data.user.email
+                } catch { /* ignorar */ }
+            }))
+
             const transactions = (saleLoc || []).map((s: any) => {
                 const gross = parseFloat(s.amount) || 0
                 const buyerEmail = s.customer_email || emailByCustomerId[s.customer_id] || ''
+                const sellerEmail = sellerEmailById[s.user_id] || ''
                 return {
                     id: s.id,
                     sale_date: s.sale_date || s.created_at,
                     buyer_email: buyerEmail,
+                    seller_email: sellerEmail,
                     product_name: (s.product_id && productNameMap[s.product_id]) || 'Produto',
                     gross_value: gross,
                     currency: (s.currency || 'USD').toUpperCase(),
