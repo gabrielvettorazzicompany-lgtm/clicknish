@@ -104,6 +104,7 @@ export default function CheckoutRedirectConfig({ funnelId, pageId, onUpdate, onS
             if (currentPage?.settings) {
                 const s = currentPage.settings as RedirectSettings
                 setSettings(s)
+                onSettingsChange?.(s)
             }
         } catch (error) {
             console.error('Error fetching checkout redirect config:', error)

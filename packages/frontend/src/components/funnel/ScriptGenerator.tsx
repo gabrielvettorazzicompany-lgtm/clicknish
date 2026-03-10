@@ -322,15 +322,6 @@ export default function ScriptGenerator({ funnelId, pageId, pageType, pageName, 
                 {t('funnel_components.integration_script')}
             </h3>
 
-            {/* Warning if no product configured */}
-            {!productId && (
-                <div className="bg-yellow-500/10 border border-yellow-500/30 rounded p-2 mb-3">
-                    <p className="text-xs text-yellow-400">
-                        {t('funnel_components.configure_product_script')}
-                    </p>
-                </div>
-            )}
-
             <div className="space-y-3">
                 {/* Script Head */}
                 <div>

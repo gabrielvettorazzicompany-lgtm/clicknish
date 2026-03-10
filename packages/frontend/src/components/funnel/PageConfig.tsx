@@ -5,7 +5,7 @@ import OrderBumpSection from './OrderBumpSection'
 import ScriptGenerator from './ScriptGenerator'
 import ExternalUrlConfig from './ExternalUrlConfig'
 import ProductCheckoutCard from './ProductCheckoutCard'
-import OfferPageConfig from './OfferPageConfig'
+import OfferPageConfig, { OfferPageConfigHandle } from './OfferPageConfig'
 import RedirectConfig from './RedirectConfig'
 import CheckoutRedirectConfig from './CheckoutRedirectConfig'
 import { useState, useRef, useEffect } from 'react'
@@ -46,6 +46,7 @@ export default function PageConfig({ page, funnelId, onUpdate }: PageConfigProps
     const latestRedirectSettings = useRef<Record<string, any>>({})
     const latestExternalUrl = useRef<string>(page.external_url || '')
     const latestOfferRedirectSettings = useRef<Record<string, any>>({})
+    const offerConfigRef = useRef<OfferPageConfigHandle>(null)
 
     // Reset refs ao mudar de página
     useEffect(() => {
@@ -88,6 +89,7 @@ export default function PageConfig({ page, funnelId, onUpdate }: PageConfigProps
     const handleSaveOfferSettings = async () => {
         try {
             setSavingOffer(true)
+            await offerConfigRef.current?.save()
             const { data: existing } = await supabase
                 .from('funnel_pages')
                 .select('settings')
@@ -152,6 +154,7 @@ export default function PageConfig({ page, funnelId, onUpdate }: PageConfigProps
                     {/* Produto da oferta */}
                     <div className="p-4">
                         <OfferPageConfig
+                            ref={offerConfigRef}
                             funnelId={funnelId}
                             pageId={page.id}
                             pageType={page.page_type as 'upsell' | 'downsell'}

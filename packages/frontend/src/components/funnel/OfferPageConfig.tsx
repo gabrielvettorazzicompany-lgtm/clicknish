@@ -1,8 +1,12 @@
-import { useState, useEffect } from 'react'
-import { Package, Save, Trash2, AlertCircle, Check, Zap, ChevronDown, ChevronUp } from 'lucide-react'
+appimport { useState, useEffect, forwardRef, useImperativeHandle } from 'react'
+import { Package, Trash2, AlertCircle, Check, Zap, ChevronDown, ChevronUp } from 'lucide-react'
 import { supabase } from '@/services/supabase'
 import { useAuthStore } from '@/stores/authStore'
 import { useI18n } from '@/i18n'
+
+export interface OfferPageConfigHandle {
+    save: () => Promise<void>
+}
 
 interface Product {
     id: string
@@ -49,7 +53,7 @@ interface OfferPageConfigProps {
     onOfferLoaded?: (productId: string | undefined, oneClick: boolean, offerId: string | undefined, checkoutId?: string) => void
 }
 
-export default function OfferPageConfig({ funnelId, pageId, pageType, onUpdate, onOfferLoaded }: OfferPageConfigProps) {
+const OfferPageConfig = forwardRef<OfferPageConfigHandle, OfferPageConfigProps>(function OfferPageConfig({ funnelId, pageId, pageType, onUpdate, onOfferLoaded }, ref) {
     const { t } = useI18n()
     const { user } = useAuthStore()
     const [products, setProducts] = useState<Product[]>([])
@@ -58,6 +62,14 @@ export default function OfferPageConfig({ funnelId, pageId, pageType, onUpdate, 
     const [loading, setLoading] = useState(true)
     const [saving, setSaving] = useState(false)
     const [saved, setSaved] = useState(false)
+
+    useImperativeHandle(ref, () => ({
+        save: async () => {
+            if (form.product_id && form.title.trim()) {
+                await handleSave()
+            }
+        }
+    }))
 
     // Module selection states
     const [modules, setModules] = useState<Module[]>([])
@@ -731,37 +743,6 @@ export default function OfferPageConfig({ funnelId, pageId, pageType, onUpdate, 
                         </div>
                     </div>
 
-                    {/* Price */}
-                    <div>
-                        <label className="block text-xs text-gray-500 dark:text-zinc-400 mb-1.5">{t('common.price')}</label>
-                        <div className="relative">
-                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-zinc-500 text-xs">
-                                {({ BRL: 'R$', USD: '$', EUR: '€', CNY: '¥', COP: '$', CAD: 'C$' } as Record<string, string>)[form.currency] || form.currency}
-                            </span>
-                            <input
-                                type="number"
-                                step="0.01"
-                                value={form.offer_price}
-                                onChange={(e) => {
-                                    const val = Number(e.target.value)
-                                    setForm(prev => ({
-                                        ...prev,
-                                        offer_price: val,
-                                        discount_percentage: prev.original_price > 0 && val < prev.original_price
-                                            ? Math.round(((prev.original_price - val) / prev.original_price) * 100)
-                                            : 0
-                                    }))
-                                }}
-                                className="w-full pl-10 pr-3 py-2 bg-white dark:bg-transparent border border-gray-300 dark:border-zinc-800 rounded text-gray-900 dark:text-white text-xs focus:outline-none focus:border-blue-500 dark:focus:border-zinc-600 transition-colors"
-                            />
-                        </div>
-                        {selectedProduct && form.offer_price < selectedProduct.price && form.offer_price > 0 && (
-                            <p className="text-xs text-green-400 mt-1.5">
-                                {Math.round(((selectedProduct.price - form.offer_price) / selectedProduct.price) * 100)}% off ({formatCurrency(selectedProduct.price)})
-                            </p>
-                        )}
-                    </div>
-
                     {/* One-Click Toggle — apenas para páginas que não são upsell/downsell */}
                     {!isOfferPage && (
                         <div className="flex items-center justify-between py-2.5 border-t border-zinc-800">
@@ -785,8 +766,8 @@ export default function OfferPageConfig({ funnelId, pageId, pageType, onUpdate, 
                     )}
 
                     {/* Actions */}
-                    <div className="flex items-center justify-between pt-1">
-                        {offer?.id ? (
+                    {offer?.id && (
+                        <div className="flex items-center pt-1">
                             <button
                                 onClick={handleDelete}
                                 className="text-xs text-zinc-600 hover:text-red-400 transition-colors"
@@ -794,20 +775,12 @@ export default function OfferPageConfig({ funnelId, pageId, pageType, onUpdate, 
                                 <Trash2 size={12} className="inline mr-1" />
                                 {t('funnel_components.remove')}
                             </button>
-                        ) : <span />}
-                        <button
-                            onClick={handleSave}
-                            disabled={saving || !form.product_id || !form.title.trim()}
-                            className={`flex items-center gap-1.5 px-4 py-1.5 rounded text-xs font-medium transition-all ${saved
-                                ? 'bg-green-500/10 text-green-400'
-                                : 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700 disabled:opacity-30 disabled:cursor-not-allowed'
-                                }`}
-                        >
-                            {saved ? <><Check size={12} /> {t('funnel_components.saved')}</> : <><Save size={12} /> {saving ? t('common.saving') : t('common.save')}</>}
-                        </button>
-                    </div>
+                        </div>
+                    )}
                 </div>
             )}
         </div>
     )
-}
+})
+
+export default OfferPageConfig

@@ -123,6 +123,7 @@ export default function ProductCheckoutCard({
                 const settings = pageData.settings as any
                 if (Array.isArray(settings.selected_modules)) {
                     setSelectedModules(settings.selected_modules)
+                    onModulesChange?.(settings.selected_modules)
                 }
             }
         } catch (err) {
@@ -475,8 +476,8 @@ export default function ProductCheckoutCard({
                                 <button
                                     onClick={() => setViewDevice('desktop')}
                                     className={`flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-medium transition-colors ${viewDevice === 'desktop'
-                                            ? 'text-gray-100'
-                                            : 'text-gray-500 hover:text-gray-300'
+                                        ? 'text-gray-100'
+                                        : 'text-gray-500 hover:text-gray-300'
                                         }`}
                                     title="Desktop"
                                 >
@@ -486,8 +487,8 @@ export default function ProductCheckoutCard({
                                 <button
                                     onClick={() => setViewDevice('mobile')}
                                     className={`flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-medium transition-colors ${viewDevice === 'mobile'
-                                            ? 'text-gray-100'
-                                            : 'text-gray-500 hover:text-gray-300'
+                                        ? 'text-gray-100'
+                                        : 'text-gray-500 hover:text-gray-300'
                                         }`}
                                     title="Mobile"
                                 >
