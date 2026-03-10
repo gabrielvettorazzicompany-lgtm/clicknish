@@ -772,35 +772,66 @@ export async function handleProcessPayment(
         let redirectUrl: string | null = null
 
         if (checkoutId) {
-            // Buscar primeiro upsell/downsell ativo
-            const { data: upsellOffer } = await supabase
-                .from('checkout_offers')
-                .select('id, page_id, offer_type')
+            // 1. Verificar se há configuração de redirect na funnel page associada a este checkout
+            const { data: checkoutFunnelPage } = await supabase
+                .from('funnel_pages')
+                .select('id, settings')
                 .eq('checkout_id', checkoutId)
-                .eq('is_active', true)
-                .in('offer_type', ['upsell', 'downsell'])
-                .order('offer_position', { ascending: true })
-                .limit(1)
-                .maybeSingle()
+                .eq('page_type', 'checkout')
+                .maybeSingle() as any
 
-            if (upsellOffer?.page_id) {
-                // Buscar external_url da página de upsell
-                const { data: funnelPage } = await supabase
-                    .from('funnel_pages')
-                    .select('external_url')
-                    .eq('id', upsellOffer.page_id)
-                    .maybeSingle()
+            if ((checkoutFunnelPage as any)?.settings) {
+                const s = (checkoutFunnelPage as any).settings
 
-                if (funnelPage?.external_url) {
-                    // Adicionar purchaseId e token na URL de upsell
-                    const upsellUrl = funnelPage.external_url
-                    const separator = upsellUrl.includes('?') ? '&' : '?'
-                    redirectUrl = `${upsellUrl}${separator}purchase_id=${purchaseId}&token=${thankyouToken}`
+                if (s.post_purchase_page_id) {
+                    // Redirecionar para uma página específica do funil
+                    const { data: targetPage } = await supabase
+                        .from('funnel_pages')
+                        .select('external_url')
+                        .eq('id', s.post_purchase_page_id)
+                        .maybeSingle() as any
+
+                    if ((targetPage as any)?.external_url) {
+                        const sep = (targetPage as any).external_url.includes('?') ? '&' : '?'
+                        redirectUrl = `${(targetPage as any).external_url}${sep}purchase_id=${purchaseId}&token=${thankyouToken}`
+                    }
+                } else if (s.post_purchase_redirect_url) {
+                    // URL direta (login page ou URL personalizada)
+                    const url = s.post_purchase_redirect_url as string
+                    const sep = url.includes('?') ? '&' : '?'
+                    redirectUrl = `${url}${sep}purchase_id=${purchaseId}&token=${thankyouToken}`
+                }
+            }
+
+            // 2. Fallback: buscar primeiro upsell/downsell ativo (comportamento anterior)
+            if (!redirectUrl) {
+                const { data: upsellOffer } = await supabase
+                    .from('checkout_offers')
+                    .select('id, page_id, offer_type')
+                    .eq('checkout_id', checkoutId)
+                    .eq('is_active', true)
+                    .in('offer_type', ['upsell', 'downsell'])
+                    .order('offer_position', { ascending: true })
+                    .limit(1)
+                    .maybeSingle() as any
+
+                if ((upsellOffer as any)?.page_id) {
+                    const { data: funnelPage } = await supabase
+                        .from('funnel_pages')
+                        .select('external_url')
+                        .eq('id', (upsellOffer as any).page_id)
+                        .maybeSingle() as any
+
+                    if ((funnelPage as any)?.external_url) {
+                        const upsellUrl = (funnelPage as any).external_url
+                        const separator = upsellUrl.includes('?') ? '&' : '?'
+                        redirectUrl = `${upsellUrl}${separator}purchase_id=${purchaseId}&token=${thankyouToken}`
+                    }
                 }
             }
         }
 
-        // Se não tem upsell, redirecionar para login do produto
+        // Se não tem redirect configurado, redirecionar para login do produto
         if (!redirectUrl) {
             // Apps usam /access/{slug}, Marketplace usa /members-login/{slug}
             if (productType === 'app') {

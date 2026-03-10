@@ -8,194 +8,232 @@ import { createClient } from '../lib/supabase'
 import type { Env } from '../index'
 
 const corsHeaders = {
-    'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-user-id',
-    'Access-Control-Allow-Methods': 'GET, OPTIONS',
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-user-id',
+  'Access-Control-Allow-Methods': 'GET, OPTIONS',
 }
 
 export async function handleFunnelPageWidget(
-    request: Request,
-    env: Env,
-    ctx: ExecutionContext
+  request: Request,
+  env: Env,
+  ctx: ExecutionContext
 ): Promise<Response> {
-    if (request.method !== 'GET') {
-        return new Response('Method not allowed', { status: 405, headers: corsHeaders })
+  if (request.method !== 'GET') {
+    return new Response('Method not allowed', { status: 405, headers: corsHeaders })
+  }
+
+  try {
+    const url = new URL(request.url)
+    const funnelId = url.searchParams.get('funnel_id')
+    const pageId = url.searchParams.get('page_id')
+    const pageType = url.searchParams.get('type') || 'upsell'
+    const purchaseId = url.searchParams.get('purchase_id')
+
+    if (!funnelId || !pageId) {
+      return new Response('Missing required parameters: funnel_id, page_id', {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/javascript' }
+      })
     }
 
-    try {
-        const url = new URL(request.url)
-        const funnelId = url.searchParams.get('funnel_id')
-        const pageId = url.searchParams.get('page_id')
-        const pageType = url.searchParams.get('type') || 'upsell'
-        const purchaseId = url.searchParams.get('purchase_id')
+    const supabase = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY)
 
-        if (!funnelId || !pageId) {
-            return new Response('Missing required parameters: funnel_id, page_id', {
-                status: 400,
-                headers: { ...corsHeaders, 'Content-Type': 'application/javascript' }
-            })
-        }
+    // Fetch offer for this specific funnel page
+    const { data: offers, error } = await supabase
+      .from('checkout_offers')
+      .select('id, offer_type, product_id, product_type, application_id, original_price, offer_price, discount_percentage, currency, title, description, button_text, one_click_purchase')
+      .eq('funnel_id', funnelId)
+      .eq('page_id', pageId)
+      .eq('offer_type', pageType)
+      .eq('is_active', true)
+      .order('offer_position', { ascending: true })
+      .limit(1)
 
-        const supabase = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY)
-
-        // Fetch offer for this specific funnel page
-        const { data: offers, error } = await supabase
-            .from('checkout_offers')
-            .select('id, offer_type, product_id, product_type, application_id, original_price, offer_price, discount_percentage, currency, title, description, button_text, one_click_purchase')
-            .eq('funnel_id', funnelId)
-            .eq('page_id', pageId)
-            .eq('offer_type', pageType)
-            .eq('is_active', true)
-            .order('offer_position', { ascending: true })
-            .limit(1)
-
-        if (error) {
-            return new Response(`console.error('Error loading offers: ${error.message}');`, {
-                headers: { ...corsHeaders, 'Content-Type': 'application/javascript' }
-            })
-        }
-
-        if (!offers || offers.length === 0) {
-            return new Response(`console.log('[Clicknish] No active offers configured for this page');`, {
-                headers: { ...corsHeaders, 'Content-Type': 'application/javascript' }
-            })
-        }
-
-        const offer = offers[0]
-
-        // Fetch product info
-        let product: any = null
-        let isApplication = false
-        let isAppProduct = false
-        let parentAppId: string | null = offer.application_id || null
-
-        if (offer.product_id) {
-            if (offer.product_type === 'app_product') {
-                const { data: appProd } = await supabase
-                    .from('products')
-                    .select('id, name, description, application_id')
-                    .eq('id', offer.product_id)
-                    .single()
-
-                if (appProd) {
-                    product = appProd
-                    isAppProduct = true
-                    parentAppId = appProd.application_id
-                }
-            } else {
-                const { data: memberArea } = await supabase
-                    .from('member_areas')
-                    .select('id, name, description')
-                    .eq('id', offer.product_id)
-                    .single()
-
-                if (memberArea) {
-                    product = memberArea
-                } else {
-                    const { data: app } = await supabase
-                        .from('applications')
-                        .select('id, name, description')
-                        .eq('id', offer.product_id)
-                        .single()
-
-                    if (app) {
-                        product = app
-                        isApplication = true
-                    }
-                }
-            }
-        }
-
-        // Fetch checkout URL for the product
-        let checkoutShortUrl: string | null = null
-        if (offer.product_id && !offer.one_click_purchase) {
-            const checkoutQuery = supabase
-                .from('checkouts')
-                .select('id')
-                .eq('is_default', true)
-
-            if (isAppProduct && parentAppId) {
-                checkoutQuery.eq('application_id', parentAppId)
-            } else if (isApplication) {
-                checkoutQuery.eq('application_id', offer.product_id)
-            } else {
-                checkoutQuery.eq('member_area_id', offer.product_id)
-            }
-
-            const { data: checkout } = await checkoutQuery.single()
-
-            if (checkout) {
-                const { data: existingUrl } = await supabase
-                    .from('checkout_urls')
-                    .select('id')
-                    .eq('checkout_id', checkout.id)
-                    .maybeSingle()
-
-                if (existingUrl) {
-                    checkoutShortUrl = existingUrl.id
-                } else {
-                    const urlInsert: any = { checkout_id: checkout.id }
-                    if (isAppProduct && parentAppId) {
-                        urlInsert.application_id = parentAppId
-                    } else if (isApplication) {
-                        urlInsert.application_id = offer.product_id
-                    } else {
-                        urlInsert.member_area_id = offer.product_id
-                    }
-
-                    const { data: newUrl } = await supabase
-                        .from('checkout_urls')
-                        .insert(urlInsert)
-                        .select('id')
-                        .single()
-
-                    if (newUrl) {
-                        checkoutShortUrl = newUrl.id
-                    }
-                }
-            }
-        }
-
-        // Generate widget JavaScript
-        const widgetScript = generateWidgetScript(offer, product, pageType, purchaseId, funnelId, pageId, checkoutShortUrl, env)
-
-        return new Response(widgetScript, {
-            headers: {
-                ...corsHeaders,
-                'Content-Type': 'application/javascript',
-                'Cache-Control': 'public, max-age=300'
-            }
-        })
-
-    } catch (error: any) {
-        return new Response(`console.error('[Clicknish] Widget error: ${error.message}');`, {
-            status: 500,
-            headers: { ...corsHeaders, 'Content-Type': 'application/javascript' }
-        })
+    if (error) {
+      return new Response(`console.error('Error loading offers: ${error.message}');`, {
+        headers: { ...corsHeaders, 'Content-Type': 'application/javascript' }
+      })
     }
+
+    if (!offers || offers.length === 0) {
+      return new Response(`console.log('[Clicknish] No active offers configured for this page');`, {
+        headers: { ...corsHeaders, 'Content-Type': 'application/javascript' }
+      })
+    }
+
+    const offer = offers[0]
+
+    // Fetch product info
+    let product: any = null
+    let isApplication = false
+    let isAppProduct = false
+    let parentAppId: string | null = offer.application_id || null
+
+    if (offer.product_id) {
+      if (offer.product_type === 'app_product') {
+        const { data: appProd } = await supabase
+          .from('products')
+          .select('id, name, description, application_id')
+          .eq('id', offer.product_id)
+          .single()
+
+        if (appProd) {
+          product = appProd
+          isAppProduct = true
+          parentAppId = appProd.application_id
+        }
+      } else {
+        const { data: memberArea } = await supabase
+          .from('member_areas')
+          .select('id, name, description')
+          .eq('id', offer.product_id)
+          .single()
+
+        if (memberArea) {
+          product = memberArea
+        } else {
+          const { data: app } = await supabase
+            .from('applications')
+            .select('id, name, description')
+            .eq('id', offer.product_id)
+            .single()
+
+          if (app) {
+            product = app
+            isApplication = true
+          }
+        }
+      }
+    }
+
+    // Fetch checkout URL for the product
+    let checkoutShortUrl: string | null = null
+    if (offer.product_id && !offer.one_click_purchase) {
+      const checkoutQuery = supabase
+        .from('checkouts')
+        .select('id')
+        .eq('is_default', true)
+
+      if (isAppProduct && parentAppId) {
+        checkoutQuery.eq('application_id', parentAppId)
+      } else if (isApplication) {
+        checkoutQuery.eq('application_id', offer.product_id)
+      } else {
+        checkoutQuery.eq('member_area_id', offer.product_id)
+      }
+
+      const { data: checkout } = await checkoutQuery.single()
+
+      if (checkout) {
+        const { data: existingUrl } = await supabase
+          .from('checkout_urls')
+          .select('id')
+          .eq('checkout_id', checkout.id)
+          .maybeSingle()
+
+        if (existingUrl) {
+          checkoutShortUrl = existingUrl.id
+        } else {
+          const urlInsert: any = { checkout_id: checkout.id }
+          if (isAppProduct && parentAppId) {
+            urlInsert.application_id = parentAppId
+          } else if (isApplication) {
+            urlInsert.application_id = offer.product_id
+          } else {
+            urlInsert.member_area_id = offer.product_id
+          }
+
+          const { data: newUrl } = await supabase
+            .from('checkout_urls')
+            .insert(urlInsert)
+            .select('id')
+            .single()
+
+          if (newUrl) {
+            checkoutShortUrl = newUrl.id
+          }
+        }
+      }
+    }
+
+    // Buscar redirect URLs das settings da página (accept/reject)
+    let acceptRedirectUrl: string | null = null
+    let rejectRedirectUrl: string | null = null
+
+    const { data: pageData } = await supabase
+      .from('funnel_pages')
+      .select('settings')
+      .eq('id', pageId)
+      .maybeSingle()
+
+    if (pageData?.settings) {
+      const s = pageData.settings as any
+
+      if (s.accept_page_id) {
+        const { data: acceptPage } = await supabase
+          .from('funnel_pages')
+          .select('external_url')
+          .eq('id', s.accept_page_id)
+          .maybeSingle()
+        acceptRedirectUrl = acceptPage?.external_url || null
+      } else if (s.accept_redirect_url) {
+        acceptRedirectUrl = s.accept_redirect_url
+      }
+
+      if (s.reject_page_id) {
+        const { data: rejectPage } = await supabase
+          .from('funnel_pages')
+          .select('external_url')
+          .eq('id', s.reject_page_id)
+          .maybeSingle()
+        rejectRedirectUrl = rejectPage?.external_url || null
+      } else if (s.reject_redirect_url) {
+        rejectRedirectUrl = s.reject_redirect_url
+      }
+    }
+
+    // Generate widget JavaScript
+    const widgetScript = generateWidgetScript(offer, product, pageType, purchaseId, funnelId, pageId, checkoutShortUrl, acceptRedirectUrl, rejectRedirectUrl, env)
+
+    return new Response(widgetScript, {
+      headers: {
+        ...corsHeaders,
+        'Content-Type': 'application/javascript',
+        'Cache-Control': 'public, max-age=300'
+      }
+    })
+
+  } catch (error: any) {
+    return new Response(`console.error('[Clicknish] Widget error: ${error.message}');`, {
+      status: 500,
+      headers: { ...corsHeaders, 'Content-Type': 'application/javascript' }
+    })
+  }
 }
 
 function generateWidgetScript(
-    offer: any,
-    product: any,
-    pageType: string,
-    purchaseId: string | null,
-    funnelId: string,
-    pageId: string,
-    checkoutShortUrl: string | null,
-    env: Env
+  offer: any,
+  product: any,
+  pageType: string,
+  purchaseId: string | null,
+  funnelId: string,
+  pageId: string,
+  checkoutShortUrl: string | null,
+  acceptRedirectUrl: string | null,
+  rejectRedirectUrl: string | null,
+  env: Env
 ): string {
-    const frontendUrl = env.FRONTEND_URL || 'https://app.clicknich.com'
-    const apiUrl = 'https://api.clicknich.com/api'
+  const frontendUrl = env.FRONTEND_URL || 'https://app.clicknich.com'
+  const apiUrl = 'https://api.clicknich.com/api'
 
-    const typeEmojis: Record<string, string> = {
-        upsell: '🚀',
-        downsell: '💎',
-        thankyou: '🎁'
-    }
-    const typeEmoji = typeEmojis[pageType] || '✨'
+  const typeEmojis: Record<string, string> = {
+    upsell: '🚀',
+    downsell: '💎',
+    thankyou: '🎁'
+  }
+  const typeEmoji = typeEmojis[pageType] || '✨'
 
-    return `
+  return `
 (function() {
   'use strict';
   
@@ -209,6 +247,8 @@ function generateWidgetScript(
   const PURCHASE_ID = '${purchaseId || ''}';
   const ONE_CLICK = ${offer.one_click_purchase ? 'true' : 'false'};
   const CHECKOUT_URL = '${checkoutShortUrl ? `${frontendUrl}/checkout/${checkoutShortUrl}` : ''}';
+  const ACCEPT_REDIRECT_URL = '${acceptRedirectUrl || ''}';
+  const REJECT_REDIRECT_URL = '${rejectRedirectUrl || ''}';
   
   const storageKey = 'clicknish_offer_' + PAGE_ID;
   if (sessionStorage.getItem(storageKey)) {
@@ -390,7 +430,14 @@ function generateWidgetScript(
         if (result.success) {
           acceptBtn.textContent = '✓ Purchase completed!';
           acceptBtn.style.background = 'linear-gradient(135deg, #10b981 0%, #059669 100%)';
-          setTimeout(() => closeModal(), 1500);
+          setTimeout(() => {
+            if (ACCEPT_REDIRECT_URL) {
+              const sep = ACCEPT_REDIRECT_URL.includes('?') ? '&' : '?';
+              window.location.href = ACCEPT_REDIRECT_URL + sep + 'purchase_id=' + PURCHASE_ID;
+            } else {
+              closeModal();
+            }
+          }, 1500);
         } else {
           throw new Error(result.error || 'Payment failed');
         }
@@ -409,7 +456,12 @@ function generateWidgetScript(
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ offer_id: OFFER.id, event: 'decline', purchase_id: PURCHASE_ID })
     }).catch(console.error);
-    closeModal();
+    if (REJECT_REDIRECT_URL) {
+      const sep = REJECT_REDIRECT_URL.includes('?') ? '&' : '?';
+      window.location.href = REJECT_REDIRECT_URL + sep + 'purchase_id=' + PURCHASE_ID;
+    } else {
+      closeModal();
+    }
   }
   
   closeBtn.addEventListener('click', closeModal);
