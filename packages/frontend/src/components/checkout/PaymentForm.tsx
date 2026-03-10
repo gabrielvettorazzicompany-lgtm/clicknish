@@ -167,13 +167,18 @@ export const PaymentForm: React.FC<PaymentFormProps> = ({
     }).format(value)
   }
 
-  // Atualizar método expandido quando defaultPaymentMethod mudar, mas apenas se o utilizador ainda não selecionou manualmente
+  // Atualizar método expandido quando defaultPaymentMethod ou selectedPaymentMethods mudar,
+  // mas apenas se o utilizador ainda não selecionou manualmente
   useEffect(() => {
     if (!userSelectedRef.current) {
-      setExpandedPaymentMethodRaw(defaultPaymentMethod)
-      if (defaultPaymentMethod && onPaymentMethodChange) onPaymentMethodChange(defaultPaymentMethod)
+      // Se o defaultPaymentMethod atual não está nos métodos disponíveis, usar o primeiro disponível
+      const method = selectedPaymentMethods.includes(defaultPaymentMethod)
+        ? defaultPaymentMethod
+        : selectedPaymentMethods[0] ?? defaultPaymentMethod
+      setExpandedPaymentMethodRaw(method)
+      if (method && onPaymentMethodChange) onPaymentMethodChange(method)
     }
-  }, [defaultPaymentMethod])
+  }, [defaultPaymentMethod, selectedPaymentMethods])
 
   // Notificar mudança de parcelas
   useEffect(() => {
