@@ -72,39 +72,18 @@ function initClicknishOffer(config) {
         '</div>' +
         '</div>';
 
-    // If delay is configured, show countdown first
+    // If delay is configured, wait silently then show the button
     if (delay > 0) {
-        var countdownHtml =
-            '<div id="clicknish_countdown" style="text-align:center;font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif;">' +
-            '<div style="background:#f8f9fa;border:2px solid #e9ecef;border-radius:' + borderRadius + ';padding:20px;max-width:480px;margin:0 auto;">' +
-            '<div style="font-size:18px;font-weight:600;color:#495057;margin-bottom:8px;">Special Offer Loading...</div>' +
-            '<div style="font-size:32px;font-weight:700;color:#007bff;" id="countdown_timer">' + delay + '</div>' +
-            '<div style="font-size:14px;color:#6c757d;margin-top:8px;">Please wait...</div>' +
-            '</div>' +
-            '</div>';
+        container.innerHTML = '';
 
-        container.innerHTML = countdownHtml;
-
-        var countdownTimer = delay;
-        var timerElement = document.getElementById('countdown_timer');
-
-        var interval = setInterval(function () {
-            countdownTimer--;
-            if (timerElement) {
-                timerElement.textContent = countdownTimer;
+        setTimeout(function () {
+            try {
+                container.innerHTML = containerContent;
+                initializeButton();
+            } catch (error) {
+                console.error('Error initializing buttons after delay:', error);
             }
-
-            if (countdownTimer <= 0) {
-                clearInterval(interval);
-                // Show the actual buttons after countdown
-                try {
-                    container.innerHTML = containerContent;
-                    initializeButton();
-                } catch (error) {
-                    console.error('Error initializing buttons after countdown:', error);
-                }
-            }
-        }, 1000);
+        }, delay * 1000);
     } else {
         container.innerHTML = containerContent;
         initializeButton();
