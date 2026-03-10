@@ -134,7 +134,7 @@ export default function CheckoutRedirectConfig({ funnelId, pageId, onUpdate, onS
                 ...settings
             }
 
-
+            console.log('🔍 Debug Save: Saving redirect settings:', newSettings)
 
             const { error } = await supabase
                 .from('funnel_pages')
@@ -145,9 +145,11 @@ export default function CheckoutRedirectConfig({ funnelId, pageId, onUpdate, onS
                 .eq('id', pageId)
 
             if (error) {
-                console.error(' Save error:', error)
+                console.error('🔍 Save error:', error)
                 throw error
             }
+
+            console.log('🔍 Debug Save: Successfully saved redirect settings')
 
 
 
