@@ -319,7 +319,10 @@ export async function handleSuperadmin(request: Request, env: any, pathSegments:
 
         // GET /api/superadmin/bank-verifications
         if (request.method === 'GET' && pathSegments.length === 1 && pathSegments[0] === 'bank-verifications') {
-            const { data: verifications, error } = await supabase.from('payment_settings').select('*').eq('verification_status', 'pending').not('bank_name', 'is', null).order('submitted_at', { ascending: false })
+            const statusFilter = url.searchParams.get('status') || ''
+            let verQuery = supabase.from('payment_settings').select('*').not('bank_name', 'is', null).order('submitted_at', { ascending: false })
+            if (statusFilter) verQuery = verQuery.eq('verification_status', statusFilter)
+            const { data: verifications, error } = await verQuery
             if (error) throw error
             const verificationsWithEmail = await Promise.all(
                 (verifications || []).map(async (v: any) => {
@@ -1034,50 +1037,46 @@ export async function handleSuperadmin(request: Request, env: any, pathSegments:
             const { data: feeConfig } = await supabase.from('platform_config').select('value').eq('key', 'platform_fee_percentage').single()
             const feePercent = parseFloat(feeConfig?.value) || 5
 
-            // Fonte primária: sale_locations (tem amount + currency reais)
+            // Fonte única: sale_locations (1 linha = 1 venda, sem duplicatas de módulos/produtos).
+            // user_product_access tem N linhas por pedido quando o app tem múltiplos módulos,
+            // causando contagem e valores inflados — nunca deve ser usado como fonte de extrato.
             const { data: saleLoc, count: saleLocCount } = await supabase
                 .from('sale_locations')
-                .select('id, user_id, customer_email, amount, currency, payment_method, sale_date, product_id, checkout_id, country, created_at', { count: 'exact' })
+                .select('id, user_id, customer_email, customer_id, amount, currency, payment_method, sale_date, product_id, checkout_id, country, created_at', { count: 'exact' })
                 .order('sale_date', { ascending: false })
                 .range(offset, offset + limit - 1)
 
-            // Fonte secundária: user_product_access com payment_status completed (vendas que podem não estar em sale_locations)
-            const { data: upa } = await supabase
-                .from('user_product_access')
-                .select('id, user_id, application_id, product_id, purchase_price, payment_method, payment_status, payment_id, created_at')
-                .eq('payment_status', 'completed')
-                .neq('access_type', 'manual')
-                .order('created_at', { ascending: false })
-                .limit(500)
-
-            // IDs já presentes em sale_locations para deduplicação
-            const saleLocIds = new Set((saleLoc || []).map((s: any) => s.id))
-
-            // Buscar nomes e currency das applications para enriquecer user_product_access
-            const appIds = [...new Set((upa || []).filter((u: any) => u.application_id).map((u: any) => u.application_id))]
-            let appMap: Record<string, { name: string; currency: string; owner_id: string }> = {}
-            if (appIds.length > 0) {
-                const { data: apps } = await supabase
-                    .from('applications')
-                    .select('id, name, currency, owner_id')
-                    .in('id', appIds)
-                apps?.forEach((a: any) => { appMap[a.id] = { name: a.name, currency: (a.currency || 'USD').toUpperCase(), owner_id: a.owner_id } })
+            // Enriquecer product_name via applications
+            const productIds = [...new Set((saleLoc || []).filter((s: any) => s.product_id).map((s: any) => s.product_id))]
+            const productNameMap: Record<string, string> = {}
+            if (productIds.length > 0) {
+                const { data: appsForNames } = await supabase.from('applications').select('id, name').in('id', productIds)
+                appsForNames?.forEach((a: any) => { productNameMap[a.id] = a.name })
             }
 
-            // Buscar emails de sale_locations para user_product_access (via checkout_id ou product_id)
-            const emailBySeller: Record<string, string> = {}
-                ; (saleLoc || []).forEach((s: any) => {
-                    if (s.user_id && s.customer_email) emailBySeller[`${s.user_id}_${s.product_id}`] = s.customer_email
-                })
+            // Fallback de email: quando customer_email está vazio, buscar via customer_id → app_users
+            const missingEmailCustomerIds = [...new Set((saleLoc || [])
+                .filter((s: any) => !s.customer_email && s.customer_id)
+                .map((s: any) => s.customer_id))]
+            const emailByCustomerId: Record<string, string> = {}
+            if (missingEmailCustomerIds.length > 0) {
+                const { data: appUsers } = await supabase
+                    .from('app_users')
+                    .select('user_id, email')
+                    .in('user_id', missingEmailCustomerIds)
+                    ; (appUsers || []).forEach((u: any) => {
+                        if (u.user_id && u.email) emailByCustomerId[u.user_id] = u.email
+                    })
+            }
 
-            // Combinar sale_locations rows
-            const fromSaleLoc = (saleLoc || []).map((s: any) => {
+            const transactions = (saleLoc || []).map((s: any) => {
                 const gross = parseFloat(s.amount) || 0
+                const buyerEmail = s.customer_email || emailByCustomerId[s.customer_id] || ''
                 return {
                     id: s.id,
                     sale_date: s.sale_date || s.created_at,
-                    buyer_email: s.customer_email || '',
-                    product_name: 'Produto',
+                    buyer_email: buyerEmail,
+                    product_name: (s.product_id && productNameMap[s.product_id]) || 'Produto',
                     gross_value: gross,
                     currency: (s.currency || 'USD').toUpperCase(),
                     payment_method: s.payment_method || 'card',
@@ -1091,59 +1090,7 @@ export async function handleSuperadmin(request: Request, env: any, pathSegments:
                 }
             })
 
-            // Adicionar registros de user_product_access que NÃO estão em sale_locations
-            const saleLocPaymentIds = new Set((saleLoc || []).map((s: any) => s.checkout_id).filter(Boolean))
-            const fromUpa = (upa || [])
-                .filter((u: any) => {
-                    // Excluir se já existe em sale_locations (via checkout_id/product_id match no mesmo período)
-                    const app = appMap[u.application_id]
-                    if (!app) return false
-                    // Se payment_id aparece como checkout_id em sale_locations, já está incluído
-                    if (u.payment_id && saleLocPaymentIds.has(u.payment_id)) return false
-                    return true
-                })
-                .map((u: any) => {
-                    const app = appMap[u.application_id] || { name: 'Produto', currency: 'USD', owner_id: '' }
-                    const gross = parseFloat(u.purchase_price) || 0
-                    const emailKey = `${app.owner_id}_${u.product_id}`
-                    return {
-                        id: u.id,
-                        sale_date: u.created_at,
-                        buyer_email: emailBySeller[emailKey] || '',
-                        product_name: app.name,
-                        gross_value: gross,
-                        currency: app.currency,
-                        payment_method: u.payment_method || 'card',
-                        platform_fee: gross * (feePercent / 100),
-                        net_producer: gross * ((100 - feePercent) / 100),
-                        fee_percent: feePercent,
-                        seller_id: app.owner_id,
-                        checkout_id: u.payment_id || null,
-                        country: null,
-                        source: 'user_product_access',
-                    }
-                })
-
-            // Enriquecer product_name em sale_locations via appMap
-            const productIdsForSaleLoc = [...new Set((saleLoc || []).filter((s: any) => s.product_id).map((s: any) => s.product_id))]
-            const productNameMap: Record<string, string> = {}
-            if (productIdsForSaleLoc.length > 0) {
-                const { data: apps2 } = await supabase.from('applications').select('id, name').in('id', productIdsForSaleLoc)
-                apps2?.forEach((a: any) => { productNameMap[a.id] = a.name })
-            }
-            fromSaleLoc.forEach((t: any) => {
-                const sale = (saleLoc || []).find((s: any) => s.id === t.id)
-                if (sale?.product_id && productNameMap[sale.product_id]) t.product_name = productNameMap[sale.product_id]
-            })
-
-            const allTransactions = [...fromSaleLoc, ...fromUpa]
-                .sort((a: any, b: any) => new Date(b.sale_date).getTime() - new Date(a.sale_date).getTime())
-
-            // Paginar manualmente (já que combinamos duas fontes)
-            const paged = allTransactions.slice(offset, offset + limit)
-            const total = (saleLocCount || 0) + fromUpa.length
-
-            return new Response(JSON.stringify({ data: paged, total, page, limit, fee_percent: feePercent }), {
+            return new Response(JSON.stringify({ data: transactions, total: saleLocCount || 0, page, limit, fee_percent: feePercent }), {
                 headers: { ...corsHeaders, 'Content-Type': 'application/json' }
             })
         }
@@ -1320,79 +1267,6 @@ export async function handleSuperadmin(request: Request, env: any, pathSegments:
             status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         })
 
-        // ─── PAYOUT PLAN REQUESTS ────────────────────────────────────────────────
-
-        // GET /api/superadmin/plan-requests  — lista solicitações de D+2
-        if (request.method === 'GET' && pathSegments.length === 1 && pathSegments[0] === 'plan-requests') {
-            const statusFilter = url.searchParams.get('status') || 'pending'
-            let query = supabase
-                .from('payout_plan_requests')
-                .select('*', { count: 'exact' })
-                .order('created_at', { ascending: false })
-            if (statusFilter !== 'all') query = query.eq('status', statusFilter)
-            const { data, count, error } = await query
-            if (error) throw error
-            const enriched = await Promise.all(
-                (data || []).map(async (row: any) => {
-                    try {
-                        const { data: authUser } = await supabase.auth.admin.getUserById(row.user_id)
-                        return { ...row, user_email: authUser?.user?.email || row.user_id }
-                    } catch { return { ...row, user_email: row.user_id } }
-                })
-            )
-            return new Response(JSON.stringify({ data: enriched, total: count || 0 }), {
-                headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-            })
-        }
-
-        // PUT /api/superadmin/plan-requests/:id/approve
-        if (request.method === 'PUT' && pathSegments.length === 3 && pathSegments[0] === 'plan-requests' && pathSegments[2] === 'approve') {
-            const reqId = pathSegments[1]
-            const { data: planReq, error: fetchErr } = await supabase
-                .from('payout_plan_requests')
-                .select('user_id, requested_plan')
-                .eq('id', reqId)
-                .single()
-            if (fetchErr || !planReq) {
-                return new Response(JSON.stringify({ error: 'Solicitação não encontrada' }), { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
-            }
-            const { data: adminData } = await supabase.auth.admin.getUserById(userId)
-            const adminEmail = adminData?.user?.email || ''
-            // Atualizar plano do produtor
-            const { error: cfgErr } = await supabase
-                .from('user_payment_config')
-                .upsert({ user_id: planReq.user_id, payout_schedule: planReq.requested_plan }, { onConflict: 'user_id' })
-            if (cfgErr) throw cfgErr
-            // Marcar solicitação como aprovada
-            await supabase.from('payout_plan_requests').update({
-                status: 'approved',
-                reviewed_by: userId,
-                reviewed_at: new Date().toISOString(),
-            }).eq('id', reqId)
-            await logAudit(supabase, userId, adminEmail, 'approve_plan_request', 'payout_plan_request', reqId, { plan: planReq.requested_plan, producer: planReq.user_id })
-            return new Response(JSON.stringify({ success: true }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
-        }
-
-        // PUT /api/superadmin/plan-requests/:id/reject
-        if (request.method === 'PUT' && pathSegments.length === 3 && pathSegments[0] === 'plan-requests' && pathSegments[2] === 'reject') {
-            const reqId = pathSegments[1]
-            const body: any = await request.json().catch(() => ({}))
-            const { data: adminData } = await supabase.auth.admin.getUserById(userId)
-            const adminEmail = adminData?.user?.email || ''
-            await supabase.from('payout_plan_requests').update({
-                status: 'rejected',
-                reviewed_by: userId,
-                reviewed_at: new Date().toISOString(),
-                admin_notes: body.reason || null,
-            }).eq('id', reqId)
-            await logAudit(supabase, userId, adminEmail, 'reject_plan_request', 'payout_plan_request', reqId, { reason: body.reason })
-            return new Response(JSON.stringify({ success: true }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
-        }
-
-        return new Response(JSON.stringify({ error: 'Endpoint não encontrado' }), {
-            status: 404,
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        })
 
     } catch (error: any) {
         console.error('SuperAdmin function error:', error)
