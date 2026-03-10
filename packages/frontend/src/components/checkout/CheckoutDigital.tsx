@@ -603,13 +603,15 @@ function CheckoutDigitalForm(props: CheckoutDigitalProps) {
 
             paymentResultRef.current = {
                 purchaseId: result.purchaseId,
-                thankyouToken: result.thankyouToken
+                thankyouToken: result.thankyouToken,
+                redirectUrl: result.redirectUrl || undefined
             }
 
             return {
                 success: true,
                 purchaseId: result.purchaseId,
-                thankyouToken: result.thankyouToken
+                thankyouToken: result.thankyouToken,
+                redirectUrl: result.redirectUrl
             }
         } catch (error: any) {
             console.error('💥 Payment error:', error)

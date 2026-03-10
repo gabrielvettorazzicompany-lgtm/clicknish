@@ -152,7 +152,14 @@ export default function CheckoutRedirectConfig({ funnelId, pageId, onUpdate, onS
 
             console.log('🔍 Debug Save: Successfully saved redirect settings')
 
-
+            // Purgar cache KV do checkout vinculado para que o novo redirect seja carregado imediatamente
+            if (existingPage?.checkout_id) {
+                fetch('https://api.clicknich.com/api/cache/purge', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ checkoutId: existingPage.checkout_id }),
+                }).catch(() => { })
+            }
 
             onUpdate()
             setSaved(true)
