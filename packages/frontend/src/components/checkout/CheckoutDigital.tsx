@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react'
 
 // ✅ Singleton extraído para stripe-singleton.ts — permite preload independente
 // do lazy load deste componente (CheckoutPublic importa direto o singleton)
-import { getStripePromise } from '@/lib/stripe-singleton'
+import { getStripePromise, createStripeForKey } from '@/lib/stripe-singleton'
 export { getStripePromise } from '@/lib/stripe-singleton'
 
 import { Elements, CardNumberElement, useStripe, useElements } from '@stripe/react-stripe-js'
@@ -423,9 +423,14 @@ function CheckoutDigital({
 
 // ✅ OTIMIZAÇÃO: Só carregar Stripe Elements quando necessário
 function CheckoutDigitalWithStripe(props: CheckoutDigitalProps) {
+    // Se vier uma publishable key específica do provedor individual, usa ela;
+    // caso contrário, usa o singleton global.
+    const stripe = props.stripePublishableKey
+        ? createStripeForKey(props.stripePublishableKey)
+        : getStripePromise()
+
     // Se for preview, tenta envolver com Elements para que os campos de cartão funcionem no builder
     if (props.isPreview) {
-        const stripe = getStripePromise()
         if (stripe) {
             return (
                 <Elements stripe={stripe}>
@@ -436,7 +441,6 @@ function CheckoutDigitalWithStripe(props: CheckoutDigitalProps) {
         return <CheckoutDigital {...props} />
     }
 
-    const stripe = getStripePromise()
     if (!stripe) {
         // Stripe não configurado: renderiza o checkout sem suporte a cartão de crédito
         // Isso evita tela em branco — o usuário pode pelo menos ver o erro no console

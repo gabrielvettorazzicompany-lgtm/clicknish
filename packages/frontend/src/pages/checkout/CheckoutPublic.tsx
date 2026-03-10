@@ -112,6 +112,7 @@ function buildInitialState(raw: any) {
         initialAppProducts: raw.applicationProducts?.length > 0 ? raw.applicationProducts : undefined,
         preloadedRedirect: raw.redirectConfig?.success_url ? { url: raw.redirectConfig.success_url } : { url: null },
         checkoutId: ck.id,
+        stripePublishableKey: raw.stripe_publishable_key || undefined,
     }
 }
 
@@ -166,6 +167,7 @@ export default function CheckoutPublic() {
     const [checkoutSessionId, setCheckoutSessionId] = useState<string | null>(null)
     const [mollieEnabledMethods, setMollieEnabledMethods] = useState<Array<{ id: string; label: string; description?: string; icon_url?: string }>>([])
     const [mollieVerifying, setMollieVerifying] = useState(false)
+    const [stripePublishableKey, setStripePublishableKey] = useState<string | undefined>(snap?.stripePublishableKey)
 
     // Capture UTM params once from the URL when the checkout opens
     // Persiste por 30 dias no localStorage (igual Hotmart/PerfectPay)
@@ -386,6 +388,9 @@ export default function CheckoutPublic() {
                     }
                     if (customFields.customUtms) {
                         setCustomUtms(customFields.customUtms)
+                    }
+                    if (rpcResult.stripe_publishable_key) {
+                        setStripePublishableKey(rpcResult.stripe_publishable_key)
                     }
 
                     // Criar sessão KV em background: pré-carrega todos os dados para o processo
@@ -1086,6 +1091,7 @@ export default function CheckoutPublic() {
                     const filtered = mollieEnabledMethods.filter(m => mollieSelected.includes(m.id))
                     return filtered.length > 0 ? filtered : mollieEnabledMethods
                 })()}
+                stripePublishableKey={stripePublishableKey}
                 onLeadCapture={(data) => {
                     leadDataRef.current = data
                     abandonedFiredRef.current = false

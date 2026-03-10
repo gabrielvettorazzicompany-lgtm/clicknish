@@ -31,3 +31,11 @@ export const getStripePromise = () => {
     }
     return stripePromise
 }
+
+/**
+ * Cria uma instância Stripe para uma publishable key específica (provedor individual).
+ * Não usa o singleton — sempre retorna uma nova promise para a chave fornecida.
+ */
+export const createStripeForKey = (publishableKey: string): ReturnType<typeof loadStripe> => {
+    return loadStripe(publishableKey) as ReturnType<typeof loadStripe>
+}

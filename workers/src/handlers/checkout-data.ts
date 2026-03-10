@@ -158,6 +158,56 @@ export async function handleCheckoutData(
             )
         }
 
+        // ── Resolva a publishable key correta para este vendedor ────────────────
+        // (individual override > global default) — incluída no cache junto com o resultado
+        try {
+            const ck = finalResult.checkout
+            const productId = ck.application_id || ck.member_area_id
+            if (productId) {
+                const isApp = !!ck.application_id
+                const { data: prodRow } = await supabase
+                    .from(isApp ? 'applications' : 'marketplace_products')
+                    .select('owner_id')
+                    .eq('id', productId)
+                    .maybeSingle()
+
+                const ownerId = prodRow?.owner_id
+                if (ownerId) {
+                    const { data: userCfg } = await supabase
+                        .from('user_payment_config')
+                        .select('provider_id')
+                        .eq('user_id', ownerId)
+                        .eq('override_platform_default', true)
+                        .maybeSingle()
+
+                    if (userCfg?.provider_id) {
+                        const { data: prov } = await supabase
+                            .from('payment_providers')
+                            .select('credentials')
+                            .eq('id', userCfg.provider_id)
+                            .eq('is_active', true)
+                            .maybeSingle()
+                        const key = prov?.credentials?.publishable_key
+                        if (key) finalResult.stripe_publishable_key = key
+                    }
+                }
+            }
+
+            // Fallback para provedor global se não resolveu individual
+            if (!finalResult.stripe_publishable_key) {
+                const { data: globalProv } = await supabase
+                    .from('payment_providers')
+                    .select('credentials')
+                    .eq('is_global_default', true)
+                    .eq('is_active', true)
+                    .maybeSingle()
+                const globalKey = globalProv?.credentials?.publishable_key
+                if (globalKey) finalResult.stripe_publishable_key = globalKey
+            }
+        } catch (keyErr) {
+            console.warn('[checkout-data] Could not resolve stripe publishable key:', keyErr)
+        }
+
         if (env.CACHE && finalResult) {
             const serialized = JSON.stringify(finalResult)
             const mainCachePromise = env.CACHE.put(cacheKey, serialized, { expirationTtl: 86400 })
