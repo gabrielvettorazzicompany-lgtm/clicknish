@@ -473,6 +473,22 @@ export async function handleApplications(
 
             if (error) throw error
 
+            // Invalidar cache KV dos checkouts deste app
+            if (env.CACHE) {
+                const { data: checkoutUrls } = await supabase
+                    .from('checkout_urls')
+                    .select('id')
+                    .eq('application_id', appId)
+                if (checkoutUrls && checkoutUrls.length > 0) {
+                    await Promise.allSettled(
+                        checkoutUrls.flatMap((row: any) => [
+                            env.CACHE.delete(`checkout-data:${row.id}`),
+                            env.CACHE.delete(`micro:${row.id}`),
+                        ])
+                    )
+                }
+            }
+
             // Update banners if provided
             if (body.banners && Array.isArray(body.banners)) {
                 await supabase.from('app_banners').delete().eq('application_id', appId)
