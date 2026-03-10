@@ -762,27 +762,18 @@ export default function OfferPageConfig({ funnelId, pageId, pageType, onUpdate, 
                         )}
                     </div>
 
-                    {/* One-Click Toggle */}
-                    <div className="flex items-center justify-between py-2.5 border-t border-zinc-800">
-                        <div className="flex items-center gap-2">
-                            <Zap size={12} className="text-yellow-400" />
-                            <div>
-                                <p className="text-xs text-zinc-300">{t('funnel_components.one_click_purchase')}</p>
-                                <p className="text-[10px] text-zinc-600">
-                                    {isOfferPage
-                                        ? t('funnel_components.auto_charges_card')
-                                        : (form.one_click_purchase ? t('funnel_components.auto_charges_card') : t('funnel_components.redirects_to_checkout'))}
-                                </p>
+                    {/* One-Click Toggle — apenas para páginas que não são upsell/downsell */}
+                    {!isOfferPage && (
+                        <div className="flex items-center justify-between py-2.5 border-t border-zinc-800">
+                            <div className="flex items-center gap-2">
+                                <Zap size={12} className={form.one_click_purchase ? 'text-yellow-400' : 'text-zinc-600'} />
+                                <div>
+                                    <p className="text-xs text-zinc-300">{t('funnel_components.one_click_purchase')}</p>
+                                    <p className="text-[10px] text-zinc-600">
+                                        {form.one_click_purchase ? t('funnel_components.auto_charges_card') : t('funnel_components.redirects_to_checkout')}
+                                    </p>
+                                </div>
                             </div>
-                        </div>
-                        {isOfferPage ? (
-                            <div
-                                title="Obrigatório para upsell/downsell"
-                                className="relative inline-flex h-5 w-9 items-center rounded-full bg-yellow-500 cursor-not-allowed opacity-80"
-                            >
-                                <span className="inline-block h-3.5 w-3.5 transform rounded-full bg-white translate-x-[18px]" />
-                            </div>
-                        ) : (
                             <button
                                 type="button"
                                 onClick={() => setForm(prev => ({ ...prev, one_click_purchase: !prev.one_click_purchase }))}
@@ -790,8 +781,8 @@ export default function OfferPageConfig({ funnelId, pageId, pageType, onUpdate, 
                             >
                                 <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${form.one_click_purchase ? 'translate-x-[18px]' : 'translate-x-[3px]'}`} />
                             </button>
-                        )}
-                    </div>
+                        </div>
+                    )}
 
                     {/* Actions */}
                     <div className="flex items-center justify-between pt-1">
