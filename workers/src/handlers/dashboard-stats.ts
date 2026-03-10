@@ -149,7 +149,7 @@ export async function handleDashboardStats(
         if (shouldFetchApps) {
             let q = supabase
                 .from('user_product_access')
-                .select('purchase_price, created_at, payment_method, payment_status')
+                .select('purchase_price, created_at, payment_method, payment_status, payment_id')
                 .not('payment_status', 'in', '(refunded,reversed)')
                 .in('application_id', appIds)
 
@@ -157,7 +157,15 @@ export async function handleDashboardStats(
             if (endOfDay) q = q.lte('created_at', endOfDay.toISOString())
 
             const result = await q
-            appAttempts = result.data || []
+            // Desduplicar por payment_id: apps com módulos geram N linhas por pedido
+            const seenPaymentIds = new Set<string>()
+            appAttempts = (result.data || []).filter((row: any) => {
+                const key = row.payment_id ?? null
+                if (!key) return true // sem payment_id: manter (ex: acesso manual)
+                if (seenPaymentIds.has(key)) return false
+                seenPaymentIds.add(key)
+                return true
+            })
             appSales = appAttempts.filter((s: any) => s.payment_status === 'completed')
         }
 
@@ -235,7 +243,7 @@ export async function handleDashboardStats(
         if (shouldFetchApps) {
             let q = supabase
                 .from('user_product_access')
-                .select('purchase_price')
+                .select('purchase_price, payment_id')
                 .eq('payment_status', 'pending')
                 .in('application_id', appIds)
 
@@ -243,7 +251,15 @@ export async function handleDashboardStats(
             if (endOfDay) q = q.lte('created_at', endOfDay.toISOString())
 
             const result = await q
-            appPending = result.data || []
+            // Desduplicar por payment_id
+            const seenPendingIds = new Set<string>()
+            appPending = (result.data || []).filter((row: any) => {
+                const key = row.payment_id ?? null
+                if (!key) return true
+                if (seenPendingIds.has(key)) return false
+                seenPendingIds.add(key)
+                return true
+            })
         }
 
         // 7. Reembolsos marketplace (tabela: user_member_area_access)
@@ -278,7 +294,7 @@ export async function handleDashboardStats(
         if (shouldFetchApps) {
             let q = supabase
                 .from('user_product_access')
-                .select('id')
+                .select('id, payment_id')
                 .in('payment_status', ['refunded', 'reversed'])
                 .in('application_id', appIds)
 
@@ -286,7 +302,14 @@ export async function handleDashboardStats(
             if (endOfDay) q = q.lte('created_at', endOfDay.toISOString())
 
             const result = await q
-            appRefunds = result.data || []
+            // Desduplicar por payment_id
+            const seenRefundIds = new Set<string>()
+            appRefunds = (result.data || []).filter((row: any) => {
+                const key = row.payment_id ?? row.id
+                if (seenRefundIds.has(key)) return false
+                seenRefundIds.add(key)
+                return true
+            })
         }
 
         // Calcular estatísticas

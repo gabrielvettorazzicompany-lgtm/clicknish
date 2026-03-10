@@ -179,8 +179,9 @@ export async function handleOrders(
                 }
             }
 
-            // Combinar resultados
+            // Combinar resultados — desduplicar por payment_id para apps com módulos (N linhas por pedido)
             const seenIds = new Set<string>()
+            const seenPaymentIds = new Set<string>()
             const rawAll: any[] = []
 
             for (const sale of (mktResult.data || [])) {
@@ -196,6 +197,10 @@ export async function handleOrders(
             }
 
             for (const sale of (appResult.data || [])) {
+                // Para apps: desduplicar por payment_id (N módulos = 1 pedido)
+                const payKey = sale.payment_id ?? sale.id
+                if (seenPaymentIds.has(payKey)) continue
+                seenPaymentIds.add(payKey)
                 if (!seenIds.has(sale.id)) {
                     seenIds.add(sale.id)
                     rawAll.push({

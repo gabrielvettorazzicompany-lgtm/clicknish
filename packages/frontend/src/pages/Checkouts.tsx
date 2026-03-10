@@ -1,39 +1,29 @@
 import { useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Plus, Search } from 'lucide-react'
-import { Button, Input, Select, SelectItem, Spinner, Pagination } from '@heroui/react'
+import { Plus } from 'lucide-react'
+import { Button, Spinner, Pagination } from '@heroui/react'
 import Sidebar from '@/components/Sidebar'
 import Header from '@/components/Header'
 import CheckoutsTable from '@/components/checkouts/CheckoutsTable'
 import { useCheckouts, Checkout } from '@/hooks/useCheckouts'
-import { useDashboardProducts } from '@/hooks/useDashboardProducts'
 import { useAuthStore } from '@/stores/authStore'
-import StatCard from '@/components/dashboard/StatCard'
 import { supabase } from '@/services/supabase'
 import { useI18n } from '@/i18n'
-import { useDebounce } from '@/hooks/useDebounce'
 
 export default function Checkouts() {
     const { t } = useI18n()
     const navigate = useNavigate()
     const { user } = useAuthStore()
     const [sidebarOpen, setSidebarOpen] = useState(false)
-    const [searchQuery, setSearchQuery] = useState('')
-    const debouncedSearchQuery = useDebounce(searchQuery, 300)
-    const [statusFilter, setStatusFilter] = useState('all')
-    const [productFilter, setProductFilter] = useState('all')
     const [createModalOpen, setCreateModalOpen] = useState(false)
     const [refreshKey, setRefreshKey] = useState(0)
     const [currentPage, setCurrentPage] = useState(1)
     const ITEMS_PER_PAGE = 9
 
-    // Buscar produtos do usuário para o dropdown
-    const { products } = useDashboardProducts(user?.id)
-
     const { checkouts, loading, error, stats, removeCheckout } = useCheckouts({
-        searchQuery: debouncedSearchQuery,
-        statusFilter,
-        productFilter,
+        searchQuery: '',
+        statusFilter: 'all',
+        productFilter: 'all',
         refreshKey
     })
 
@@ -137,68 +127,6 @@ export default function Checkouts() {
                                     {t('checkouts.title')}
                                 </h1>
                             </div>
-                        </div>
-
-                        {/* Stats Cards */}
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-                            <StatCard title={t('checkouts.stats.total')} value={String(stats.total)} subtitle={t('checkouts.stats.active', { count: stats.active })} color="indigo" loading={loading} />
-                            <StatCard title={t('checkouts.stats.avg_conversion')} value={`${stats.avgConversion.toFixed(2)}%`} subtitle={t('checkouts.stats.conversion_rate')} color="violet" loading={loading} />
-                            <StatCard title={t('checkouts.stats.inactive')} value={String(stats.inactive)} subtitle={t('checkouts.stats.awaiting_activation')} color="amber" loading={loading} />
-                        </div>
-
-                        {/* Filtros */}
-                        <div className="flex flex-col md:flex-row gap-3 mb-6">
-                            <div className="flex-1">
-                                <Input
-                                    placeholder={t('checkouts.search_placeholder')}
-                                    value={searchQuery}
-                                    onValueChange={(v) => { setSearchQuery(v); setCurrentPage(1) }}
-                                    startContent={<Search className="w-4 h-4 text-gray-400" />}
-                                    variant="bordered"
-                                    radius="md"
-                                    classNames={{
-                                        inputWrapper: 'bg-white dark:bg-white/[0.06] border-gray-200 dark:border-white/10 hover:border-white/10 data-[focus=true]:border-white/10 shadow-sm',
-                                        input: 'text-sm text-gray-900 dark:text-gray-100 placeholder:text-gray-400',
-                                    }}
-                                />
-                            </div>
-
-                            <Select
-                                selectedKeys={[statusFilter]}
-                                onChange={(e) => { setStatusFilter(e.target.value); setCurrentPage(1) }}
-                                variant="bordered"
-                                radius="md"
-                                className="w-full sm:w-[180px]"
-                                classNames={{
-                                    trigger: 'bg-white dark:bg-white/[0.06] border-gray-200 dark:border-white/10 hover:border-blue-500 data-[open=true]:border-blue-500 shadow-sm',
-                                    value: 'text-sm text-gray-700 dark:text-gray-300',
-                                    popoverContent: 'bg-white dark:bg-[#0f1221] border border-gray-200 dark:border-white/10 shadow-xl',
-                                    selectorIcon: 'hidden',
-                                }}
-                            >
-                                <SelectItem key="all">{t('checkouts.filters.all_status')}</SelectItem>
-                                <SelectItem key="active">{t('checkouts.filters.active')}</SelectItem>
-                                <SelectItem key="inactive">{t('checkouts.filters.inactive')}</SelectItem>
-                            </Select>
-
-                            <Select
-                                selectedKeys={[productFilter]}
-                                onChange={(e) => { setProductFilter(e.target.value); setCurrentPage(1) }}
-                                variant="bordered"
-                                radius="md"
-                                className="w-full sm:w-[210px]"
-                                classNames={{
-                                    trigger: 'bg-white dark:bg-white/[0.06] border-gray-200 dark:border-white/10 hover:border-blue-500 data-[open=true]:border-blue-500 shadow-sm',
-                                    value: 'text-sm text-gray-700 dark:text-gray-300',
-                                    popoverContent: 'bg-white dark:bg-[#0f1221] border border-gray-200 dark:border-white/10 shadow-xl',
-                                    selectorIcon: 'hidden',
-                                }}
-                            >
-                                <SelectItem key="all">{t('checkouts.filters.all_products')}</SelectItem>
-                                {products.map(product => (
-                                    <SelectItem key={product.id}>{product.name}</SelectItem>
-                                ))}
-                            </Select>
                         </div>
 
                         {/* Tabela */}

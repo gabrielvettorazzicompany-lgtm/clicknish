@@ -192,14 +192,23 @@ async function fetchDailySales(
     if (!selectedMarketplace && appIds.length > 0 && (!selectedCurrency || selectedCurrency === 'USD')) {
         const { data } = await supabase
             .from('user_product_access')
-            .select('purchase_price, created_at')
+            .select('purchase_price, created_at, payment_id')
             .eq('payment_status', 'completed')
             .in('application_id', appIds)
             .gte('created_at', from.toISOString())
             .lte('created_at', to.toISOString())
 
         if (data) {
-            salesData = [...salesData, ...data.map((s: any) => ({ ...s, price: s.purchase_price || 0 }))]
+            // Desduplicar por payment_id: apps com módulos geram N linhas por pedido
+            const seenIds = new Set<string>()
+            const deduped = data.filter((s: any) => {
+                const key = s.payment_id ?? null
+                if (!key) return true
+                if (seenIds.has(key)) return false
+                seenIds.add(key)
+                return true
+            })
+            salesData = [...salesData, ...deduped.map((s: any) => ({ ...s, price: s.purchase_price || 0 }))]
         }
     }
 
@@ -271,7 +280,7 @@ async function fetchPaymentMethodBreakdown(
             if (appIds.length > 0) {
                 let q = supabase
                     .from('user_product_access')
-                    .select('payment_method, purchase_price')
+                    .select('payment_method, purchase_price, payment_id')
                     .eq('payment_status', 'completed')
                     .in('application_id', appIds)
                 if (fromDate) q = q.gte('created_at', fromDate)
@@ -305,7 +314,17 @@ async function fetchPaymentMethodBreakdown(
         }
 
         const results = await Promise.all(queries)
-        const allRows = results.flatMap(r => r.data || [])
+        const rawRows = results.flatMap(r => r.data || [])
+
+        // Desduplicar por payment_id para evitar contar múltiplos módulos do mesmo pedido
+        const seenMethodIds = new Set<string>()
+        const allRows = rawRows.filter((row: any) => {
+            const key = row.payment_id ?? null
+            if (!key) return true
+            if (seenMethodIds.has(key)) return false
+            seenMethodIds.add(key)
+            return true
+        })
 
         const groups: Record<string, { value: number; count: number }> = {}
         let totalCount = 0

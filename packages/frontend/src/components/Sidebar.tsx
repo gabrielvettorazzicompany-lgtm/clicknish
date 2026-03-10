@@ -1,6 +1,6 @@
 import { memo } from 'react'
 import { Link, useLocation } from 'react-router-dom'
-import { Home, ShoppingCart, Package, DollarSign, Users, BarChart3, Store, Settings, Zap, CreditCard, Percent } from 'lucide-react'
+import { Home, ShoppingCart, Package, DollarSign, Users, BarChart3, Store, Settings, Zap, Percent } from 'lucide-react'
 
 function UtmifyIcon({ size = 20, className = '' }: { size?: number; className?: string }) {
     return (
@@ -51,7 +51,6 @@ const Sidebar = memo(function Sidebar({ isOpen, onClose }: SidebarProps) {
         { path: '/finance', icon: DollarSign, label: t('sidebar.finance') },
         { path: '/taxes', icon: Percent, label: t('sidebar.taxes') },
         { path: '/integrations', icon: UtmifyIcon, label: t('sidebar.integrations') },
-        { path: '/checkouts', icon: CreditCard, label: t('sidebar.checkouts') },
     ]
 
     const salesChannels = [

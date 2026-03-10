@@ -27,7 +27,6 @@ const Plans = lazy(() => import('./pages/Plans'))
 const Orders = lazy(() => import('./pages/Orders'))
 const Finance = lazy(() => import('./pages/Finance'))
 const Taxes = lazy(() => import('./pages/Taxes'))
-const Checkouts = lazy(() => import('./pages/Checkouts'))
 const Customers = lazy(() => import('./pages/Customers'))
 const Analytics = lazy(() => import('./pages/Analytics'))
 const Funnels = lazy(() => import('./pages/Funnels'))
@@ -350,14 +349,6 @@ export default function App() {
             element={
               <ProtectedRoute>
                 <Orders />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/checkouts"
-            element={
-              <ProtectedRoute>
-                <Checkouts />
               </ProtectedRoute>
             }
           />
