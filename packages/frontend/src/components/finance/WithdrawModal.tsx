@@ -4,10 +4,10 @@ import { useI18n } from '@/i18n'
 
 export type PayoutSchedule = 'D+2' | 'D+5' | 'D+12'
 
-const PAYOUT_FEES: Record<PayoutSchedule, { percentage: number; fixed: number }> = {
-    'D+2': { percentage: 8.99, fixed: 0.49 },
-    'D+5': { percentage: 6.49, fixed: 0.49 },
-    'D+12': { percentage: 5.99, fixed: 0.49 },
+const PAYOUT_FEES: Record<PayoutSchedule, { percentage: number }> = {
+    'D+2': { percentage: 8.99 },
+    'D+5': { percentage: 6.49 },
+    'D+12': { percentage: 5.99 },
 }
 
 interface WithdrawModalProps {
@@ -29,7 +29,7 @@ export default function WithdrawModal({ isOpen, onClose, availableBalance, curre
     const fmt = (val: number) => val.toLocaleString('en-US', { style: 'currency', currency })
     const numAmount = parseFloat(amount) || 0
     const fee = PAYOUT_FEES[schedule]
-    const feeAmount = numAmount * (fee.percentage / 100) + fee.fixed
+    const feeAmount = numAmount * (fee.percentage / 100)
     const netAmount = Math.max(0, numAmount - feeAmount)
 
     const handleConfirm = async () => {
@@ -94,7 +94,7 @@ export default function WithdrawModal({ isOpen, onClose, availableBalance, curre
                                 >
                                     <span className="text-base font-bold">{key}</span>
                                     <span className="text-[10px] mt-0.5">{t(`finance.withdraw_modal.${labelKey}`)}</span>
-                                    <span className="text-[10px] font-semibold mt-1 text-amber-400">{info.percentage}% + {fmt(info.fixed)}</span>
+                                    <span className="text-[10px] font-semibold mt-1 text-amber-400">{info.percentage}%</span>
                                 </button>
                             )
                         })}
@@ -109,7 +109,7 @@ export default function WithdrawModal({ isOpen, onClose, availableBalance, curre
                             <span className="text-gray-900 dark:text-gray-100">{fmt(numAmount)}</span>
                         </div>
                         <div className="flex justify-between text-xs">
-                            <span className="text-gray-500">{t('finance.withdraw_modal.fee_label')} {schedule} ({fee.percentage}% + {fmt(fee.fixed)})</span>
+                            <span className="text-gray-500">{t('finance.withdraw_modal.fee_label')} {schedule} ({fee.percentage}%)</span>
                             <span className="text-red-400">-{fmt(feeAmount)}</span>
                         </div>
                         <div className="border-t border-gray-200 dark:border-white/10 pt-1.5 flex justify-between text-sm font-semibold">

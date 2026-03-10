@@ -114,7 +114,7 @@ export default function WithdrawalTable({ withdrawals }: WithdrawalTableProps) {
                                         -{formatCurrency(w.feeAmount, w.currency)}
                                     </span>
                                     <span className="text-[10px] text-gray-400">
-                                        {w.feePercentage}% + {formatCurrency(w.feeFixed, w.currency)}
+                                        {w.feePercentage}%
                                     </span>
                                 </div>
                             </td>
