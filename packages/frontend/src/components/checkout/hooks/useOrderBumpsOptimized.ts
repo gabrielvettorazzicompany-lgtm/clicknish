@@ -7,8 +7,42 @@ const orderBumpsCache = new Map<string, OrderBump[]>()
 const cacheExpiry = new Map<string, number>()
 const CACHE_TTL = 5 * 60 * 1000 // 5 minutos
 
-export const useOrderBumpsOptimized = (checkoutId?: string, productId?: string, initialBumps?: OrderBump[]) => {
-    const [orderBumps, setOrderBumps] = useState<OrderBump[]>(initialBumps || [])
+// Converte qualquer valor (incluindo string "NaN" do PostgreSQL) para número seguro ou null
+const toSafeNum = (v: any): number | null => {
+    if (v == null) return null
+    const n = Number(v)
+    return isNaN(n) ? null : n
+}
+
+// Normaliza um offer raw (de get_checkout_data_v2) ou já transformado para OrderBump
+// get_checkout_data_v2 retorna campos: id, product_id, offer_price, offer_image, product_name, ...
+// get_checkout_order_bumps_optimized retorna: offer_id, product_id, offer_price, product_price, ...
+const normalizeOffer = (item: any): OrderBump => {
+    const offerPrice = toSafeNum(item.offer_price) ?? toSafeNum(item.custom_price)
+    const productPrice = toSafeNum(item.product_price) ?? toSafeNum(item.offer_product_price)
+    return {
+        id: item.offer_id || item.id,
+        offer_product_id: item.product_id || item.offer_product_id,
+        offer_product_name: item.product_name || item.offer_product_name,
+        offer_product_price: offerPrice ?? productPrice ?? 0,
+        offer_product_currency: item.currency || item.offer_product_currency || 'USD',
+        offer_product_image: item.offer_image || item.offer_product_image,
+        custom_price: offerPrice ?? undefined,
+        button_text: item.button_text,
+        offer_text: item.offer_text,
+        product_name: item.product_name,
+        product_description: item.product_description,
+        show_product_image: item.show_product_image,
+        discount_type: item.discount_percentage ? 'percentage' : 'none',
+        discount_value: item.discount_percentage,
+    }
+}
+
+export const useOrderBumpsOptimized = (checkoutId?: string, productId?: string, initialBumps?: any[]) => {
+    // Normaliza initialBumps imediatamente — evita $NaN quando chegam como objetos brutos do Worker
+    const [orderBumps, setOrderBumps] = useState<OrderBump[]>(() =>
+        (initialBumps || []).map(normalizeOffer)
+    )
     const [selectedBumps, setSelectedBumps] = useState<Set<string>>(new Set())
     const [loading, setLoading] = useState(false)
     const abortControllerRef = useRef<AbortController | null>(null)
@@ -105,28 +139,9 @@ export const useOrderBumpsOptimized = (checkoutId?: string, productId?: string, 
                 if (signal.aborted) return
 
                 // Helper: converte valor do Supabase para número seguro (trata PostgreSQL NaN → "NaN")
-                const toSafeNum = (v: any): number | null => {
-                    if (v == null) return null
-                    const n = Number(v)
-                    return isNaN(n) ? null : n
-                }
+                // (toSafeNum e normalizeOffer definidos no topo do módulo)
 
-                const transformedBumps: OrderBump[] = (data || []).map((item: any) => ({
-                    id: item.offer_id,
-                    offer_product_id: item.product_id,
-                    offer_product_name: item.product_name,
-                    offer_product_price: toSafeNum(item.offer_price) ?? toSafeNum(item.product_price) ?? 0,
-                    offer_product_currency: item.currency || 'USD',
-                    offer_product_image: item.offer_image || item.product_image,
-                    custom_price: toSafeNum(item.offer_price) ?? undefined,
-                    button_text: item.button_text,
-                    offer_text: item.offer_text,
-                    product_name: item.product_name,
-                    product_description: item.product_description,
-                    show_product_image: item.show_product_image,
-                    discount_type: item.discount_percentage ? 'percentage' : 'none',
-                    discount_value: item.discount_percentage
-                }))
+                const transformedBumps: OrderBump[] = (data || []).map((item: any) => normalizeOffer(item))
 
                 // ✅ CACHE: Salvar resultado
                 orderBumpsCache.set(cacheKey, transformedBumps)
