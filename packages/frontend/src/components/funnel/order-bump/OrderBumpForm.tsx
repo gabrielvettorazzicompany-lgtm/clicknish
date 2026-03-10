@@ -194,6 +194,10 @@ export default function OrderBumpForm({
                 ? checkoutPrice * (1 - formData.discount / 100)
                 : checkoutPrice
 
+            // Garantir que não salvamos NaN no banco (ex: checkoutPrice indefinido ou discount inválido)
+            const safeOfferPrice = (offerPrice == null || isNaN(offerPrice)) ? 0 : offerPrice
+            const safeOriginalPrice = (originalPrice == null || isNaN(originalPrice as number)) ? 0 : originalPrice
+
             const orderBumpData: any = {
                 funnel_id: funnelId,
                 checkout_id: checkoutPage.checkout_id,
@@ -208,8 +212,8 @@ export default function OrderBumpForm({
                 show_product_image: formData.showProductImage,
                 offer_product_image: formData.selectedProductImageUrl,
                 discount_percentage: formData.applyDiscount && formData.discount > 0 ? formData.discount : null,
-                original_price: originalPrice,
-                offer_price: offerPrice,
+                original_price: safeOriginalPrice,
+                offer_price: safeOfferPrice,
                 currency: product.currency || 'USD',
                 is_active: true
             }

@@ -104,14 +104,21 @@ export const useOrderBumpsOptimized = (checkoutId?: string, productId?: string, 
 
                 if (signal.aborted) return
 
+                // Helper: converte valor do Supabase para número seguro (trata PostgreSQL NaN → "NaN")
+                const toSafeNum = (v: any): number | null => {
+                    if (v == null) return null
+                    const n = Number(v)
+                    return isNaN(n) ? null : n
+                }
+
                 const transformedBumps: OrderBump[] = (data || []).map((item: any) => ({
                     id: item.offer_id,
                     offer_product_id: item.product_id,
                     offer_product_name: item.product_name,
-                    offer_product_price: item.offer_price || item.product_price || 0,
+                    offer_product_price: toSafeNum(item.offer_price) ?? toSafeNum(item.product_price) ?? 0,
                     offer_product_currency: item.currency || 'USD',
                     offer_product_image: item.offer_image || item.product_image,
-                    custom_price: item.offer_price,
+                    custom_price: toSafeNum(item.offer_price) ?? undefined,
                     button_text: item.button_text,
                     offer_text: item.offer_text,
                     product_name: item.product_name,

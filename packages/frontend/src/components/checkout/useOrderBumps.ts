@@ -119,16 +119,23 @@ export const useOrderBumps = (checkoutId?: string, productId?: string, initialBu
                 // Buscar informações dos produtos das ofertas
                 const bumpsWithProducts = await Promise.all(
                     offers.map(async (offer: any) => {
+                        // Helper: trata PostgreSQL NaN (serializado como "NaN" pelo Supabase)
+                        const toSafeNum = (v: any): number | null => {
+                            if (v == null) return null
+                            const n = Number(v)
+                            return isNaN(n) ? null : n
+                        }
+
                         // Se já tem nome do produto salvo na oferta, usar direto
                         if (offer.product_name && (offer.offer_price !== null || offer.original_price !== null)) {
                             return {
                                 id: offer.id,
                                 offer_product_id: offer.product_id,
                                 offer_product_name: offer.product_name,
-                                offer_product_price: offer.offer_price ?? offer.original_price ?? 0,
+                                offer_product_price: toSafeNum(offer.offer_price) ?? toSafeNum(offer.original_price) ?? 0,
                                 offer_product_currency: offer.currency || 'USD',
                                 offer_product_image: offer.offer_product_image,
-                                custom_price: offer.offer_price,
+                                custom_price: toSafeNum(offer.offer_price) ?? undefined,
                                 button_text: offer.button_text,
                                 offer_text: offer.offer_text,
                                 product_name: offer.product_name,
