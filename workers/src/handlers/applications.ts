@@ -473,18 +473,37 @@ export async function handleApplications(
 
             if (error) throw error
 
-            // Invalidar cache KV dos checkouts deste app
+            // Invalidar e re-aquecer cache KV dos checkouts deste app
             if (env.CACHE) {
                 const { data: checkoutUrls } = await supabase
                     .from('checkout_urls')
                     .select('id')
                     .eq('application_id', appId)
                 if (checkoutUrls && checkoutUrls.length > 0) {
+                    const shortIds: string[] = checkoutUrls.map((row: any) => row.id)
+                    // Purgar as 3 chaves de cache de cada checkout (inclui html pré-renderizado do Pages)
                     await Promise.allSettled(
-                        checkoutUrls.flatMap((row: any) => [
-                            env.CACHE.delete(`checkout-data:${row.id}`),
-                            env.CACHE.delete(`micro:${row.id}`),
+                        shortIds.flatMap(sid => [
+                            env.CACHE!.delete(`checkout-data:${sid}`),
+                            env.CACHE!.delete(`micro:${sid}`),
+                            env.CACHE!.delete(`html:${sid}`),
                         ])
+                    )
+                    // Re-aquecer em background: repopula o KV com os dados novos do banco
+                    ctx.waitUntil(
+                        Promise.allSettled(
+                            shortIds.map(async sid => {
+                                try {
+                                    const { data: rpcResult, error: rpcErr } = await supabase.rpc('get_checkout_data_v2', { p_short_id: sid })
+                                    if (rpcErr || !rpcResult) return
+                                    const serialized = JSON.stringify(rpcResult)
+                                    await Promise.allSettled([
+                                        env.CACHE!.put(`checkout-data:${sid}`, serialized, { expirationTtl: 86400 }),
+                                        env.CACHE!.put(`micro:${sid}`, serialized, { expirationTtl: 120 }),
+                                    ])
+                                } catch { }
+                            })
+                        )
                     )
                 }
             }
