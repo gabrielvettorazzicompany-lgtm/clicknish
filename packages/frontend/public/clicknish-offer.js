@@ -19,9 +19,10 @@ function initClicknishOffer(config) {
 
     window.clicknishOfferInitialized = true;
 
-    // Get purchase_id from URL
+    // Get purchase_id and token from URL
     var params = new URLSearchParams(window.location.search);
     var purchaseId = params.get('purchase_id') || '';
+    var purchaseToken = params.get('token') || '';
 
     // Build reject URL with purchase_id
     var rejectUrl = config.refusalLinkUrl || '#';
@@ -128,6 +129,7 @@ function initClicknishOffer(config) {
                     },
                     body: JSON.stringify({
                         purchase_id: purchaseId,
+                        token: purchaseToken,
                         offer_id: offerId,
                     })
                 })

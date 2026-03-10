@@ -66,12 +66,13 @@ export async function handleProcessUpsell(
 ): Promise<Response> {
     try {
         const {
-            purchase_id,   // ID from user_product_access
+            purchase_id,   // UUID from payment response (not user_product_access.id)
+            token,         // thankyou_token — salvo em user_product_access
             offer_id,      // checkout_offers.id
         } = await request.json()
 
-        if (!purchase_id || !offer_id) {
-            throw new Error('Missing required fields: purchase_id, offer_id')
+        if ((!purchase_id && !token) || !offer_id) {
+            throw new Error('Missing required fields: purchase_id or token, offer_id')
         }
 
         // Inicializar clientes
@@ -148,15 +149,22 @@ export async function handleProcessUpsell(
         stripe = createStripeClient(await resolveStripeKey(supabase, productOwnerId || null))
 
         // 3. Find the original purchase to get stripe customer/payment method
+        // Busca por thankyou_token (confiável — salvo no upsert) ou fallback por id
         let stripeCustomerId: string | null = null
         let stripePaymentMethodId: string | null = null
         let userId: string | null = null
 
-        const { data: productAccess } = await supabase
+        let productAccessQuery = supabase
             .from('user_product_access')
             .select('stripe_customer_id, stripe_payment_method_id, user_id')
-            .eq('id', purchase_id)
-            .maybeSingle()
+
+        if (token) {
+            productAccessQuery = productAccessQuery.eq('thankyou_token', token)
+        } else {
+            productAccessQuery = productAccessQuery.eq('id', purchase_id)
+        }
+
+        const { data: productAccess } = await productAccessQuery.maybeSingle()
 
         if (productAccess?.stripe_customer_id) {
             stripeCustomerId = productAccess.stripe_customer_id
