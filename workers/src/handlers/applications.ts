@@ -459,7 +459,8 @@ export async function handleApplications(
                 language: body.language || 'pt-br',
                 theme: body.theme || 'light',
                 payment_methods: body.payment_methods || ['credit_card'],
-                default_payment_method: body.default_payment_method || 'credit_card'
+                default_payment_method: body.default_payment_method || 'credit_card',
+                dynamic_checkout: body.dynamic_checkout ?? false
             }
 
             const { data, error } = await supabase
