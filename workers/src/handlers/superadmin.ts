@@ -1168,17 +1168,52 @@ export async function handleSuperadmin(request: Request, env: any, pathSegments:
             const { data, count, error } = await query
             if (error) throw error
 
-            // Enriquecer com email do usuário
-            const enriched = await Promise.all(
-                (data || []).map(async (row: any) => {
-                    try {
-                        const { data: authUser } = await supabase.auth.admin.getUserById(row.user_id)
-                        return { ...row, user_email: authUser?.user?.email || row.user_id }
-                    } catch {
-                        return { ...row, user_email: row.user_id }
-                    }
-                })
-            )
+            // Buscar dados bancários e emails em paralelo para todos os usuários
+            const uniqueUserIds = [...new Set((data || []).map((r: any) => r.user_id))]
+            const [bankResults, ...authResults] = await Promise.all([
+                uniqueUserIds.length > 0
+                    ? supabase.from('payment_settings')
+                        .select('user_id, bank_name, bank_code, account_number, account_type, account_holder_name, iban, bic_swift, routing_number, bank_country, currency, tax_id_last4, pix_key, verification_status')
+                        .in('user_id', uniqueUserIds)
+                        .eq('verification_status', 'approved')
+                        .order('approved_at', { ascending: false })
+                    : Promise.resolve({ data: [] }),
+                ...uniqueUserIds.map((uid: string) =>
+                    supabase.auth.admin.getUserById(uid).catch(() => ({ data: null }))
+                )
+            ])
+
+            // Mapear user_id → dados bancários (primeira conta aprovada)
+            const bankByUser: Record<string, any> = {}
+            for (const b of (bankResults as any).data || []) {
+                if (!bankByUser[b.user_id]) bankByUser[b.user_id] = b
+            }
+
+            // Mapear user_id → email
+            const emailByUser: Record<string, string> = {}
+            uniqueUserIds.forEach((uid: string, i: number) => {
+                emailByUser[uid] = (authResults[i] as any)?.data?.user?.email || uid
+            })
+
+            const enriched = (data || []).map((row: any) => {
+                const bank = bankByUser[row.user_id] || null
+                return {
+                    ...row,
+                    user_email: emailByUser[row.user_id] || row.user_id,
+                    bank_info: bank ? {
+                        bank: bank.bank_name || '—',
+                        agency: bank.routing_number || bank.bic_swift || '—',
+                        account: bank.account_number || bank.iban || '—',
+                        cpf: bank.tax_id_last4 ? `***${bank.tax_id_last4}` : '—',
+                        account_holder: bank.account_holder_name || '—',
+                        account_type: bank.account_type || '—',
+                        country: bank.bank_country || '—',
+                        currency: bank.currency || '—',
+                        pix_key: bank.pix_key || null,
+                        verified: true,
+                    } : null,
+                }
+            })
 
             return new Response(JSON.stringify({ data: enriched, total: count, page, limit }), {
                 headers: { ...corsHeaders, 'Content-Type': 'application/json' }

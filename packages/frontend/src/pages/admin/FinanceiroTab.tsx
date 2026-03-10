@@ -54,7 +54,7 @@ interface Withdrawal {
     requestDate: string
     retentionDays: number
     status: WithdrawalStatus
-    bankInfo: { bank: string; agency: string; account: string; cpf: string }
+    bankInfo: { bank: string; agency: string; account: string; cpf: string; account_holder?: string; account_type?: string; country?: string; currency?: string; pix_key?: string | null; verified?: boolean }
 }
 
 interface Chargeback {
@@ -250,17 +250,36 @@ function ReleaseModal({ isOpen, onClose, title, amount, userName, bankInfo, onCo
                         <p className="text-[11px] text-gray-500 mt-0.5">Para: {userName}</p>
                     </div>
 
-                    {bankInfo && (
+                    {bankInfo ? (
                         <div>
-                            <p className="text-[11px] text-gray-600 uppercase tracking-wider font-medium mb-2">Dados bancários</p>
+                            <div className="flex items-center gap-2 mb-2">
+                                <p className="text-[11px] text-gray-600 uppercase tracking-wider font-medium">Dados bancários</p>
+                                {bankInfo.verified && (
+                                    <span className="text-[9px] px-1.5 py-0.5 bg-emerald-500/15 text-emerald-400 border border-emerald-500/25 font-semibold">✓ VERIFICADO</span>
+                                )}
+                            </div>
                             <div className="bg-white/[0.02] border border-white/[0.05] p-3 space-y-1.5">
-                                {[['Banco', bankInfo.bank], ['Agência', bankInfo.agency], ['Conta', bankInfo.account], ['CPF/CNPJ', bankInfo.cpf]].map(([k, v]) => (
-                                    <div key={k} className="flex justify-between">
-                                        <span className="text-[11px] text-gray-600">{k}</span>
-                                        <span className="text-[11px] text-white font-medium">{v}</span>
+                                {[
+                                    ['Titular', bankInfo.account_holder],
+                                    ['Banco', bankInfo.bank],
+                                    ['Tipo de conta', bankInfo.account_type],
+                                    ['Agência / Routing', bankInfo.agency],
+                                    ['Conta / IBAN', bankInfo.account],
+                                    ['CPF/CNPJ', bankInfo.cpf],
+                                    ['País', bankInfo.country],
+                                    ['Moeda', bankInfo.currency],
+                                    ...(bankInfo.pix_key ? [['Chave PIX', bankInfo.pix_key]] : []),
+                                ].filter(([, v]) => v && v !== '—').map(([k, v]) => (
+                                    <div key={k as string} className="flex justify-between gap-4">
+                                        <span className="text-[11px] text-gray-600 shrink-0">{k}</span>
+                                        <span className="text-[11px] text-white font-medium text-right break-all">{v}</span>
                                     </div>
                                 ))}
                             </div>
+                        </div>
+                    ) : (
+                        <div className="bg-amber-500/10 border border-amber-500/20 p-3">
+                            <p className="text-[11px] text-amber-400">⚠ Nenhuma conta bancária verificada encontrada para este produtor.</p>
                         </div>
                     )}
 
@@ -480,8 +499,11 @@ export function FinanceiroTab() {
             if (!res.ok) return
             const json = await res.json()
             const mapped: Withdrawal[] = (json.data || []).map((w: any) => {
-                let bankInfo = { bank: '—', agency: '—', account: '—', cpf: '—' }
-                if (w.destination) {
+                // Prioridade: bank_info vindo de payment_settings (conta bancária aprovada)
+                let bankInfo: Withdrawal['bankInfo'] = { bank: '—', agency: '—', account: '—', cpf: '—' }
+                if (w.bank_info) {
+                    bankInfo = w.bank_info
+                } else if (w.destination) {
                     try {
                         const d = typeof w.destination === 'string' ? JSON.parse(w.destination) : w.destination
                         bankInfo = {
