@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Copy, Check, AlertCircle } from 'lucide-react'
+import { Copy, Check, AlertCircle, Save } from 'lucide-react'
 import { generateFunnelPageScript, type ScriptConfig } from '@/utils/scriptGenerator'
 import { supabase } from '@/services/supabase'
 import { useI18n } from '@/i18n'
@@ -26,12 +26,26 @@ export default function ScriptGenerator({ funnelId, pageId, pageType, pageName, 
     const [acceptNextUrl, setAcceptNextUrl] = useState<string | undefined>(undefined)
     const [checkoutUrl, setCheckoutUrl] = useState<string | undefined>(undefined)
     const [loading, setLoading] = useState(true)
+    const [buttonDelay, setButtonDelay] = useState(0)
+    const [savingDelay, setSavingDelay] = useState(false)
 
-    // Fetch checkout URL for product + next page URLs
+    // Fetch checkout URL for product + next page URLs + button delay settings
     useEffect(() => {
         async function fetchData() {
             try {
                 setLoading(true)
+
+                // Fetch page settings to get current button delay
+                const { data: pageData } = await supabase
+                    .from('funnel_pages')
+                    .select('settings')
+                    .eq('id', pageId)
+                    .single()
+
+                if (pageData?.settings) {
+                    const settings = pageData.settings as any
+                    setButtonDelay(settings.button_delay || 0)
+                }
 
                 // 1. Find checkout URL — use checkoutId if provided, otherwise search by product
                 if (checkoutId) {
@@ -241,9 +255,43 @@ export default function ScriptGenerator({ funnelId, pageId, pageType, pageName, 
         offerId,
         oneClickPurchase: oneClickPurchase ?? false,
         checkoutUrl,
+        buttonDelay
     }
 
     const { headScript, bodyHtml } = generateFunnelPageScript(config)
+
+    const handleSaveButtonDelay = async () => {
+        try {
+            setSavingDelay(true)
+
+            // Get current settings first
+            const { data: pageData } = await supabase
+                .from('funnel_pages')
+                .select('settings')
+                .eq('id', pageId)
+                .single()
+
+            const currentSettings = (pageData?.settings as any) || {}
+
+            const { error } = await supabase
+                .from('funnel_pages')
+                .update({
+                    settings: {
+                        ...currentSettings,
+                        button_delay: buttonDelay
+                    },
+                    updated_at: new Date().toISOString()
+                })
+                .eq('id', pageId)
+
+            if (error) throw error
+        } catch (err) {
+            console.error('Error saving button delay:', err)
+            alert('Erro ao salvar configuração de delay')
+        } finally {
+            setSavingDelay(false)
+        }
+    }
 
     const handleCopyHead = () => {
         navigator.clipboard.writeText(headScript)
@@ -314,6 +362,50 @@ export default function ScriptGenerator({ funnelId, pageId, pageType, pageName, 
                     <pre className="bg-white dark:bg-zinc-900 border border-gray-300 dark:border-zinc-800 rounded p-3 text-[11px] leading-relaxed text-gray-700 dark:text-zinc-400 overflow-x-auto whitespace-pre-wrap font-mono">
                         <code>{bodyHtml}</code>
                     </pre>
+                </div>
+
+                {/* Button Delay Configuration */}
+                <div className="border-t border-gray-200 dark:border-zinc-800 pt-3 mt-3">
+                    <label className="block text-xs text-gray-500 dark:text-zinc-400 mb-2">
+                        {t('funnel_components.button_delay_label')}
+                    </label>
+                    <div className="flex items-center gap-2">
+                        <input
+                            type="number"
+                            min="0"
+                            max="300"
+                            value={buttonDelay || ''}
+                            onChange={(e) => setButtonDelay(parseInt(e.target.value) || 0)}
+                            className="w-20 px-2 py-1 text-xs border border-gray-300 dark:border-zinc-800 rounded bg-white dark:bg-zinc-900 text-gray-900 dark:text-white"
+                            placeholder="0"
+                        />
+                        <button
+                            onClick={handleSaveButtonDelay}
+                            disabled={savingDelay}
+                            className="flex items-center gap-1 px-2 py-1 text-xs bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded transition-colors"
+                        >
+                            {savingDelay ? (
+                                <>
+                                    <div className="animate-spin rounded-full h-3 w-3 border-white border-t-transparent border-r-transparent"></div>
+                                    {t('funnel_components.button_delay_saving')}
+                                </>
+                            ) : (
+                                <>
+                                    <Save size={10} />
+                                    {t('funnel_components.button_delay_save')}
+                                </>
+                            )}
+                        </button>
+                    </div>
+                    <p className="text-[10px] text-gray-500 dark:text-zinc-500 mt-1">
+                        {buttonDelay === 0
+                            ? t('funnel_components.button_delay_immediate')
+                            : t('funnel_components.button_delay_after', {
+                                seconds: buttonDelay,
+                                plural: buttonDelay !== 1 ? 's' : ''
+                            })
+                        }
+                    </p>
                 </div>
             </div>
         </div>

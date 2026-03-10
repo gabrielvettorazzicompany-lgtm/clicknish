@@ -4,12 +4,20 @@
  * Supports standard (redirect to checkout) and one-click (auto-charge) modes
  */
 function initClicknishOffer(config) {
+    // Prevent multiple initializations on the same page
+    if (window.clicknishOfferInitialized) {
+        console.warn('Clicknish offer already initialized');
+        return;
+    }
+
     var container = document.getElementById('clicknish_offer');
     if (!container) {
         container = document.createElement('div');
         container.id = 'clicknish_offer';
         document.body.appendChild(container);
     }
+
+    window.clicknishOfferInitialized = true;
 
     // Get purchase_id from URL
     var params = new URLSearchParams(window.location.search);
@@ -43,8 +51,10 @@ function initClicknishOffer(config) {
     var acceptTag = isOneClick ? 'button' : 'a';
     var acceptHref = isOneClick ? '' : ' href="' + acceptUrl + '"';
     var acceptId = 'clicknish_accept_btn';
+    var delay = config.buttonDelay || 0; // delay in seconds
 
-    container.innerHTML =
+    // Create container content
+    var containerContent =
         '<div style="text-align:center;font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif;">' +
         '<' + acceptTag + acceptHref + ' id="' + acceptId + '" style="' +
         'display:inline-block;width:100%;max-width:480px;padding:16px 32px;' +
@@ -62,88 +72,128 @@ function initClicknishOffer(config) {
         '</div>' +
         '</div>';
 
-    var btn = document.getElementById(acceptId);
+    // If delay is configured, show countdown first
+    if (delay > 0) {
+        var countdownHtml =
+            '<div id="clicknish_countdown" style="text-align:center;font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif;">' +
+            '<div style="background:#f8f9fa;border:2px solid #e9ecef;border-radius:' + borderRadius + ';padding:20px;max-width:480px;margin:0 auto;">' +
+            '<div style="font-size:18px;font-weight:600;color:#495057;margin-bottom:8px;">Special Offer Loading...</div>' +
+            '<div style="font-size:32px;font-weight:700;color:#007bff;" id="countdown_timer">' + delay + '</div>' +
+            '<div style="font-size:14px;color:#6c757d;margin-top:8px;">Please wait...</div>' +
+            '</div>' +
+            '</div>';
 
-    // Hover effect
-    if (btn) {
-        btn.onmouseover = function () { this.style.background = hoverBg; };
-        btn.onmouseout = function () { this.style.background = bgColor; };
-    }
+        container.innerHTML = countdownHtml;
 
-    // One-click purchase handler
-    if (isOneClick && btn) {
-        btn.onclick = function () {
-            if (btn.disabled) return;
+        var countdownTimer = delay;
+        var timerElement = document.getElementById('countdown_timer');
 
-            // Show loading state
-            var originalText = btn.textContent;
-            btn.textContent = 'Processing...';
-            btn.disabled = true;
-            btn.style.opacity = '0.7';
-            btn.style.cursor = 'wait';
-
-            var apiUrl = config.apiUrl;
-            var offerId = config.offerId;
-            var successUrl = config.successUrl || '#';
-
-            // Append purchase_id to success URL
-            if (purchaseId && successUrl !== '#') {
-                successUrl += (successUrl.indexOf('?') > -1 ? '&' : '?') + 'purchase_id=' + purchaseId;
+        var interval = setInterval(function () {
+            countdownTimer--;
+            if (timerElement) {
+                timerElement.textContent = countdownTimer;
             }
 
-            fetch(apiUrl, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': 'Bearer ' + (config.anonKey || ''),
-                    'apikey': config.anonKey || ''
-                },
-                body: JSON.stringify({
-                    purchase_id: purchaseId,
-                    offer_id: offerId,
+            if (countdownTimer <= 0) {
+                clearInterval(interval);
+                // Show the actual buttons after countdown
+                try {
+                    container.innerHTML = containerContent;
+                    initializeButton();
+                } catch (error) {
+                    console.error('Error initializing buttons after countdown:', error);
+                }
+            }
+        }, 1000);
+    } else {
+        container.innerHTML = containerContent;
+        initializeButton();
+    }
+
+    function initializeButton() {
+        var btn = document.getElementById(acceptId);
+
+        // Hover effect
+        if (btn) {
+            btn.onmouseover = function () { this.style.background = hoverBg; };
+            btn.onmouseout = function () { this.style.background = bgColor; };
+        }
+
+        // One-click purchase handler
+        if (isOneClick && btn) {
+            btn.onclick = function () {
+                if (btn.disabled) return;
+
+                // Show loading state
+                var originalText = btn.textContent;
+                btn.textContent = 'Processing...';
+                btn.disabled = true;
+                btn.style.opacity = '0.7';
+                btn.style.cursor = 'wait';
+
+                var apiUrl = config.apiUrl;
+                var offerId = config.offerId;
+                var successUrl = config.successUrl || '#';
+
+                // Append purchase_id to success URL
+                if (purchaseId && successUrl !== '#') {
+                    successUrl += (successUrl.indexOf('?') > -1 ? '&' : '?') + 'purchase_id=' + purchaseId;
+                }
+
+                fetch(apiUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': 'Bearer ' + (config.anonKey || ''),
+                        'apikey': config.anonKey || ''
+                    },
+                    body: JSON.stringify({
+                        purchase_id: purchaseId,
+                        offer_id: offerId,
+                    })
                 })
-            })
-                .then(function (res) { return res.json(); })
-                .then(function (data) {
-                    if (data.success) {
-                        // Update purchase_id if a new one was returned
-                        var nextPurchaseId = data.purchaseId || purchaseId;
-                        if (nextPurchaseId && successUrl !== '#') {
-                            // Replace or add purchase_id in the success URL
-                            var url = new URL(successUrl, window.location.origin);
-                            url.searchParams.set('purchase_id', nextPurchaseId);
-                            window.location.href = url.toString();
+                    .then(function (res) { return res.json(); })
+                    .then(function (data) {
+                        if (data.success) {
+                            // Update purchase_id if a new one was returned
+                            var nextPurchaseId = data.purchaseId || purchaseId;
+                            if (nextPurchaseId && successUrl !== '#') {
+                                // Replace or add purchase_id in the success URL
+                                var url = new URL(successUrl, window.location.origin);
+                                url.searchParams.set('purchase_id', nextPurchaseId);
+                                window.location.href = url.toString();
+                            } else {
+                                window.location.href = successUrl;
+                            }
                         } else {
-                            window.location.href = successUrl;
+                            // Payment failed
+                            btn.textContent = originalText;
+                            btn.disabled = false;
+                            btn.style.opacity = '1';
+                            btn.style.cursor = 'pointer';
+
+                            if (data.requiresNewPayment) {
+                                // Card declined — fallback to checkout redirect
+                                alert('Your card was declined. You will be redirected to enter new payment details.');
+                                var fallbackUrl = config.linkUrl || '#';
+                                if (purchaseId && fallbackUrl !== '#') {
+                                    fallbackUrl += (fallbackUrl.indexOf('?') > -1 ? '&' : '?') + 'purchase_id=' + purchaseId;
+                                }
+                                window.location.href = fallbackUrl;
+                            } else {
+                                alert(data.error || 'An error occurred processing your purchase. Please try again.');
+                            }
                         }
-                    } else {
-                        // Payment failed
+                    })
+                    .catch(function (err) {
+                        console.error('One-click purchase error:', err);
                         btn.textContent = originalText;
                         btn.disabled = false;
                         btn.style.opacity = '1';
                         btn.style.cursor = 'pointer';
-
-                        if (data.requiresNewPayment) {
-                            // Card declined — fallback to checkout redirect
-                            alert('Your card was declined. You will be redirected to enter new payment details.');
-                            var fallbackUrl = config.linkUrl || '#';
-                            if (purchaseId && fallbackUrl !== '#') {
-                                fallbackUrl += (fallbackUrl.indexOf('?') > -1 ? '&' : '?') + 'purchase_id=' + purchaseId;
-                            }
-                            window.location.href = fallbackUrl;
-                        } else {
-                            alert(data.error || 'An error occurred processing your purchase. Please try again.');
-                        }
-                    }
-                })
-                .catch(function (err) {
-                    console.error('One-click purchase error:', err);
-                    btn.textContent = originalText;
-                    btn.disabled = false;
-                    btn.style.opacity = '1';
-                    btn.style.cursor = 'pointer';
-                    alert('Connection error. Please try again.');
-                });
-        };
+                        alert('Connection error. Please try again.');
+                    });
+            };
+        }
     }
 }

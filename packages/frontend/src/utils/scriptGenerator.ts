@@ -14,6 +14,7 @@ export interface ScriptConfig {
   offerId?: string
   oneClickPurchase?: boolean
   checkoutUrl?: string
+  buttonDelay?: number // delay in seconds before showing the button
 }
 
 export interface ScriptOutput {
@@ -55,7 +56,8 @@ initClicknishOffer({
   },
   refusalLinkUrl: "${rejectUrl}",
   refusalLinkText: "No thanks, I don't want this offer",
-  refusalLinkColor: "#999999"
+  refusalLinkColor: "#999999",
+  buttonDelay: ${config.buttonDelay || 0}
 });
 </script>`
 
@@ -76,7 +78,8 @@ initClicknishOffer({
   },
   refusalLinkUrl: "${rejectUrl}",
   refusalLinkText: "No thanks, I don't want this offer",
-  refusalLinkColor: "#999999"
+  refusalLinkColor: "#999999",
+  buttonDelay: ${config.buttonDelay || 0}
 });
 </script>`
 
