@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react'
 
 // ✅ Singleton extraído para stripe-singleton.ts — permite preload independente
 // do lazy load deste componente (CheckoutPublic importa direto o singleton)
-import { getStripePromise, createStripeForKey } from '@/lib/stripe-singleton'
+import { getStripePromise } from '@/lib/stripe-singleton'
 export { getStripePromise } from '@/lib/stripe-singleton'
 
 import { Elements, CardNumberElement, useStripe, useElements } from '@stripe/react-stripe-js'
@@ -423,12 +423,9 @@ function CheckoutDigital({
 
 // ✅ OTIMIZAÇÃO: Só carregar Stripe Elements quando necessário
 function CheckoutDigitalWithStripe(props: CheckoutDigitalProps) {
-    // useMemo garante instância estável — evitar remount dos campos de cartão a cada re-render
-    const stripe = useMemo(() => {
-        return props.stripePublishableKey
-            ? createStripeForKey(props.stripePublishableKey)
-            : getStripePromise()
-    }, [props.stripePublishableKey])
+    // Usa a instância já cacheada pelo shortId — garante que é a mesma conta Stripe
+    // que o backend vai usar para confirmar o PaymentMethod.
+    const stripe = getStripePromise(props.checkoutShortId)
 
     // Se for preview, tenta envolver com Elements para que os campos de cartão funcionem no builder
     if (props.isPreview) {

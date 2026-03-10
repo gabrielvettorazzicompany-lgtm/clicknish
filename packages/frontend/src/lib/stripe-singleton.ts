@@ -6,36 +6,26 @@ import { loadStripe } from '@stripe/stripe-js'
  *
  * Prioridade da chave:
  *  1. VITE_STRIPE_PUBLIC_KEY (env de build)
- *  2. GET /api/stripe-public-key (configurado pelo superadmin no DB)
+ *  2. GET /api/stripe-public-key?shortId=xxx — resolve provedor individual do vendedor
+ *  3. GET /api/stripe-public-key — provedor global padrão
+ *
+ * Cache por shortId: cada checkout reutiliza a mesma instância Stripe.
  */
 const API_BASE = 'https://api.clicknich.com/api'
 
-let stripePromise: ReturnType<typeof loadStripe> | null = null
+const cache = new Map<string, ReturnType<typeof loadStripe>>()
 
-async function resolvePublishableKey(): Promise<string | null> {
-    const envKey = import.meta.env.VITE_STRIPE_PUBLIC_KEY as string | undefined
-    if (envKey) return envKey
-    try {
-        const res = await fetch(`${API_BASE}/stripe-public-key`)
-        if (!res.ok) return null
-        const data = await res.json() as { publishable_key: string | null }
-        return data.publishable_key || null
-    } catch {
-        return null
+export const getStripePromise = (shortId?: string): ReturnType<typeof loadStripe> => {
+    const key = shortId ?? '__global__'
+    if (!cache.has(key)) {
+        const envKey = import.meta.env.VITE_STRIPE_PUBLIC_KEY as string | undefined
+        const promise = envKey
+            ? loadStripe(envKey)
+            : fetch(`${API_BASE}/stripe-public-key${shortId ? `?shortId=${encodeURIComponent(shortId)}` : ''}`)
+                .then(r => r.json())
+                .then((d: { publishable_key: string | null }) => d.publishable_key ? loadStripe(d.publishable_key) : null)
+                .catch(() => null)
+        cache.set(key, promise as ReturnType<typeof loadStripe>)
     }
-}
-
-export const getStripePromise = () => {
-    if (!stripePromise) {
-        stripePromise = resolvePublishableKey().then(key => key ? loadStripe(key) : null) as ReturnType<typeof loadStripe>
-    }
-    return stripePromise
-}
-
-/**
- * Cria uma instância Stripe para uma publishable key específica (provedor individual).
- * Não usa o singleton — sempre retorna uma nova promise para a chave fornecida.
- */
-export const createStripeForKey = (publishableKey: string): ReturnType<typeof loadStripe> => {
-    return loadStripe(publishableKey) as ReturnType<typeof loadStripe>
+    return cache.get(key)!
 }
