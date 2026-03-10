@@ -37,6 +37,14 @@
   Cache-Control: public, max-age=31536000, immutable
   Access-Control-Allow-Origin: *
 
+# clicknish-offer.js → sem cache (carregado em sites externos, precisa sempre atualizado)
+/clicknish-offer.js
+  Cache-Control: no-store
+
+# checkout-sw.js → sem cache
+/checkout-sw.js
+  Cache-Control: no-store
+
 # Service Worker → sem cache (sempre fresh)
 /sw.js
   Cache-Control: public, max-age=0, must-revalidate

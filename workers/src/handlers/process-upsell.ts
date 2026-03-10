@@ -154,17 +154,25 @@ export async function handleProcessUpsell(
         let stripePaymentMethodId: string | null = null
         let userId: string | null = null
 
-        let productAccessQuery = supabase
-            .from('user_product_access')
-            .select('stripe_customer_id, stripe_payment_method_id, user_id')
+        // Tenta até 4x com delay crescente — o DB write ocorre via ctx.waitUntil
+        // no process-payment e pode ainda não ter finalizado quando o usuário clica no upsell
+        let productAccess: any = null
+        for (let attempt = 0; attempt < 4; attempt++) {
+            if (attempt > 0) await new Promise(r => setTimeout(r, attempt * 1500))
 
-        if (token) {
-            productAccessQuery = productAccessQuery.eq('thankyou_token', token)
-        } else {
-            productAccessQuery = productAccessQuery.eq('id', purchase_id)
+            let q = supabase
+                .from('user_product_access')
+                .select('stripe_customer_id, stripe_payment_method_id, user_id')
+
+            if (token) {
+                q = q.eq('thankyou_token', token)
+            } else {
+                q = q.eq('id', purchase_id)
+            }
+
+            const { data } = await q.maybeSingle()
+            if (data?.stripe_customer_id) { productAccess = data; break }
         }
-
-        const { data: productAccess } = await productAccessQuery.maybeSingle()
 
         if (productAccess?.stripe_customer_id) {
             stripeCustomerId = productAccess.stripe_customer_id
