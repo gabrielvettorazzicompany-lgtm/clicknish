@@ -66,6 +66,8 @@ export default function OfferPageConfig({ funnelId, pageId, pageType, onUpdate, 
     const [savingModules, setSavingModules] = useState(false)
     const [showModules, setShowModules] = useState(false)
 
+    const isOfferPage = pageType === 'upsell' || pageType === 'downsell'
+
     const [form, setForm] = useState<OfferData>({
         product_id: '',
         checkout_id: '',
@@ -77,7 +79,7 @@ export default function OfferPageConfig({ funnelId, pageId, pageType, onUpdate, 
         currency: 'USD',
         button_text: 'Yes, I Want It!',
         is_active: true,
-        one_click_purchase: false
+        one_click_purchase: isOfferPage ? true : false
     })
 
     useEffect(() => {
@@ -320,7 +322,7 @@ export default function OfferPageConfig({ funnelId, pageId, pageType, onUpdate, 
                     currency: data.currency || 'USD',
                     button_text: data.button_text || '',
                     is_active: data.is_active ?? true,
-                    one_click_purchase: data.one_click_purchase ?? false
+                    one_click_purchase: isOfferPage ? true : (data.one_click_purchase ?? false)
                 }
                 setOffer(offerData)
                 setForm(offerData)
@@ -474,7 +476,7 @@ export default function OfferPageConfig({ funnelId, pageId, pageType, onUpdate, 
                 currency: 'USD',
                 button_text: 'Yes, I Want It!',
                 is_active: true,
-                one_click_purchase: false
+                one_click_purchase: isOfferPage ? true : false
             })
             setCheckouts([])
             onOfferLoaded?.(undefined, false, undefined, undefined)
@@ -763,21 +765,32 @@ export default function OfferPageConfig({ funnelId, pageId, pageType, onUpdate, 
                     {/* One-Click Toggle */}
                     <div className="flex items-center justify-between py-2.5 border-t border-zinc-800">
                         <div className="flex items-center gap-2">
-                            <Zap size={12} className={form.one_click_purchase ? 'text-yellow-400' : 'text-zinc-600'} />
+                            <Zap size={12} className="text-yellow-400" />
                             <div>
                                 <p className="text-xs text-zinc-300">{t('funnel_components.one_click_purchase')}</p>
                                 <p className="text-[10px] text-zinc-600">
-                                    {form.one_click_purchase ? t('funnel_components.auto_charges_card') : t('funnel_components.redirects_to_checkout')}
+                                    {isOfferPage
+                                        ? t('funnel_components.auto_charges_card')
+                                        : (form.one_click_purchase ? t('funnel_components.auto_charges_card') : t('funnel_components.redirects_to_checkout'))}
                                 </p>
                             </div>
                         </div>
-                        <button
-                            type="button"
-                            onClick={() => setForm(prev => ({ ...prev, one_click_purchase: !prev.one_click_purchase }))}
-                            className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${form.one_click_purchase ? 'bg-yellow-500' : 'bg-zinc-700'}`}
-                        >
-                            <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${form.one_click_purchase ? 'translate-x-[18px]' : 'translate-x-[3px]'}`} />
-                        </button>
+                        {isOfferPage ? (
+                            <div
+                                title="Obrigatório para upsell/downsell"
+                                className="relative inline-flex h-5 w-9 items-center rounded-full bg-yellow-500 cursor-not-allowed opacity-80"
+                            >
+                                <span className="inline-block h-3.5 w-3.5 transform rounded-full bg-white translate-x-[18px]" />
+                            </div>
+                        ) : (
+                            <button
+                                type="button"
+                                onClick={() => setForm(prev => ({ ...prev, one_click_purchase: !prev.one_click_purchase }))}
+                                className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${form.one_click_purchase ? 'bg-yellow-500' : 'bg-zinc-700'}`}
+                            >
+                                <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${form.one_click_purchase ? 'translate-x-[18px]' : 'translate-x-[3px]'}`} />
+                            </button>
+                        )}
                     </div>
 
                     {/* Actions */}
