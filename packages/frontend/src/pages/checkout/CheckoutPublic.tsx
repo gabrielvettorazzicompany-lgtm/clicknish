@@ -696,7 +696,12 @@ export default function CheckoutPublic() {
                     .eq('checkout_id', checkoutId)
 
                 // Strategy 2: product -> funnels -> funnel_pages
-                if (!pages?.length || !(pages[0] as any)?.settings?.post_purchase_page_id) {
+                // Só pula se a Strategy 1 já encontrou uma página com redirect configurado
+                const strategy1HasRedirect = pages?.length && (
+                    (pages[0] as any)?.settings?.post_purchase_page_id ||
+                    (pages[0] as any)?.settings?.post_purchase_redirect_url
+                )
+                if (!strategy1HasRedirect) {
                     if (productOwnerId) {
                         const { data: funnels } = await supabase
                             .from('funnels')

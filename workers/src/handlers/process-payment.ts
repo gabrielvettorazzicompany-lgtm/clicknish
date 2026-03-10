@@ -772,7 +772,7 @@ export async function handleProcessPayment(
         let redirectUrl: string | null = null
 
         if (checkoutId) {
-            // 1. Verificar se há configuração de redirect na funnel page associada a este checkout
+            // 1. Verificar se há configuração de redirect na funnel page vinculada diretamente ao checkout
             const { data: checkoutFunnelPage } = await supabase
                 .from('funnel_pages')
                 .select('id, settings')
@@ -780,8 +780,41 @@ export async function handleProcessPayment(
                 .eq('page_type', 'checkout')
                 .maybeSingle() as any
 
-            if ((checkoutFunnelPage as any)?.settings) {
-                const s = (checkoutFunnelPage as any).settings
+            let pageSettings = (checkoutFunnelPage as any)?.settings
+
+            // 2. Fallback via produto -> funil -> funnel_pages (se não encontrou ou não tem redirect)
+            if (!pageSettings?.post_purchase_page_id && !pageSettings?.post_purchase_redirect_url) {
+                const productOwnerId = applicationId || productId
+                if (productOwnerId) {
+                    const { data: funnels } = await supabase
+                        .from('funnels')
+                        .select('id')
+                        .eq('product_id', productOwnerId)
+                        .limit(1)
+                        .maybeSingle() as any
+
+                    if ((funnels as any)?.id) {
+                        const { data: allFunnelPages } = await supabase
+                            .from('funnel_pages')
+                            .select('id, settings, page_type, checkout_id')
+                            .eq('funnel_id', (funnels as any).id) as any
+
+                        const funnelCheckoutPage = (allFunnelPages as any[])?.find((p: any) =>
+                            p.page_type === 'checkout' ||
+                            p.checkout_id === checkoutId ||
+                            p.settings?.post_purchase_page_id ||
+                            p.settings?.post_purchase_redirect_url
+                        )
+
+                        if (funnelCheckoutPage?.settings) {
+                            pageSettings = funnelCheckoutPage.settings
+                        }
+                    }
+                }
+            }
+
+            if (pageSettings) {
+                const s = pageSettings
 
                 if (s.post_purchase_page_id) {
                     // Redirecionar para uma página específica do funil
@@ -803,7 +836,7 @@ export async function handleProcessPayment(
                 }
             }
 
-            // 2. Fallback: buscar primeiro upsell/downsell ativo (comportamento anterior)
+            // 3. Fallback: buscar primeiro upsell/downsell ativo (comportamento anterior)
             if (!redirectUrl) {
                 const { data: upsellOffer } = await supabase
                     .from('checkout_offers')
