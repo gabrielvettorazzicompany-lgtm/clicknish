@@ -93,10 +93,12 @@
         "title": "Finanzen",
         "search_placeholder": "Transaktionen suchen...",
         "loading": "Laden...",
+        "select_release_period": "Freigabezeitraum auswählen",
         "tabs": {
             "extract": "Kontoauszug",
             "transfers": "Überweisungen",
-            "anticipations": "Vorschüsse"
+            "anticipations": "Vorschüsse",
+            "withdrawals": "Auszahlungsanfragen"
         },
         "card": {
             "available_balance": "Verfügbares Guthaben",
@@ -129,7 +131,8 @@
             "completed": "Abgeschlossen",
             "pending": "Ausstehend",
             "processing": "In Bearbeitung",
-            "failed": "Fehlgeschlagen"
+            "failed": "Fehlgeschlagen",
+            "cancelled": "Storniert"
         },
         "transfers": {
             "amount": "Amount",
@@ -140,13 +143,31 @@
             "payment_date": "Payment Date",
             "empty": "No results found..."
         },
+        "withdrawals": {
+            "description": "Beschreibung",
+            "status": "Status",
+            "income": "Eingang",
+            "fee": "Gebühr",
+            "date": "Datum",
+            "empty": "Keine Auszahlungsanfragen gefunden.",
+            "request_title": "Auszahlungsanfrage",
+            "status_completed": "Abgeschlossen",
+            "status_processing": "In Bearbeitung",
+            "status_failed": "Fehlgeschlagen",
+            "status_cancelled": "Storniert"
+        },
         "anticipations": {
             "amount": "Amount",
             "status": "Status",
             "message": "Message",
             "request_date": "Request Date",
             "payment_date": "Payment Date",
-            "empty": "No results found..."
+            "empty": "No results found...",
+            "gross_amount": "Bruttobetrag",
+            "fee": "Gebühr",
+            "net_amount": "Nettobetrag",
+            "requested_at": "Angefordert am",
+            "completed_at": "Abgeschlossen am"
         },
         "filters": {
             "all_currencies": "All currencies",

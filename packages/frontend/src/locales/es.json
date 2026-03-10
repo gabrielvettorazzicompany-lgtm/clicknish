@@ -93,10 +93,12 @@
         "title": "Finanzas",
         "search_placeholder": "Buscar transacciones...",
         "loading": "Cargando...",
+        "select_release_period": "Seleccionar plazo de liberación",
         "tabs": {
             "extract": "Extracto",
             "transfers": "Transferencias",
-            "anticipations": "Anticipaciones"
+            "anticipations": "Anticipaciones",
+            "withdrawals": "Pedidos de Retiro"
         },
         "card": {
             "available_balance": "Saldo disponible",
@@ -129,7 +131,8 @@
             "completed": "Completado",
             "pending": "Pendiente",
             "processing": "Procesando",
-            "failed": "Fallido"
+            "failed": "Fallido",
+            "cancelled": "Cancelado"
         },
         "transfers": {
             "amount": "Monto",
@@ -140,13 +143,31 @@
             "payment_date": "Fecha de Pago",
             "empty": "No se encontraron resultados..."
         },
+        "withdrawals": {
+            "description": "Descripción",
+            "status": "Estado",
+            "income": "Entrada",
+            "fee": "Tarifa",
+            "date": "Fecha",
+            "empty": "No se encontraron pedidos de retiro.",
+            "request_title": "Pedido de Retiro",
+            "status_completed": "Completado",
+            "status_processing": "En procesamiento",
+            "status_failed": "Fallido",
+            "status_cancelled": "Cancelado"
+        },
         "anticipations": {
             "amount": "Monto",
             "status": "Estado",
             "message": "Mensaje",
             "request_date": "Fecha de Solicitud",
             "payment_date": "Fecha de Pago",
-            "empty": "No se encontraron resultados..."
+            "empty": "No se encontraron resultados...",
+            "gross_amount": "Monto bruto",
+            "fee": "Tarifa",
+            "net_amount": "Monto neto",
+            "requested_at": "Solicitado el",
+            "completed_at": "Completado el"
         },
         "filters": {
             "all_currencies": "Todas las monedas",

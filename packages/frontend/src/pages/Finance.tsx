@@ -64,7 +64,7 @@ export default function Finance() {
     }, [anticipations, currentPage])
 
     const tabs: { id: TabType; label: string; count: number }[] = [
-        { id: 'withdrawals', label: 'Pedidos de Saque', count: withdrawals.length },
+        { id: 'withdrawals', label: t('finance.tabs.withdrawals'), count: withdrawals.length },
         { id: 'transfers', label: t('finance.tabs.transfers'), count: transfers.length },
         { id: 'anticipations', label: t('finance.tabs.anticipations'), count: anticipations.length }
     ]
@@ -203,7 +203,7 @@ export default function Finance() {
 
                         {/* Seletor de prazo D+2/D+5/D+12 */}
                         <div className="mb-5 flex items-center gap-3">
-                            <span className="text-xs text-gray-500 dark:text-gray-400">Selecionar prazo de liberação</span>
+                            <span className="text-xs text-gray-500 dark:text-gray-400">{t('finance.select_release_period')}</span>
                             <div className="relative">
                                 <button
                                     onClick={() => setScheduleOpen(!scheduleOpen)}

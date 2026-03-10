@@ -93,10 +93,12 @@
         "title": "Finance",
         "search_placeholder": "Search transactions...",
         "loading": "Loading...",
+        "select_release_period": "Select release period",
         "tabs": {
             "extract": "Statement",
             "transfers": "Transfers",
-            "anticipations": "Anticipations"
+            "anticipations": "Anticipations",
+            "withdrawals": "Withdrawal Requests"
         },
         "card": {
             "available_balance": "Available Balance",
@@ -129,7 +131,8 @@
             "completed": "Completed",
             "pending": "Pending",
             "processing": "Processing",
-            "failed": "Failed"
+            "failed": "Failed",
+            "cancelled": "Cancelled"
         },
         "transfers": {
             "amount": "Amount",
@@ -140,13 +143,31 @@
             "payment_date": "Payment Date",
             "empty": "No results found..."
         },
+        "withdrawals": {
+            "description": "Description",
+            "status": "Status",
+            "income": "Amount",
+            "fee": "Fee",
+            "date": "Date",
+            "empty": "No withdrawal requests found.",
+            "request_title": "Withdrawal Request",
+            "status_completed": "Completed",
+            "status_processing": "Processing",
+            "status_failed": "Failed",
+            "status_cancelled": "Cancelled"
+        },
         "anticipations": {
             "amount": "Amount",
             "status": "Status",
             "message": "Message",
             "request_date": "Request Date",
             "payment_date": "Payment Date",
-            "empty": "No results found..."
+            "empty": "No results found...",
+            "gross_amount": "Gross amount",
+            "fee": "Fee",
+            "net_amount": "Net amount",
+            "requested_at": "Requested at",
+            "completed_at": "Completed at"
         },
         "filters": {
             "all_currencies": "All currencies",

@@ -35,6 +35,7 @@ export function VerificationsTab({ userId, onCountChange }: { userId: string; on
     const [showDetailsModal, setShowDetailsModal] = useState(false)
     const [selected, setSelected] = useState<BankVerification | null>(null)
     const [rejectionReason, setRejectionReason] = useState('')
+    const [activeTab, setActiveTab] = useState<'all' | 'pending' | 'approved' | 'rejected'>('all')
 
     const fetchVerifications = async () => {
         setLoading(true)
@@ -78,14 +79,20 @@ export function VerificationsTab({ userId, onCountChange }: { userId: string; on
         } catch (e) { console.error(e) } finally { setProcessingId(null) }
     }
 
+    const pendingCount = verifications.filter(v => v.verification_status === 'pending').length
+    const approvedCount = verifications.filter(v => v.verification_status === 'approved').length
+    const rejectedCount = verifications.filter(v => v.verification_status === 'rejected').length
+
+    const filteredVerifications = activeTab === 'all' ? verifications : verifications.filter(v => v.verification_status === activeTab)
+
     return (
         <div className="space-y-6">
             {/* Stats */}
             <div className="grid grid-cols-3 gap-2">
                 {[
-                    { label: 'Pendentes', value: verifications.filter(v => v.verification_status === 'pending').length, color: 'text-amber-400', dot: 'bg-amber-400' },
-                    { label: 'Aprovadas', value: verifications.filter(v => v.verification_status === 'approved').length, color: 'text-emerald-400', dot: 'bg-emerald-400' },
-                    { label: 'Rejeitadas', value: verifications.filter(v => v.verification_status === 'rejected').length, color: 'text-red-400', dot: 'bg-red-400' },
+                    { label: 'Pendentes', value: pendingCount, color: 'text-amber-400', dot: 'bg-amber-400' },
+                    { label: 'Aprovadas', value: approvedCount, color: 'text-emerald-400', dot: 'bg-emerald-400' },
+                    { label: 'Rejeitadas', value: rejectedCount, color: 'text-red-400', dot: 'bg-red-400' },
                 ].map(s => (
                     <div key={s.label} className="flex flex-col items-center justify-center bg-[#101624] rounded-lg py-3 border border-white/[0.04]">
                         <span className={`w-2 h-2 rounded-full mb-1 ${s.dot}`} />
@@ -98,7 +105,7 @@ export function VerificationsTab({ userId, onCountChange }: { userId: string; on
             <div className="bg-[#101624] rounded-lg border border-white/[0.04] p-5">
                 <div className="flex items-center justify-between mb-4">
                     <div>
-                        <h2 className="text-lg font-semibold text-white">{t('superadmin.pending_verifications')}</h2>
+                        <h2 className="text-lg font-semibold text-white">Verificações Bancárias</h2>
                         <p className="text-xs text-gray-500 mt-0.5">{t('superadmin.review_accounts_desc')}</p>
                     </div>
                     <button onClick={fetchVerifications} className="px-3 py-1 bg-gray-900 hover:bg-gray-800 text-gray-300 hover:text-white rounded text-xs border border-white/[0.06] transition-colors">
@@ -106,19 +113,38 @@ export function VerificationsTab({ userId, onCountChange }: { userId: string; on
                     </button>
                 </div>
 
+                {/* Status Tabs */}
+                <div className="flex gap-1 mb-4 bg-[#0d1422] rounded-lg p-1 border border-white/[0.04]">
+                    {([
+                        { key: 'all', label: 'Todas', count: verifications.length },
+                        { key: 'pending', label: 'Pendentes', count: pendingCount },
+                        { key: 'approved', label: 'Aprovadas', count: approvedCount },
+                        { key: 'rejected', label: 'Rejeitadas', count: rejectedCount },
+                    ] as const).map(tab => (
+                        <button
+                            key={tab.key}
+                            onClick={() => setActiveTab(tab.key)}
+                            className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 rounded text-xs font-medium transition-colors ${activeTab === tab.key ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white hover:bg-white/[0.05]'}`}
+                        >
+                            {tab.label}
+                            <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${activeTab === tab.key ? 'bg-white/20 text-white' : 'bg-white/[0.06] text-gray-400'}`}>{tab.count}</span>
+                        </button>
+                    ))}
+                </div>
+
                 {loading ? (
                     <div className="text-center py-12">
                         <div className="w-10 h-10 border-2 border-blue-500/30 border-t-blue-500 rounded-full animate-spin mx-auto" />
                         <p className="text-gray-500 text-sm mt-4">{t('superadmin.loading_verifications')}</p>
                     </div>
-                ) : verifications.length === 0 ? (
+                ) : filteredVerifications.length === 0 ? (
                     <div className="text-center py-12">
                         <p className="text-xl font-bold text-blue-400 mb-2">{t('superadmin.all_caught_up')}</p>
                         <p className="text-sm text-gray-500">{t('superadmin.no_pending_verifications')}</p>
                     </div>
                 ) : (
                     <div className="space-y-3">
-                        {verifications.map(v => (
+                        {filteredVerifications.map(v => (
                             <div key={v.id} className="bg-[#0d1422] border border-white/[0.04] rounded-lg p-4 flex flex-col gap-3">
                                 <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
                                     <div className="flex items-center gap-3">
@@ -134,12 +160,16 @@ export function VerificationsTab({ userId, onCountChange }: { userId: string; on
                                         </div>
                                     </div>
                                     <div className="flex gap-2 mt-2 md:mt-0">
-                                        <button onClick={() => handleApprove(v.id)} disabled={processingId === v.id} className="px-3 py-1 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white rounded text-xs font-medium transition-colors">
-                                            {processingId === v.id ? <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" /> : t('superadmin.approve')}
-                                        </button>
-                                        <button onClick={() => { setSelected(v); setShowRejectModal(true) }} disabled={processingId === v.id} className="px-3 py-1 bg-red-700 hover:bg-red-800 disabled:opacity-50 text-white rounded text-xs font-medium transition-colors">
-                                            {t('superadmin.reject')}
-                                        </button>
+                                        {v.verification_status === 'pending' && (
+                                            <>
+                                                <button onClick={() => handleApprove(v.id)} disabled={processingId === v.id} className="px-3 py-1 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white rounded text-xs font-medium transition-colors">
+                                                    {processingId === v.id ? <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" /> : t('superadmin.approve')}
+                                                </button>
+                                                <button onClick={() => { setSelected(v); setShowRejectModal(true) }} disabled={processingId === v.id} className="px-3 py-1 bg-red-700 hover:bg-red-800 disabled:opacity-50 text-white rounded text-xs font-medium transition-colors">
+                                                    {t('superadmin.reject')}
+                                                </button>
+                                            </>
+                                        )}
                                         <button onClick={() => { setSelected(v); setShowDetailsModal(true) }} className="px-3 py-1 bg-gray-900 hover:bg-gray-800 text-gray-300 hover:text-white rounded text-xs font-medium border border-white/[0.06] transition-colors">
                                             {t('superadmin.view_details')}
                                         </button>

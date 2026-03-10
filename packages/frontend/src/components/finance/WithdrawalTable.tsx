@@ -34,10 +34,10 @@ export default function WithdrawalTable({ withdrawals }: WithdrawalTableProps) {
 
     const getStatusText = (status: string) => {
         const configs: Record<string, { label: string; class: string }> = {
-            completed: { label: 'Concluído', class: 'text-green-600 dark:text-green-400' },
-            processing: { label: 'Em processamento', class: 'text-amber-500 dark:text-amber-400' },
-            failed: { label: 'Falhou', class: 'text-red-600 dark:text-red-400' },
-            cancelled: { label: 'Cancelado', class: 'text-gray-500 dark:text-gray-400' },
+            completed: { label: t('finance.withdrawals.status_completed'), class: 'text-green-600 dark:text-green-400' },
+            processing: { label: t('finance.withdrawals.status_processing'), class: 'text-amber-500 dark:text-amber-400' },
+            failed: { label: t('finance.withdrawals.status_failed'), class: 'text-red-600 dark:text-red-400' },
+            cancelled: { label: t('finance.withdrawals.status_cancelled'), class: 'text-gray-500 dark:text-gray-400' },
         }
         const config = configs[status] || configs.processing
         return <span className={config.class}>{config.label}</span>
@@ -59,7 +59,7 @@ export default function WithdrawalTable({ withdrawals }: WithdrawalTableProps) {
     if (withdrawals.length === 0) {
         return (
             <div className="text-center py-12 text-gray-500 dark:text-gray-400 text-sm">
-                Nenhum pedido de saque encontrado.
+                {t('finance.withdrawals.empty')}
             </div>
         )
     }
@@ -70,19 +70,19 @@ export default function WithdrawalTable({ withdrawals }: WithdrawalTableProps) {
                 <thead className="border-b border-gray-200 dark:border-white/10">
                     <tr>
                         <th className="px-6 py-3 text-left text-[10px] font-medium text-gray-500 dark:text-gray-500 uppercase tracking-wider">
-                            Descrição
+                            {t('finance.withdrawals.description')}
                         </th>
                         <th className="px-6 py-3 text-left text-[10px] font-medium text-gray-500 dark:text-gray-500 uppercase tracking-wider">
-                            Status
+                            {t('finance.withdrawals.status')}
                         </th>
                         <th className="px-6 py-3 text-left text-[10px] font-medium text-gray-500 dark:text-gray-500 uppercase tracking-wider">
-                            Entrada
+                            {t('finance.withdrawals.income')}
                         </th>
                         <th className="px-6 py-3 text-left text-[10px] font-medium text-gray-500 dark:text-gray-500 uppercase tracking-wider">
-                            Taxa
+                            {t('finance.withdrawals.fee')}
                         </th>
                         <th className="px-6 py-3 text-left text-[10px] font-medium text-gray-500 dark:text-gray-500 uppercase tracking-wider">
-                            Data
+                            {t('finance.withdrawals.date')}
                         </th>
                     </tr>
                 </thead>
@@ -92,7 +92,7 @@ export default function WithdrawalTable({ withdrawals }: WithdrawalTableProps) {
                             <td className="px-6 py-4">
                                 <div className="flex flex-col gap-1">
                                     <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
-                                        Pedido de Saque — {formatCurrency(w.amount, w.currency)}
+                                        {t('finance.withdrawals.request_title')} — {formatCurrency(w.amount, w.currency)}
                                     </span>
                                     <div className="flex items-center gap-2">
                                         {getStatusText(w.status)}
@@ -114,7 +114,7 @@ export default function WithdrawalTable({ withdrawals }: WithdrawalTableProps) {
                                         -{formatCurrency(w.feeAmount, w.currency)}
                                     </span>
                                     <span className="text-[10px] text-gray-400">
-                                        {w.feePercentage}%
+                                        {w.feePercentage}% + {formatCurrency(w.feeFixed, w.currency)}
                                     </span>
                                 </div>
                             </td>

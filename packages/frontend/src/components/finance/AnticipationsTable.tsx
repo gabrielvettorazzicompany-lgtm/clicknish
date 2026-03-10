@@ -1,20 +1,22 @@
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
+import { useI18n } from '@/i18n'
 import type { Anticipation } from '@/hooks/useFinance'
 
 interface AnticipationsTableProps {
     anticipations: Anticipation[]
 }
 
-const STATUS_CONFIG: Record<string, { label: string; class: string }> = {
-    completed: { label: 'Concluída', class: 'text-green-400' },
-    pending: { label: 'Pendente', class: 'text-yellow-400' },
-    processing: { label: 'Processando', class: 'text-blue-400' },
-    failed: { label: 'Falhou', class: 'text-red-400' },
-    cancelled: { label: 'Cancelada', class: 'text-gray-400' },
-}
-
 export default function AnticipationsTable({ anticipations }: AnticipationsTableProps) {
+    const { t } = useI18n()
+
+    const STATUS_CONFIG: Record<string, { label: string; class: string }> = {
+        completed: { label: t('finance.status.completed'), class: 'text-green-400' },
+        pending: { label: t('finance.status.pending'), class: 'text-yellow-400' },
+        processing: { label: t('finance.status.processing'), class: 'text-blue-400' },
+        failed: { label: t('finance.status.failed'), class: 'text-red-400' },
+        cancelled: { label: t('finance.status.cancelled'), class: 'text-gray-400' },
+    }
     const fmt = (val: number, cur = 'USD') =>
         val.toLocaleString('en-US', { style: 'currency', currency: cur })
 
@@ -26,7 +28,7 @@ export default function AnticipationsTable({ anticipations }: AnticipationsTable
     if (anticipations.length === 0) {
         return (
             <div className="text-center py-12 text-gray-500 dark:text-gray-400 text-sm">
-                Nenhuma antecipação solicitada ainda.
+                {t('finance.anticipations.empty')}
             </div>
         )
     }
@@ -36,12 +38,12 @@ export default function AnticipationsTable({ anticipations }: AnticipationsTable
             <table className="w-full">
                 <thead className="border-b border-gray-200 dark:border-white/10">
                     <tr>
-                        <th className="px-6 py-3 text-left text-[10px] font-medium text-gray-500 uppercase tracking-wider">Valor bruto</th>
-                        <th className="px-6 py-3 text-left text-[10px] font-medium text-gray-500 uppercase tracking-wider">Taxa</th>
-                        <th className="px-6 py-3 text-left text-[10px] font-medium text-gray-500 uppercase tracking-wider">Valor líquido</th>
-                        <th className="px-6 py-3 text-left text-[10px] font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                        <th className="px-6 py-3 text-left text-[10px] font-medium text-gray-500 uppercase tracking-wider">Solicitado em</th>
-                        <th className="px-6 py-3 text-left text-[10px] font-medium text-gray-500 uppercase tracking-wider">Concluído em</th>
+                        <th className="px-6 py-3 text-left text-[10px] font-medium text-gray-500 uppercase tracking-wider">{t('finance.anticipations.gross_amount')}</th>
+                        <th className="px-6 py-3 text-left text-[10px] font-medium text-gray-500 uppercase tracking-wider">{t('finance.anticipations.fee')}</th>
+                        <th className="px-6 py-3 text-left text-[10px] font-medium text-gray-500 uppercase tracking-wider">{t('finance.anticipations.net_amount')}</th>
+                        <th className="px-6 py-3 text-left text-[10px] font-medium text-gray-500 uppercase tracking-wider">{t('finance.anticipations.status')}</th>
+                        <th className="px-6 py-3 text-left text-[10px] font-medium text-gray-500 uppercase tracking-wider">{t('finance.anticipations.requested_at')}</th>
+                        <th className="px-6 py-3 text-left text-[10px] font-medium text-gray-500 uppercase tracking-wider">{t('finance.anticipations.completed_at')}</th>
                     </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100 dark:divide-white/[0.05]">

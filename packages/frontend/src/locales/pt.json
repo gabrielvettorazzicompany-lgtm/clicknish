@@ -93,10 +93,12 @@
         "title": "Financeiro",
         "search_placeholder": "Buscar transações...",
         "loading": "Carregando...",
+        "select_release_period": "Selecionar prazo de liberação",
         "tabs": {
             "extract": "Extrato",
             "transfers": "Transferências",
-            "anticipations": "Antecipações"
+            "anticipations": "Antecipações",
+            "withdrawals": "Pedidos de Saque"
         },
         "card": {
             "available_balance": "Saldo disponível",
@@ -129,7 +131,8 @@
             "completed": "Concluído",
             "pending": "Pendente",
             "processing": "Processando",
-            "failed": "Falhou"
+            "failed": "Falhou",
+            "cancelled": "Cancelado"
         },
         "transfers": {
             "amount": "Valor",
@@ -140,13 +143,31 @@
             "payment_date": "Data do Pagamento",
             "empty": "Nenhum resultado encontrado..."
         },
+        "withdrawals": {
+            "description": "Descrição",
+            "status": "Status",
+            "income": "Entrada",
+            "fee": "Taxa",
+            "date": "Data",
+            "empty": "Nenhum pedido de saque encontrado.",
+            "request_title": "Pedido de Saque",
+            "status_completed": "Concluído",
+            "status_processing": "Em processamento",
+            "status_failed": "Falhou",
+            "status_cancelled": "Cancelado"
+        },
         "anticipations": {
             "amount": "Valor",
             "status": "Status",
             "message": "Mensagem",
             "request_date": "Data da Solicitação",
             "payment_date": "Data do Pagamento",
-            "empty": "Nenhum resultado encontrado..."
+            "empty": "Nenhum resultado encontrado...",
+            "gross_amount": "Valor bruto",
+            "fee": "Taxa",
+            "net_amount": "Valor líquido",
+            "requested_at": "Solicitado em",
+            "completed_at": "Concluído em"
         },
         "filters": {
             "all_currencies": "Todas as moedas",

@@ -93,10 +93,12 @@
         "title": "Finance",
         "search_placeholder": "Rechercher des transactions...",
         "loading": "Chargement...",
+        "select_release_period": "Sélectionner le délai de libération",
         "tabs": {
             "extract": "Relevé",
             "transfers": "Virements",
-            "anticipations": "Anticipations"
+            "anticipations": "Anticipations",
+            "withdrawals": "Demandes de retrait"
         },
         "card": {
             "available_balance": "Solde disponible",
@@ -129,7 +131,8 @@
             "completed": "Complété",
             "pending": "En attente",
             "processing": "En cours",
-            "failed": "Échoué"
+            "failed": "Échoué",
+            "cancelled": "Annulé"
         },
         "transfers": {
             "amount": "Montant",
@@ -140,13 +143,31 @@
             "payment_date": "Date de paiement",
             "empty": "Aucun résultat trouvé..."
         },
+        "withdrawals": {
+            "description": "Description",
+            "status": "Statut",
+            "income": "Entrée",
+            "fee": "Frais",
+            "date": "Date",
+            "empty": "Aucune demande de retrait trouvée.",
+            "request_title": "Demande de retrait",
+            "status_completed": "Complété",
+            "status_processing": "En cours",
+            "status_failed": "Échoué",
+            "status_cancelled": "Annulé"
+        },
         "anticipations": {
             "amount": "Montant",
             "status": "Statut",
             "message": "Message",
             "request_date": "Date de demande",
             "payment_date": "Date de paiement",
-            "empty": "Aucun résultat trouvé..."
+            "empty": "Aucun résultat trouvé...",
+            "gross_amount": "Montant brut",
+            "fee": "Frais",
+            "net_amount": "Montant net",
+            "requested_at": "Demandé le",
+            "completed_at": "Complété le"
         },
         "filters": {
             "all_currencies": "Toutes les devises",
