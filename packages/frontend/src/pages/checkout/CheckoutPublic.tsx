@@ -288,11 +288,19 @@ export default function CheckoutPublic() {
                     delete (window as any).__checkoutDataPromise
                 }
 
+                // Busca a publishable key correta do provedor em paralelo com o checkout-data.
+                // Este endpoint nunca usa cache KV — garante a chave atualizada independente do cache.
+                const stripeKeyFetch = fetch(`https://api.clicknich.com/api/stripe-public-key?shortId=${encodeURIComponent(shortId)}`)
+                    .then(r => r.json())
+                    .catch(() => ({}))
+
                 // ⚡ FAST PATH: promise já em voo iniciada no index.html
-                const rpcResult = preRendered ?? await (
-                    (window as any).__checkoutDataPromise
-                    ?? fetch(`https://api.clicknich.com/api/checkout-data/${shortId}`).then((r: Response) => r.json())
-                )
+                const checkoutFetch = preRendered
+                    ? Promise.resolve(preRendered)
+                    : ((window as any).__checkoutDataPromise
+                        ?? fetch(`https://api.clicknich.com/api/checkout-data/${shortId}`).then((r: Response) => r.json()))
+
+                const [rpcResult, stripeKeyData] = await Promise.all([checkoutFetch, stripeKeyFetch])
 
                 if ((window as any).__checkoutDataPromise) {
                     delete (window as any).__checkoutDataPromise
@@ -389,8 +397,9 @@ export default function CheckoutPublic() {
                     if (customFields.customUtms) {
                         setCustomUtms(customFields.customUtms)
                     }
-                    if (rpcResult.stripe_publishable_key) {
-                        setStripePublishableKey(rpcResult.stripe_publishable_key)
+                    // Usa a chave resolvida em paralelo (sem cache), ignorando o que veio no checkout-data
+                    if ((stripeKeyData as any)?.publishable_key) {
+                        setStripePublishableKey((stripeKeyData as any).publishable_key)
                     }
 
                     // Criar sessão KV em background: pré-carrega todos os dados para o processo
@@ -787,6 +796,13 @@ export default function CheckoutPublic() {
     useEffect(() => {
         // ⚡ Se dados já foram carregados sincronicamente (KV hit), pula o fetchData
         if (snap) {
+            // Busca a chave Stripe correta para este checkout (sem cache KV)
+            if (shortId && !snap.stripePublishableKey) {
+                fetch(`https://api.clicknich.com/api/stripe-public-key?shortId=${encodeURIComponent(shortId)}`)
+                    .then(r => r.json())
+                    .then((data: any) => { if (data.publishable_key) setStripePublishableKey(data.publishable_key) })
+                    .catch(() => {})
+            }
             // Ainda precisamos criar a sessão para otimizar o pagamento
             fetch('https://api.clicknich.com/api/checkout-session', {
                 method: 'POST',

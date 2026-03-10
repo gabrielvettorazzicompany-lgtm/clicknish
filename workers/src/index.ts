@@ -166,9 +166,56 @@ async function handleApiRoute(
     }
 
     // GET /api/stripe-public-key — retorna publishable key do provider Stripe ativo (chave pública, sem auth)
+    // Aceita ?shortId= para retornar a chave do provedor individual do vendedor desse checkout
     if (pathname === '/api/stripe-public-key' && request.method === 'GET') {
         const { createClient } = await import('./lib/supabase')
         const supabase = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY)
+        const reqUrl = new URL(request.url)
+        const shortId = reqUrl.searchParams.get('shortId')
+
+        if (shortId) {
+            // 1. Resolve owner_id via checkout_urls
+            const { data: urlRow } = await supabase
+                .from('checkout_urls')
+                .select('application_id, member_area_id')
+                .eq('id', shortId)
+                .maybeSingle()
+
+            if (urlRow) {
+                const urlRowAny = urlRow as any
+                const productId = urlRowAny.application_id || urlRowAny.member_area_id
+                const table = urlRowAny.application_id ? 'applications' : 'marketplace_products'
+                const { data: prod } = await supabase
+                    .from(table)
+                    .select('owner_id')
+                    .eq('id', productId)
+                    .maybeSingle()
+                const ownerId = (prod as any)?.owner_id
+
+                if (ownerId) {
+                    // 2. Verifica se o vendedor tem provedor individual
+                    const { data: userCfg } = await supabase
+                        .from('user_payment_config')
+                        .select('provider_id')
+                        .eq('user_id', ownerId)
+                        .eq('override_platform_default', true)
+                        .maybeSingle()
+
+                    if ((userCfg as any)?.provider_id) {
+                        const { data: prov } = await supabase
+                            .from('payment_providers')
+                            .select('credentials')
+                            .eq('id', (userCfg as any).provider_id)
+                            .eq('is_active', true)
+                            .maybeSingle()
+                        const key = (prov as any)?.credentials?.publishable_key
+                        if (key) return jsonResponse({ publishable_key: key })
+                    }
+                }
+            }
+        }
+
+        // Fallback: provedor global padrão
         const { data: provider } = await supabase
             .from('payment_providers')
             .select('credentials')
@@ -177,7 +224,7 @@ async function handleApiRoute(
             .order('is_global_default', { ascending: false })
             .limit(1)
             .maybeSingle()
-        const publishableKey = provider?.credentials?.publishable_key || null
+        const publishableKey = (provider as any)?.credentials?.publishable_key || null
         return jsonResponse({ publishable_key: publishableKey })
     }
 

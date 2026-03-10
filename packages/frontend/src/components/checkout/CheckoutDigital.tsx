@@ -423,11 +423,12 @@ function CheckoutDigital({
 
 // ✅ OTIMIZAÇÃO: Só carregar Stripe Elements quando necessário
 function CheckoutDigitalWithStripe(props: CheckoutDigitalProps) {
-    // Se vier uma publishable key específica do provedor individual, usa ela;
-    // caso contrário, usa o singleton global.
-    const stripe = props.stripePublishableKey
-        ? createStripeForKey(props.stripePublishableKey)
-        : getStripePromise()
+    // useMemo garante instância estável — evitar remount dos campos de cartão a cada re-render
+    const stripe = useMemo(() => {
+        return props.stripePublishableKey
+            ? createStripeForKey(props.stripePublishableKey)
+            : getStripePromise()
+    }, [props.stripePublishableKey])
 
     // Se for preview, tenta envolver com Elements para que os campos de cartão funcionem no builder
     if (props.isPreview) {
