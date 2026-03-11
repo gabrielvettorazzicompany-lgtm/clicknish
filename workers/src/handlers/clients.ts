@@ -97,14 +97,27 @@ export async function handleClients(request: Request, env: any): Promise<Respons
                 const hasOtherAppUsers = (appUsersResult.data?.length || 0) > 0
                 const hasOtherMemberProfiles = (memberProfilesResult.data?.length || 0) > 0
 
-                // Só deletar do auth se não tiver outros registros
+                // Só deletar do customer_auth se não tiver outros registros
                 if (!hasOtherAppUsers && !hasOtherMemberProfiles) {
                     try {
-                        await supabase.auth.admin.deleteUser(userId)
-                        console.log('Usuário deletado do auth:', userId)
+                        // Deletar logs primeiro
+                        await supabase
+                            .from('customer_auth_logs')
+                            .delete()
+                            .eq('customer_id', userId)
+
+                        // Deletar from customer_auth (não auth.users)
+                        await supabase
+                            .from('customer_auth')
+                            .delete()
+                            .eq('id', userId)
+
+                        console.log('Customer completamente deletado:', userId)
                     } catch (authError) {
-                        console.error('Erro ao deletar do auth:', authError)
+                        console.error('Erro ao deletar do customer_auth:', authError)
                     }
+                } else {
+                    console.log('Customer ainda tem outros registros, mantendo customer_auth:', userId)
                 }
             }
 
