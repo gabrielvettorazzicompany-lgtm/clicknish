@@ -507,3 +507,92 @@ async function createLoggedResponse(
         { status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
 }
+
+/**
+ * Helper: Substitui supabase.auth.admin.createUser para clientes
+ * Usa a mesma lógica derivedPassword para manter compatibilidade
+ */
+export async function createCustomerUser(
+    supabase: any,
+    env: any,
+    customerData: {
+        email: string
+        name?: string
+        phone?: string
+        created_via?: string
+    }
+): Promise<{ user: { id: string } }> {
+    const email = customerData.email.toLowerCase().trim()
+
+    // Gerar senha derivada (mesma lógica do auth.ts)
+    const derivedPassword = `derived_${email}_${env.SUPABASE_SERVICE_ROLE_KEY?.slice(-8)}`
+
+    try {
+        // Verificar se cliente já existe
+        const { data: existingCustomer } = await supabase
+            .from('customer_auth')
+            .select('id')
+            .eq('email', email)
+            .single()
+
+        if (existingCustomer) {
+            // Cliente já existe, retornar o ID existente
+            return { user: { id: existingCustomer.id } }
+        }
+
+        // Criar novo cliente
+        const passwordHash = await hashPassword(derivedPassword)
+        const jwtSecret = generateJWTSecret()
+
+        const { data: customer, error } = await supabase
+            .from('customer_auth')
+            .insert({
+                email,
+                password_hash: passwordHash,
+                jwt_secret: jwtSecret,
+                created_at: new Date().toISOString()
+            })
+            .select('id')
+            .single()
+
+        if (error) {
+            if (error.code === '23505') { // unique constraint violation
+                // Race condition: outro request criou o customer no meio tempo
+                const { data: retryCustomer } = await supabase
+                    .from('customer_auth')
+                    .select('id')
+                    .eq('email', email)
+                    .single()
+
+                if (retryCustomer) {
+                    return { user: { id: retryCustomer.id } }
+                }
+            }
+            throw new Error(`Failed to create customer: ${error.message}`)
+        }
+
+        // Log de criação
+        await supabase
+            .from('customer_auth_logs')
+            .insert({
+                customer_id: customer.id,
+                email,
+                action: 'account_created',
+                success: true,
+                metadata: {
+                    created_via: customerData.created_via || 'purchase',
+                    name: customerData.name,
+                    phone: customerData.phone
+                },
+                created_at: new Date().toISOString()
+            })
+
+        console.log(`✅ Customer account created: ${email} (${customer.id})`)
+        return { user: { id: customer.id } }
+
+    } catch (error: any) {
+        console.error('createCustomerUser failed:', error)
+        throw error
+    }
+}
+}

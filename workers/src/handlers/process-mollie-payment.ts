@@ -8,6 +8,7 @@
 
 import { createClient } from '../lib/supabase'
 import { createMollieClient, toMollieAmount, currencyToLocale } from '../lib/mollie'
+import { createCustomerUser } from './customer-auth'
 import type { Env } from '../index'
 
 const corsHeaders = {
@@ -424,23 +425,14 @@ async function grantMollieAccess(
             if (existingAppUser?.user_id) {
                 userId = existingAppUser.user_id
             } else {
-                const { data: authData, error: authError } = await supabase.auth.admin.createUser({
+                const authData = await createCustomerUser(supabase, env, {
                     email: customerEmail,
-                    email_confirm: true,
-                    user_metadata: { created_via: 'purchase', name: customerName, phone: customerPhone },
+                    name: customerName,
+                    phone: customerPhone,
+                    created_via: 'purchase'
                 })
 
-                if (authError) {
-                    const isEmailExists = authError.code === 'email_exists'
-                        || (authError.message || '').toLowerCase().includes('already been registered')
-                        || (authError.message || '').toLowerCase().includes('already registered')
-                    if (!isEmailExists) throw authError
-                    const { data: foundUser } = await supabase.auth.admin.getUserByEmail(customerEmail)
-                    if (!foundUser?.user) throw new Error('Auth user exists but could not be found: ' + customerEmail)
-                    userId = foundUser.user.id
-                } else {
-                    userId = authData.user.id
-                }
+                userId = authData.user.id
 
                 await supabase.from('app_users').upsert({
                     user_id: userId,
@@ -562,22 +554,15 @@ async function grantMollieAccess(
 
             let userId = ''
 
-            // Criar/obter usuário auth
-            const { data: authData, error: authError } = await supabase.auth.admin.createUser({
+            // Criar customer via novo sistema
+            const authData = await createCustomerUser(supabase, env, {
                 email: customerEmail,
-                email_confirm: true,
-                user_metadata: { created_via: 'purchase', name: customerName, phone: customerPhone },
+                name: customerName,
+                phone: customerPhone,
+                created_via: 'purchase'
             })
 
-            if (authError) {
-                const isEmailExists = authError.code === 'email_exists'
-                    || (authError.message || '').toLowerCase().includes('already been registered')
-                    || (authError.message || '').toLowerCase().includes('already registered')
-                if (!isEmailExists) throw authError
-                console.log('ℹ️ Mollie marketplace: auth user already exists for', customerEmail)
-            } else {
-                userId = authData.user.id
-            }
+            userId = authData.user.id
 
             // Upsert member_profile
             const { error: memberProfileError } = await supabase.from('member_profiles').upsert({

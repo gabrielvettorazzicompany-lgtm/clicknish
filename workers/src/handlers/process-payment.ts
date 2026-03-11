@@ -5,6 +5,7 @@
 
 import { createClient } from '../lib/supabase'
 import { createStripeClient } from '../lib/stripe'
+import { createCustomerUser } from './customer-auth'
 import type { Env } from '../index'
 
 /**
@@ -478,30 +479,14 @@ export async function handleProcessPayment(
                     if (existingAppUser) {
                         userId = existingAppUser.user_id
                     } else {
-                        const { data: authData, error: authError } = await supabase.auth.admin.createUser({
+                        const authData = await createCustomerUser(supabase, env, {
                             email: customerEmail,
-                            email_confirm: true,
-                            user_metadata: {
-                                created_via: 'purchase',
-                                name: customerName,
-                                phone: customerPhone,
-                            },
+                            name: customerName,
+                            phone: customerPhone,
+                            created_via: 'purchase'
                         })
 
-                        if (authError) {
-                            // Email já existe no auth (comprou outro produto antes) — buscar o user_id existente
-                            const isEmailExists = authError.code === 'email_exists'
-                                || (authError.message || '').toLowerCase().includes('already been registered')
-                                || (authError.message || '').toLowerCase().includes('already registered')
-                            if (!isEmailExists) throw authError
-
-                            const { data: foundUser } = await supabase.auth.admin.getUserByEmail(customerEmail)
-                            if (!foundUser?.user) throw new Error('Auth user exists but could not be found: ' + customerEmail)
-                            userId = foundUser.user.id
-                            console.log('ℹ️ Auth user already exists for app purchase:', customerEmail)
-                        } else {
-                            userId = authData.user.id
-                        }
+                        userId = authData.user.id
 
                         // upsert app_users — usa email como chave de conflito pois user_id pode ser null em registros antigos
                         const { error: appUserUpsertError } = await supabase.from('app_users').upsert({
@@ -644,28 +629,15 @@ export async function handleProcessPayment(
                 } else {
                     // FLUXO PARA MARKETPLACE
 
-                    // Step 1: Criar/verificar usuário auth — nunca lançar erro se email já existe
-                    // (ex: cliente que já comprou outro produto ou já tem conta)
-                    const { data: authData, error: authError } = await supabase.auth.admin.createUser({
+                    // Step 1: Criar customer via novo sistema
+                    const authData = await createCustomerUser(supabase, env, {
                         email: customerEmail,
-                        email_confirm: true,
-                        user_metadata: {
-                            created_via: 'purchase',
-                            name: customerName,
-                            phone: customerPhone,
-                        },
+                        name: customerName,
+                        phone: customerPhone,
+                        created_via: 'purchase'
                     })
 
-                    if (authError) {
-                        const isEmailExists = authError.code === 'email_exists'
-                            || (authError.message || '').toLowerCase().includes('already been registered')
-                            || (authError.message || '').toLowerCase().includes('already registered')
-                        if (!isEmailExists) throw authError
-                        // Email já existe — continuamos sem userId (acesso já foi dado antes)
-                        console.log('ℹ️ Auth user already exists for:', customerEmail)
-                    } else {
-                        userId = authData.user.id
-                    }
+                    userId = authData.user.id
 
                     // Step 2: Criar/atualizar member profile (sempre, independente do auth)
                     const { data: memberProfileData, error: memberProfileError } = await supabase

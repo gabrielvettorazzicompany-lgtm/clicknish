@@ -10,6 +10,7 @@
 
 import { createClient } from '../lib/supabase'
 import { createPayPalClient } from '../lib/paypal'
+import { createCustomerUser } from './customer-auth'
 import type { Env } from '../index'
 
 const corsHeaders = {
@@ -248,19 +249,14 @@ async function capturePayPalOrder(
                 if (appUserData?.user_id) {
                     userId = appUserData.user_id
                 } else {
-                    const { data: authData, error: authError } = await supabase.auth.admin.createUser({
+                    const authData = await createCustomerUser(supabase, env, {
                         email: customerEmail,
-                        email_confirm: true,
-                        user_metadata: { created_via: 'purchase', name: customerName, phone: customerPhone },
+                        name: customerName,
+                        phone: customerPhone,
+                        created_via: 'purchase'
                     })
-                    if (!authError && authData?.user) userId = (authData.user as any).id
-                    else if (authError && !(((authError as any).message || '')).toLowerCase().includes('already')) throw authError
 
-                    if (!userId) {
-                        const { data: existingUser } = await supabase.auth.admin.listUsers()
-                        const found = existingUser?.users?.find((u: any) => u.email === customerEmail)
-                        if (found) userId = found.id
-                    }
+                    userId = authData.user.id
 
                     await supabase.from('app_users').upsert({
                         user_id: userId,
@@ -326,21 +322,15 @@ async function capturePayPalOrder(
                     productSlug = productDataAny.slug || productId
                 }
 
-                // Criar/verificar usuário auth
-                const { data: authData, error: authError } = await supabase.auth.admin.createUser({
+                // Criar customer via nosso sistema
+                const authData = await createCustomerUser(supabase, env, {
                     email: customerEmail,
-                    email_confirm: true,
-                    user_metadata: { created_via: 'purchase', name: customerName, phone: customerPhone },
+                    name: customerName,
+                    phone: customerPhone,
+                    created_via: 'purchase'
                 })
 
-                if (authError) {
-                    const authErr = authError as any
-                    const isEmailExists = authErr.code === 'email_exists'
-                        || (authErr.message || '').toLowerCase().includes('already')
-                    if (!isEmailExists) throw authError
-                } else if (authData?.user) {
-                    userId = (authData.user as any).id
-                }
+                userId = authData.user.id
 
                 // Criar member profile
                 await supabase.from('member_profiles').upsert({

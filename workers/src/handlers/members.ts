@@ -1,5 +1,6 @@
 // @ts-nocheck
 import { createClient } from '../lib/supabase'
+import { createCustomerUser } from './customer-auth'
 
 const corsHeaders = {
     'Access-Control-Allow-Origin': '*',
@@ -39,30 +40,14 @@ export async function handleMembers(request: Request, env: any): Promise<Respons
 
         let userId: string
 
-        // 2. Verificar se o usuário já existe no auth (busca otimizada por email)
-        const { data: existingAuthData } = await supabase.auth.admin.getUserByEmail(email)
-        const existingAuthUser = existingAuthData?.user
+        // 2. Criar customer via nosso sistema personalizado
+        const authData = await createCustomerUser(supabase, env, {
+            email: email,
+            name: name,
+            created_via: 'admin_manual_member'
+        })
 
-        if (existingAuthUser) {
-            userId = existingAuthUser.id
-        } else {
-            // Criar novo usuário no Supabase Auth
-            const { data: authData, error: authError } = await supabase.auth.admin.createUser({
-                email: email,
-                email_confirm: true,
-                user_metadata: {
-                    created_via: 'admin_manual_member',
-                    member_area_id: marketplaceProductId,
-                    name: name
-                }
-            })
-
-            if (authError) {
-                throw authError
-            }
-
-            userId = authData.user.id
-        }
+        userId = authData.user.id
 
         // 3. Criar registro no member_profiles
         const { data: newMember, error: memberError } = await supabase

@@ -1,5 +1,6 @@
 // @ts-nocheck
 import { createClient } from '../lib/supabase'
+import { createCustomerUser } from './customer-auth'
 
 const corsHeaders = {
     'Access-Control-Allow-Origin': '*',
@@ -155,45 +156,15 @@ export async function handleClients(request: Request, env: any): Promise<Respons
         }
 
         let userId: string
-        let existingAuthUser = false
 
-        // 2. Create user in auth
-        const authResult = await supabase.auth.admin.createUser({
+        // 2. Create customer in our auth system
+        const authResult = await createCustomerUser(supabase, env, {
             email: email,
-            email_confirm: true,
-            user_metadata: {
-                created_via: 'admin_manual',
-                application_id: applicationId,
-                name: name
-            }
+            name: name,
+            created_via: 'admin_manual'
         })
 
-        console.log('Auth result:', JSON.stringify(authResult))
-
-        if (authResult.error) {
-            const errorMsg = authResult.error.message || authResult.error.msg || JSON.stringify(authResult.error)
-            if (errorMsg.includes('already been registered') || errorMsg.includes('already exists')) {
-                // User exists, try to find them by email
-                const { data: foundData } = await supabase.auth.admin.getUserByEmail(email)
-                if (foundData?.user) {
-                    userId = foundData.user.id
-                    existingAuthUser = true
-                } else {
-                    return new Response(
-                        JSON.stringify({ error: 'User already registered in another app. Contact support.' }),
-                        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
-                    )
-                }
-            } else {
-                return new Response(
-                    JSON.stringify({ error: errorMsg }),
-                    { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
-                )
-            }
-        } else {
-            userId = authResult.data.user.id
-        }
-
+        userId = authResult.user.id
         console.log('User ID:', userId)
 
         // 3. Create record in app_users
