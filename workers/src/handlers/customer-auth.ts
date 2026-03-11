@@ -595,4 +595,3 @@ export async function createCustomerUser(
         throw error
     }
 }
-}
