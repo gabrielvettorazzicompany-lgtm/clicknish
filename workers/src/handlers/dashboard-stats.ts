@@ -78,8 +78,11 @@ export async function handleDashboardStats(
             shouldFetchApps = appIds.length > 0
         } else {
             // Nenhum produto selecionado - buscar baseado na moeda
-            shouldFetchMarketplace = !selectedCurrency || selectedCurrency === 'BRL'
-            shouldFetchApps = (!selectedCurrency || selectedCurrency === 'USD') && appIds.length > 0
+            // BRL = apenas marketplace; USD = apenas apps; EUR/CHF/sem filtro = ambos
+            const isMarketplaceCurrency = !selectedCurrency || selectedCurrency === 'BRL' || (selectedCurrency !== 'USD')
+            const isAppCurrency = !selectedCurrency || selectedCurrency === 'USD' || (selectedCurrency !== 'BRL')
+            shouldFetchMarketplace = isMarketplaceCurrency
+            shouldFetchApps = isAppCurrency && appIds.length > 0
         }
 
         console.log('Filter logic:', { selectedMarketplace, selectedApp, shouldFetchMarketplace, shouldFetchApps })
@@ -130,8 +133,12 @@ export async function handleDashboardStats(
                         .eq('owner_id', userId)
                         .in('id', memberAreaIds)
 
-                    const validIds = new Set((maResult.data || []).map((ma: any) => ma.id))
-                    const priceMap = new Map((maResult.data || []).map((ma: any) => [ma.id, ma.price]))
+                    const validMas = (maResult.data || []).filter((ma: any) => {
+                        if (!selectedCurrency || selectedCurrency === 'BRL') return true
+                        return (ma.currency || 'BRL').toUpperCase() === selectedCurrency.toUpperCase()
+                    })
+                    const validIds = new Set(validMas.map((ma: any) => ma.id))
+                    const priceMap = new Map(validMas.map((ma: any) => [ma.id, ma.price]))
 
                     marketplaceAttempts = result.data
                         .filter((s: any) => validIds.has(s.member_area_id))

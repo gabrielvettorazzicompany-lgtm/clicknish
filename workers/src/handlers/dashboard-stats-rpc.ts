@@ -150,8 +150,8 @@ async function fetchDailySales(
     // Query otimizada para vendas diárias
     let salesData: any[] = []
 
-    // Marketplace sales
-    if (!selectedApp && (!selectedCurrency || selectedCurrency === 'BRL')) {
+    // Marketplace sales (BRL ou moedas que não sejam exclusivamente USD)
+    if (!selectedApp && (!selectedCurrency || selectedCurrency !== 'USD')) {
         let q = supabase
             .from('user_product_access')
             .select('purchase_price, created_at, member_area_id')
@@ -188,8 +188,8 @@ async function fetchDailySales(
         }
     }
 
-    // App sales
-    if (!selectedMarketplace && appIds.length > 0 && (!selectedCurrency || selectedCurrency === 'USD')) {
+    // App sales (USD ou moedas que não sejam exclusivamente BRL)
+    if (!selectedMarketplace && appIds.length > 0 && (!selectedCurrency || selectedCurrency !== 'BRL')) {
         const { data } = await supabase
             .from('user_product_access')
             .select('purchase_price, created_at, payment_id')
