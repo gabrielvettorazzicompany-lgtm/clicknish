@@ -62,14 +62,12 @@ export async function handleClients(request: Request, env: any): Promise<Respons
                     .from('user_product_access')
                     .delete()
                     .eq('user_id', userId)
-                    .select()
 
                 // Deletar acessos a member areas
                 await supabase
                     .from('user_member_area_access')
                     .delete()
                     .eq('user_id', userId)
-                    .select()
             }
 
             // Deletar o registro da tabela (app_users ou member_profiles)
@@ -77,7 +75,6 @@ export async function handleClients(request: Request, env: any): Promise<Respons
                 .from(table)
                 .delete()
                 .eq('id', clientId)
-                .select()
 
             if (deleteError) {
                 console.error('Erro ao deletar cliente:', deleteError)

@@ -1719,6 +1719,7 @@
         "error_passwords_mismatch": "Las contraseñas no coinciden",
         "error_password_too_short": "La contraseña debe tener al menos 6 caracteres",
         "error_auth_failed": "Error de autenticación",
+        "error_no_admin_access": "Esta cuenta no tiene acceso al panel de administración. Para vender productos, crea una nueva cuenta.",
         "terms_prefix": "Al crear tu cuenta aceptas los",
         "terms_of_service": "Términos de Servicio",
         "and": "y",

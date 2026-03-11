@@ -140,29 +140,37 @@ export default function Login() {
         if (authError) throw authError
 
         if (data.user) {
-          // Criar admin_profile se não existir (usuário confirmou email mas ainda não tem perfil)
-          try {
-            const { data: existingProfile } = await supabase
-              .from('admin_profiles')
-              .select('user_id')
-              .eq('user_id', data.user.id)
-              .single()
+          // Verificar se tem admin_profile
+          const { data: existingProfile } = await supabase
+            .from('admin_profiles')
+            .select('user_id')
+            .eq('user_id', data.user.id)
+            .single()
 
-            if (!existingProfile) {
-              const { error: profileError } = await supabase
-                .from('admin_profiles')
-                .insert({
-                  user_id: data.user.id,
-                  created_at: new Date().toISOString(),
-                  updated_at: new Date().toISOString()
-                })
+          if (!existingProfile) {
+            // Só permitir se veio do signup desta página (tem is_admin no metadata)
+            const isAdmin = data.user.user_metadata?.is_admin === true
 
-              if (profileError) {
-                console.error('Error creating admin_profile:', profileError)
-              }
+            if (!isAdmin) {
+              // Não é admin — sign out e bloquear acesso
+              await supabase.auth.signOut()
+              setError(t('auth.error_no_admin_access') || 'Esta conta não tem acesso ao painel administrativo. Para vender produtos, crie uma nova conta.')
+              setLoading(false)
+              return
             }
-          } catch (err) {
-            console.error('Error checking admin_profile:', err)
+
+            // É admin novo (confirmou email) — criar perfil
+            const { error: profileError } = await supabase
+              .from('admin_profiles')
+              .insert({
+                user_id: data.user.id,
+                created_at: new Date().toISOString(),
+                updated_at: new Date().toISOString()
+              })
+
+            if (profileError) {
+              console.error('Error creating admin_profile:', profileError)
+            }
           }
 
           setUser(data.user)

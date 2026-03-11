@@ -1718,6 +1718,7 @@
         "error_passwords_mismatch": "Die Passwörter stimmen nicht überein",
         "error_password_too_short": "Das Passwort muss mindestens 6 Zeichen lang sein",
         "error_auth_failed": "Authentifizierung fehlgeschlagen",
+        "error_no_admin_access": "Dieses Konto hat keinen Zugriff auf das Admin-Panel. Um Produkte zu verkaufen, erstellen Sie ein neues Konto.",
         "terms_prefix": "Durch das Erstellen Ihres Kontos stimmen Sie den ClickNich",
         "terms_of_service": "Nutzungsbedingungen",
         "and": "und",

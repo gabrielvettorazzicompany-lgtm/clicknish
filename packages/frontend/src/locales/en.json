@@ -1719,6 +1719,7 @@
         "error_passwords_mismatch": "Passwords do not match",
         "error_password_too_short": "Password must be at least 6 characters",
         "error_auth_failed": "Authentication failed",
+        "error_no_admin_access": "This account does not have access to the admin panel. To sell products, create a new account.",
         "terms_prefix": "By creating your account you agree to the ClickNich",
         "terms_of_service": "Terms of Service",
         "and": "and",

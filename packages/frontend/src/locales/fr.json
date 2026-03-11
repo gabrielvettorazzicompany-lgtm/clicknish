@@ -1718,6 +1718,7 @@
         "error_passwords_mismatch": "Les mots de passe ne correspondent pas",
         "error_password_too_short": "Le mot de passe doit comporter au moins 6 caractères",
         "error_auth_failed": "Échec de l'authentification",
+        "error_no_admin_access": "Ce compte n'a pas accès au panneau d'administration. Pour vendre des produits, créez un nouveau compte.",
         "terms_prefix": "En créant votre compte, vous acceptez les",
         "terms_of_service": "Conditions d'utilisation",
         "and": "et",
