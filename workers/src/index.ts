@@ -38,6 +38,7 @@ import { handleCachePreloader } from './handlers/preloader'
 import { handleCachePurge } from './handlers/purge'
 import { handleSendConfirmationEmail } from './handlers/send-confirmation-email'
 import { handleProcessMolliePayment } from './handlers/process-mollie-payment'
+import { handleCustomerAuth } from './handlers/customer-auth'
 
 import { handleWeeklyReserve } from './handlers/weekly-reserve'
 
@@ -397,6 +398,11 @@ async function handleApiRoute(
     if (pathname.startsWith('/api/auth')) {
         const pathSegments = pathname.replace('/api/auth/', '').split('/').filter(Boolean)
         return handleAuth(request, env, pathSegments)
+    }
+
+    // /api/customer-auth/* - Sistema de autenticação para clientes
+    if (pathname.startsWith('/api/customer-auth')) {
+        return handleCustomerAuth(request, env)
     }
 
     // POST/DELETE /api/clients - Criar ou deletar clientes manualmente
