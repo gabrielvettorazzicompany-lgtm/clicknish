@@ -442,8 +442,8 @@ export async function createCustomerUser(
     const email = customerData.email.toLowerCase().trim()
     console.log(`🔧 [DEBUG createCustomerUser] Starting for email: ${email}`)
 
-    // Gerar senha derivada (mesma lógica do auth.ts)
-    const derivedPassword = `derived_${email}_${env.SUPABASE_SERVICE_ROLE_KEY?.slice(-8)}`
+    // Gerar senha derivada (mesma lógica do frontend)
+    const derivedPassword = `derived_${email}_prod_key`
 
     try {
         // Verificar se cliente já existe
