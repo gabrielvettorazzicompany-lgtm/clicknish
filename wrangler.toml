@@ -2,6 +2,7 @@ name = "clicknish"
 main = "worker.js"
 compatibility_date = "2024-01-01"
 compatibility_flags = ["nodejs_compat"]
+account_id = "0de13f5f17765141be3b48f76a5dafc7"
 
 # Configuração para domínios personalizados
 # Você pode adicionar rotas específicas aqui se tiver um domínio no Cloudflare
