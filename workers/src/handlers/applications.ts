@@ -962,7 +962,7 @@ export async function handleApplications(
                     email: userEmail,
                     full_name: body.full_name || null,
                     avatar_url: body.avatar_url || null,
-                    user_id: `user_${Date.now()}`
+                    user_id: crypto.randomUUID()
                 }
 
                 const { data, error } = await supabase.from('app_users').insert(newUser).select().single()

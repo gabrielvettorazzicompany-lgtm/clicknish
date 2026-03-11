@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useParams, Link, useNavigate, useSearchParams } from 'react-router-dom'
-import { Eye, Play, FileText, Download, Users, Lock, ArrowRight, Home, MessageSquare, User, Heart, Send, Plus, Camera, Bell, X, RotateCcw, CheckCircle } from 'lucide-react'
+import { Eye, Play, FileText, Download, Users, Lock, ArrowRight, Home, MessageSquare, User, Heart, Send, Plus, Camera, Bell, X, RotateCcw, CheckCircle, LogOut } from 'lucide-react'
 import { useI18n, tForLang } from '@/i18n'
 import { useAuthStore } from '@/stores/authStore'
 import { supabase, supabaseFetch, supabaseRestFetch } from '@/services/supabase'
@@ -131,6 +131,13 @@ export default function AppDashboard() {
 
     return { name, email, id }
   })
+
+  const handleLogout = () => {
+    localStorage.removeItem('customer_access_token')
+    localStorage.removeItem('customer_id')
+    localStorage.removeItem('customer_email')
+    window.location.href = `/access/${appId}`
+  }
 
   useEffect(() => {
     if (appId) {
@@ -661,6 +668,15 @@ export default function AppDashboard() {
                   {unreadCount > 9 ? '9+' : unreadCount}
                 </span>
               )}
+            </button>
+
+            {/* Botão de Sair */}
+            <button
+              onClick={handleLogout}
+              className={`p-2 ${app?.theme === 'dark' ? 'hover:bg-gray-700' : 'hover:bg-[#252941]'} rounded-lg transition-colors`}
+              title="Sair"
+            >
+              <LogOut className="w-5 h-5 text-gray-400" />
             </button>
           </div>
         </div>
