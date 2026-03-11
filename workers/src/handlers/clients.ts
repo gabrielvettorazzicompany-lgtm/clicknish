@@ -171,14 +171,20 @@ export async function handleClients(request: Request, env: any): Promise<Respons
         let userId: string
 
         // 2. Create customer in our auth system
-        const authResult = await createCustomerUser(supabase, env, {
-            email: email,
-            name: name,
-            created_via: 'admin_manual'
-        })
+        console.log('🔧 [DEBUG] Creating customer auth for:', email)
+        try {
+            const authResult = await createCustomerUser(supabase, env, {
+                email: email,
+                name: name,
+                created_via: 'admin_manual'
+            })
 
-        userId = authResult.user.id
-        console.log('User ID:', userId)
+            userId = authResult.user.id
+            console.log('✅ [DEBUG] Customer auth created successfully. User ID:', userId)
+        } catch (authError: any) {
+            console.error('❌ [DEBUG] Failed to create customer auth:', authError)
+            throw new Error(`Authentication creation failed: ${authError.message}`)
+        }
 
         // 3. Create record in app_users
         const insertResult = await supabase

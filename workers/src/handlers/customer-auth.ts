@@ -523,6 +523,7 @@ export async function createCustomerUser(
     }
 ): Promise<{ user: { id: string } }> {
     const email = customerData.email.toLowerCase().trim()
+    console.log(`🔧 [DEBUG createCustomerUser] Starting for email: ${email}`)
 
     // Gerar senha derivada (mesma lógica do auth.ts)
     const derivedPassword = `derived_${email}_${env.SUPABASE_SERVICE_ROLE_KEY?.slice(-8)}`
