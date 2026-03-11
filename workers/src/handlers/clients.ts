@@ -203,9 +203,8 @@ export async function handleClients(request: Request, env: any): Promise<Respons
 
         if (insertResult.error) {
             console.error('Insert error:', insertResult.error)
-            if (!existingAuthUser) {
-                await supabase.auth.admin.deleteUser(userId)
-            }
+            // Reverter criação no customer_auth se app_users falhou
+            await supabase.from('customer_auth').delete().eq('id', userId)
             return new Response(
                 JSON.stringify({ error: insertResult.error.message || 'Error creating app user' }),
                 { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
