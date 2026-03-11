@@ -4,6 +4,8 @@
  * Endpoints: login com senha, verificação de tokens, update de senha
  */
 
+import { createClient } from '../lib/supabase'
+
 import type {
     CustomerAuth,
     CustomerAuthLog,
@@ -92,7 +94,6 @@ async function handleCustomerLogin(request: Request, env: any): Promise<Response
         )
     }
 
-    const { createClient } = await import('@supabase/supabase-js')
     const supabase = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY)
 
     try {
@@ -201,7 +202,6 @@ async function handleVerifyToken(request: Request, env: any): Promise<Response> 
         )
     }
 
-    const { createClient } = await import('@supabase/supabase-js')
     const supabase = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY)
 
     try {
@@ -326,7 +326,6 @@ async function handleUpdatePassword(request: Request, env: any): Promise<Respons
         )
     }
 
-    const { createClient } = await import('@supabase/supabase-js')
     const supabase = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY)
 
     try {
