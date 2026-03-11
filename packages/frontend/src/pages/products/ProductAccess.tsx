@@ -475,40 +475,77 @@ export default function ProductAccess() {
         return
       }
 
-      // Fazer login real via Edge Function de Auth
-      const response = await supabaseFetch('auth/login', {
-        method: 'POST',
-        body: JSON.stringify({
-          email: email || purchaseCode,
-          password: password || undefined,
-          appId: appId,
-          access_type: productAccess?.access_type
-        }),
-      })
+      // Fazer login via novo sistema de autenticação de clientes
+      let loginResponse
+      let isCustomerLogin = false
 
-      if (!response.ok) {
-        const errorData = await response.json()
-        setError(errorData.error || getTranslation(lang, 'errorAccess'))
+      // Para email-only e email-password, usar nosso sistema customizado
+      if (productAccess?.access_type === 'email-only' || productAccess?.access_type === 'email-password') {
+        isCustomerLogin = true
+
+        // Gerar senha derivada para email-only (mesma lógica do backend)
+        const derivedPassword = password || `derived_${(email || '').toLowerCase()}_${window.location.origin.includes('localhost') ? 'dev_key' : 'prod_key'}`
+
+        loginResponse = await fetch('https://api.clicknich.com/api/customer-auth/login', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            email: email.toLowerCase(),
+            password: derivedPassword
+          })
+        })
+      } else {
+        // Para outros tipos (purchase-code), usar sistema antigo
+        loginResponse = await supabaseFetch('auth/login', {
+          method: 'POST',
+          body: JSON.stringify({
+            email: email || purchaseCode,
+            password: password || undefined,
+            appId: appId,
+            access_type: productAccess?.access_type
+          }),
+        })
+      }
+
+      if (!loginResponse.ok) {
+        const errorData = await loginResponse.json()
+        setError(errorData.message || errorData.error || getTranslation(lang, 'errorAccess'))
         setLoading(false)
         return
       }
 
-      const data = await response.json()
+      const data = await loginResponse.json()
 
-      // Configurar sessão real do Supabase se tokens válidos
-      if (data.access_token && data.refresh_token && !data.access_token.startsWith('member_')) {
-        await supabase.auth.setSession({
-          access_token: data.access_token,
-          refresh_token: data.refresh_token
-        })
+      if (isCustomerLogin) {
+        // Sistema customizado: data.access_token é nosso JWT
+        if (!data.success || !data.access_token) {
+          setError(data.message || getTranslation(lang, 'errorAccess'))
+          setLoading(false)
+          return
+        }
+
+        // Salvar tokens customizados
+        localStorage.setItem('customer_access_token', data.access_token)
+        localStorage.setItem('customer_id', data.customer_id)
+        localStorage.setItem('customer_email', data.email)
+        localStorage.setItem('session_expires', new Date(Date.now() + (data.expires_in * 1000)).toISOString())
+      } else {
+        // Sistema antigo: data.access_token é do Supabase
+        if (data.access_token && data.refresh_token && !data.access_token.startsWith('member_')) {
+          await supabase.auth.setSession({
+            access_token: data.access_token,
+            refresh_token: data.refresh_token
+          })
+        }
+
+        // Salvar tokens antigos
+        localStorage.setItem('access_token', data.access_token)
+        localStorage.setItem('refresh_token', data.refresh_token)
+        localStorage.setItem('user_data', JSON.stringify(data.user))
+        localStorage.setItem('session_expires', data.expires_at)
       }
-
-      // Salvar tokens e dados no localStorage
-      localStorage.setItem('access_token', data.access_token)
-      localStorage.setItem('refresh_token', data.refresh_token)
-      localStorage.setItem('user_data', JSON.stringify(data.user))
-      localStorage.setItem('app_language', data.preferences?.language || productAccess?.language || 'pt-br')
-      localStorage.setItem('session_expires', data.expires_at)
 
       // Redirecionar para o dashboard do app
       if (appId) {
@@ -538,39 +575,40 @@ export default function ProductAccess() {
         return
       }
 
-      // Create free account via Auth Edge Function
-      const response = await supabaseFetch('auth/login', {
+      // Criar conta gratuita via novo sistema de autenticação
+      const derivedPassword = `derived_${email.toLowerCase()}_${window.location.origin.includes('localhost') ? 'dev_key' : 'prod_key'}`
+
+      const response = await fetch('https://api.clicknich.com/api/customer-auth/login', {
         method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
         body: JSON.stringify({
-          email,
-          appId: appId,
-          access_type: 'email-only'
-        }),
+          email: email.toLowerCase(),
+          password: derivedPassword
+        })
       })
 
       if (!response.ok) {
         const errorData = await response.json()
-        setError(errorData.error || t('common.error_free_account'))
+        setError(errorData.message || t('common.error_free_account'))
         setLoading(false)
         return
       }
 
       const data = await response.json()
 
-      // Configurar sessão real do Supabase se tokens válidos
-      if (data.access_token && data.refresh_token && !data.access_token.startsWith('member_')) {
-        await supabase.auth.setSession({
-          access_token: data.access_token,
-          refresh_token: data.refresh_token
-        })
+      if (!data.success || !data.access_token) {
+        setError(data.message || t('common.error_free_account'))
+        setLoading(false)
+        return
       }
 
-      // Salvar tokens e dados no localStorage
-      localStorage.setItem('access_token', data.access_token)
-      localStorage.setItem('refresh_token', data.refresh_token)
-      localStorage.setItem('user_data', JSON.stringify(data.user))
-      localStorage.setItem('app_language', data.preferences?.language || productAccess?.language || 'pt-br')
-      localStorage.setItem('session_expires', data.expires_at)
+      // Salvar tokens customizados
+      localStorage.setItem('customer_access_token', data.access_token)
+      localStorage.setItem('customer_id', data.customer_id)
+      localStorage.setItem('customer_email', data.email)
+      localStorage.setItem('session_expires', new Date(Date.now() + (data.expires_in * 1000)).toISOString())
 
       // Redirect to app dashboard
       if (appId) {

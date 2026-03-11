@@ -49,7 +49,38 @@ export default function ProductGuard({ children }: ProductGuardProps) {
         }
       }
 
-      // 1. Verificar sessão real do Supabase
+      // 1. Verificar novo sistema de autenticação customizada
+      const customerAccessToken = localStorage.getItem('customer_access_token')
+
+      if (customerAccessToken) {
+        // Verificar se o token customizado é válido
+        const verifyResponse = await fetch('https://api.clicknich.com/api/customer-auth/verify', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            access_token: customerAccessToken
+          })
+        })
+
+        if (verifyResponse.ok) {
+          const verifyData = await verifyResponse.json()
+
+          if (verifyData.valid) {
+            // Token válido, verificar acesso ao produto usando customer_id
+            await verifyCustomerProductAccess(verifyData.customer_id, verifyData.email)
+            return
+          }
+        }
+
+        // Token inválido, limpar localStorage
+        localStorage.removeItem('customer_access_token')
+        localStorage.removeItem('customer_id')
+        localStorage.removeItem('customer_email')
+      }
+
+      // 2. Fallback para sistema antigo (Supabase Auth)
       const { data: { user }, error: authError } = await supabase.auth.getUser()
 
       if (authError || !user) {
@@ -89,12 +120,100 @@ export default function ProductGuard({ children }: ProductGuardProps) {
         return
       }
 
-      // 2. Verificar acesso ao produto específico
+      // 2. Verificar acesso ao produto específico (sistema antigo)
       await verifyProductAccess(user.id, user.email || '')
 
     } catch (error) {
       console.error('Error checking access:', error)
       setError('Error validating session')
+      setLoading(false)
+    }
+  }
+
+  const verifyCustomerProductAccess = async (customerId: string, customerEmail: string) => {
+    try {
+      // Se não há productId específico, só verificar se tem sessão válida
+      if (!productId && !productSlug) {
+        setAccess({
+          has_access: true,
+          user_id: customerId,
+          user_email: customerEmail,
+          purchase_date: new Date().toISOString()
+        })
+        setLoading(false)
+        return
+      }
+
+      // Buscar acesso na tabela user_product_access usando customer_id
+      // Como agora user_id é o customer_id da nossa tabela
+      let query = `user_product_access?user_id=eq.${customerId}&is_active=eq.true&select=id,product_id,created_at,expires_at`
+
+      if (productId) {
+        query += `&product_id=eq.${productId}`
+      }
+
+      if (appId) {
+        query += `&application_id=eq.${appId}`
+      }
+
+      const response = await supabaseRestFetch(query)
+
+      if (response.ok) {
+        const accessData = await response.json()
+
+        if (accessData && accessData.length > 0) {
+          // Verificar se não expirou
+          const accessRecord = accessData[0]
+          if (accessRecord.expires_at) {
+            const expiresAt = new Date(accessRecord.expires_at)
+            if (expiresAt < new Date()) {
+              setAccess({
+                has_access: false,
+                user_id: customerId,
+                user_email: customerEmail,
+                purchase_date: accessRecord.created_at,
+                expires_at: accessRecord.expires_at
+              })
+              setLoading(false)
+              return
+            }
+          }
+
+          setAccess({
+            has_access: true,
+            user_id: customerId,
+            user_email: customerEmail,
+            purchase_date: accessRecord.created_at,
+            expires_at: accessRecord.expires_at
+          })
+        } else {
+          // Sem registro de acesso
+          setAccess({
+            has_access: false,
+            user_id: customerId,
+            user_email: customerEmail,
+            purchase_date: new Date().toISOString()
+          })
+        }
+      } else {
+        // Erro na query
+        setAccess({
+          has_access: false,
+          user_id: customerId,
+          user_email: customerEmail,
+          purchase_date: new Date().toISOString()
+        })
+      }
+
+      setLoading(false)
+    } catch (err) {
+      console.error('Error verifying customer product access:', err)
+      setAccess({
+        has_access: false,
+        user_id: customerId,
+        user_email: customerEmail,
+        purchase_date: new Date().toISOString()
+      })
       setLoading(false)
     }
   }
