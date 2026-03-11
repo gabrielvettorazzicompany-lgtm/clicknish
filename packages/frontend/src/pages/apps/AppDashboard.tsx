@@ -107,28 +107,29 @@ export default function AppDashboard() {
   const { user: authUser } = useAuthStore()
 
   const [currentUser] = useState(() => {
-    // Tentar obter os dados do usuário do localStorage
-    const userDataStr = localStorage.getItem('user_data')
-    let userData = null
+    // Prioridade: sistema de auth customizado (customer)
+    const customerEmail = localStorage.getItem('customer_email')
+    const customerId = localStorage.getItem('customer_id')
 
-    if (userDataStr) {
-      try {
-        userData = JSON.parse(userDataStr)
-      } catch (e) {
-        console.error('Error parsing user_data:', e)
+    if (customerEmail && customerId) {
+      return {
+        name: 'Usuário',
+        email: customerEmail,
+        id: customerId
       }
     }
 
-    // Usar o email do userData, authStore ou localStorage
+    // Fallback: Supabase Auth (para admins/produtores)
+    const userDataStr = localStorage.getItem('user_data')
+    let userData = null
+    if (userDataStr) {
+      try { userData = JSON.parse(userDataStr) } catch (e) { }
+    }
     const email = userData?.email || authUser?.email || localStorage.getItem('userEmail') || ''
     const name = userData?.name || authUser?.user_metadata?.name || 'Usuário'
     const id = userData?.id || authUser?.id || 'anonymous'
 
-    return {
-      name,
-      email,
-      id
-    }
+    return { name, email, id }
   })
 
   useEffect(() => {
@@ -169,11 +170,11 @@ export default function AppDashboard() {
       // Primeiro, tentar obter o usuário autenticado via Supabase Auth
       const { data: { user: authUserData } } = await supabase.auth.getUser()
 
-      // Fallback para localStorage se não estiver autenticado
-      let userId = authUserData?.id
-      let userEmail = authUserData?.email || ''
+      // Prioridade: sistema de auth customizado (customer)
+      let userId = localStorage.getItem('customer_id') || authUserData?.id
+      let userEmail = localStorage.getItem('customer_email') || authUserData?.email || ''
 
-      if (!userId) {
+      if (!userId && !localStorage.getItem('customer_id')) {
         const userData = localStorage.getItem('user_data')
         if (userData) {
           try {
