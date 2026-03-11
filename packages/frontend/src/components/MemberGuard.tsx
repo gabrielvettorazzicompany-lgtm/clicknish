@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useParams, Navigate } from 'react-router-dom'
-import { supabase, supabaseFetch } from '@/services/supabase'
+import { supabaseFetch } from '@/services/supabase'
 
 interface MemberGuardProps {
     children: React.ReactNode
@@ -16,57 +16,65 @@ export default function MemberGuard({ children }: MemberGuardProps) {
         checkAuthentication()
     }, [appId])
 
+    const fetchAppSlug = async () => {
+        if (!appId) return
+        try {
+            const appResponse = await supabaseFetch(`applications/${appId}`)
+            if (appResponse.ok) {
+                const appData = await appResponse.json()
+                setAppSlug(appData.slug || appId)
+            } else {
+                setAppSlug(appId)
+            }
+        } catch {
+            setAppSlug(appId)
+        }
+    }
+
     const checkAuthentication = async () => {
         try {
             setLoading(true)
 
-            // 1. Verificar sessão real do Supabase Auth
-            const { data: { user }, error: authError } = await supabase.auth.getUser()
+            // Verificar customer_access_token (único token válido para clientes)
+            const customerAccessToken = localStorage.getItem('customer_access_token')
 
-            if (!authError && user) {
-                // Usuário autenticado via Supabase Auth
-                setIsAuthenticated(true)
+            if (!customerAccessToken) {
+                await fetchAppSlug()
+                setIsAuthenticated(false)
                 setLoading(false)
                 return
             }
 
-            // 2. Verificar se tem tokens válidos no localStorage para restaurar sessão
-            const accessToken = localStorage.getItem('access_token')
-            const refreshToken = localStorage.getItem('refresh_token')
+            // Verificar token com o backend
+            const verifyResponse = await fetch('https://api.clicknich.com/api/customer-auth/verify', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ access_token: customerAccessToken })
+            })
 
-            if (accessToken && refreshToken && !accessToken.startsWith('member_') && !accessToken.startsWith('mock_')) {
-                // Tentar restaurar sessão
-                const { error: sessionError } = await supabase.auth.setSession({
-                    access_token: accessToken,
-                    refresh_token: refreshToken
-                })
-
-                if (!sessionError) {
-                    const { data: { user: restoredUser } } = await supabase.auth.getUser()
-                    if (restoredUser) {
-                        setIsAuthenticated(true)
-                        setLoading(false)
-                        return
-                    }
-                }
+            if (!verifyResponse.ok) {
+                localStorage.removeItem('customer_access_token')
+                localStorage.removeItem('customer_id')
+                localStorage.removeItem('customer_email')
+                await fetchAppSlug()
+                setIsAuthenticated(false)
+                setLoading(false)
+                return
             }
 
-            // 3. Não autenticado - buscar slug do app para redirect
-            if (appId) {
-                try {
-                    const appResponse = await supabaseFetch(`applications/${appId}`)
-                    if (appResponse.ok) {
-                        const appData = await appResponse.json()
-                        setAppSlug(appData.slug || appId)
-                    } else {
-                        setAppSlug(appId)
-                    }
-                } catch {
-                    setAppSlug(appId)
-                }
+            const verifyData = await verifyResponse.json()
+
+            if (!verifyData.valid) {
+                localStorage.removeItem('customer_access_token')
+                localStorage.removeItem('customer_id')
+                localStorage.removeItem('customer_email')
+                await fetchAppSlug()
+                setIsAuthenticated(false)
+                setLoading(false)
+                return
             }
 
-            setIsAuthenticated(false)
+            setIsAuthenticated(true)
             setLoading(false)
 
         } catch (error) {
