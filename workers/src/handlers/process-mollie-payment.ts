@@ -497,11 +497,15 @@ async function grantMollieAccess(
                         amount: totalAmount,
                         currency,
                         payment_method: method || 'mollie',
+                        customer_ip: null,
                         checkout_id: checkoutId || null,
                         product_id: productId || applicationId || null,
                         payout_schedule: producerPayoutSchedule,
                         user_product_access_id: Array.isArray(batchAccess) && batchAccess.length > 0 ? (batchAccess as any[])[0]?.id : null,
                         sale_date: new Date().toISOString(),
+                        country: null,
+                        region: null,
+                        city: null,
                     }),
                     batchAccess && Array.isArray(batchAccess) && batchAccess.length > 0
                         ? supabase.from('user_product_access').update({
@@ -615,10 +619,14 @@ async function grantMollieAccess(
                     amount: totalAmount,
                     currency,
                     payment_method: method || 'mollie',
+                    customer_ip: null,
                     checkout_id: checkoutId || null,
                     product_id: productId || null,
                     payout_schedule: producerPayoutSchedule,
                     sale_date: new Date().toISOString(),
+                    country: null,
+                    region: null,
+                    city: null,
                 }),
                 checkoutId
                     ? supabase.from('checkout_analytics').insert({
