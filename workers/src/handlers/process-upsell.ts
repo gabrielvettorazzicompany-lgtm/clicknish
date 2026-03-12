@@ -156,82 +156,79 @@ export async function handleProcessUpsell(
                 : null)
 
         // 3. Find the original purchase to get payment method (Stripe or Mollie)
-        // Busca por thankyou_token (confiável — salvo no upsert) ou fallback por id
         let stripeCustomerId: string | null = null
         let stripePaymentMethodId: string | null = null
         let mollieCustomerId: string | null = null
         let mollieMandateId: string | null = null
         let userId: string | null = null
 
-        // Tenta até 6x com delay crescente — o DB write ocorre via ctx.waitUntil
-        // no process-payment e pode ainda não ter finalizado quando o usuário clica no upsell
-        // Busca nas duas tabelas: user_product_access (apps) e user_member_area_access (marketplace)
-        let productAccess: any = null
-        for (let attempt = 0; attempt < 6; attempt++) {
-            if (attempt > 0) await new Promise(r => setTimeout(r, attempt * 2000))
-
-            let q1 = supabase
-                .from('user_product_access')
-                .select('stripe_customer_id, stripe_payment_method_id, mollie_customer_id, mollie_mandate_id, user_id, thankyou_token')
-
-            let q2 = supabase
-                .from('user_member_area_access')
-                .select('stripe_customer_id, stripe_payment_method_id, mollie_customer_id, mollie_mandate_id, user_id, thankyou_token')
-
-            if (token) {
-                q1 = q1.eq('thankyou_token', token)
-                q2 = q2.eq('thankyou_token', token)
-            } else {
-                q1 = q1.eq('id', purchase_id)
-                q2 = q2.eq('id', purchase_id)
-            }
-
-            const [r1, r2] = await Promise.all([q1.maybeSingle(), q2.maybeSingle()])
-            const found = [r1.data, r2.data].find(d => d?.stripe_customer_id || d?.mollie_customer_id)
-            if (found) { productAccess = found; break }
-        }
-
-        if (productAccess?.stripe_customer_id) {
-            stripeCustomerId = productAccess.stripe_customer_id
-            stripePaymentMethodId = productAccess.stripe_payment_method_id
-            userId = productAccess.user_id
-        } else if (productAccess?.mollie_customer_id) {
-            mollieCustomerId = productAccess.mollie_customer_id
-            mollieMandateId = productAccess.mollie_mandate_id
-            userId = productAccess.user_id
-        }
-
-        // Fallback: buscar no KV se o DB ainda não foi escrito (race condition)
-        if (!productAccess && token && env.CACHE) {
+        // ─── PASSO 1: KV primeiro (novas compras — escrito de forma síncrona antes do response) ───
+        // O DB é gravado via ctx.waitUntil (background) e pode ainda não ter terminado.
+        // O KV é gravado ANTES de retornar o response em process-payment, então sempre chega aqui primeiro.
+        let foundViaKV = false
+        if (token && env.CACHE) {
             try {
                 const kvData = await env.CACHE.get(`upsell_token:${token}`, 'json') as any
                 if (kvData?.stripe_customer_id) {
+                    foundViaKV = true
                     stripeCustomerId = kvData.stripe_customer_id
                     stripePaymentMethodId = kvData.stripe_payment_method_id
-                    // userId ainda não disponível no KV — buscar por stripe_customer_id
-                    const { data: accessByCustomer } = await supabase
-                        .from('user_product_access')
-                        .select('user_id')
-                        .eq('stripe_customer_id', kvData.stripe_customer_id)
-                        .order('created_at', { ascending: false })
-                        .limit(1)
-                        .maybeSingle()
-                    userId = accessByCustomer?.user_id || null
-                    // Se ainda não tem userId no DB, aguardar mais um pouco
-                    if (!userId) {
-                        await new Promise(r => setTimeout(r, 3000))
-                        const { data: retryAccess } = await supabase
-                            .from('user_product_access')
-                            .select('user_id')
-                            .eq('stripe_customer_id', kvData.stripe_customer_id)
-                            .order('created_at', { ascending: false })
-                            .limit(1)
-                            .maybeSingle()
-                        userId = retryAccess?.user_id || null
+                    // Buscar user_id no DB — o ctx.waitUntil pode ainda estar gravando, tentar algumas vezes
+                    for (let i = 0; i < 4; i++) {
+                        if (i > 0) await new Promise(r => setTimeout(r, i * 1500))
+                        const [r1, r2] = await Promise.all([
+                            supabase.from('user_product_access').select('user_id')
+                                .eq('stripe_customer_id', kvData.stripe_customer_id)
+                                .order('created_at', { ascending: false }).limit(1).maybeSingle(),
+                            supabase.from('user_member_area_access').select('user_id')
+                                .eq('stripe_customer_id', kvData.stripe_customer_id)
+                                .order('created_at', { ascending: false }).limit(1).maybeSingle(),
+                        ])
+                        const found = r1.data?.user_id || r2.data?.user_id || null
+                        if (found) { userId = found; break }
                     }
                 }
             } catch (kvErr) {
-                console.warn('KV read failed:', kvErr)
+                console.warn('KV read failed, fallback to DB:', kvErr)
+            }
+        }
+
+        // ─── PASSO 2: Fallback DB (compras antigas sem KV, ou Mollie) ───
+        // Busca nas duas tabelas: user_product_access (apps) e user_member_area_access (marketplace)
+        if (!foundViaKV) {
+            let productAccess: any = null
+            for (let attempt = 0; attempt < 6; attempt++) {
+                if (attempt > 0) await new Promise(r => setTimeout(r, attempt * 2000))
+
+                let q1 = supabase
+                    .from('user_product_access')
+                    .select('stripe_customer_id, stripe_payment_method_id, mollie_customer_id, mollie_mandate_id, user_id, thankyou_token')
+
+                let q2 = supabase
+                    .from('user_member_area_access')
+                    .select('stripe_customer_id, stripe_payment_method_id, mollie_customer_id, mollie_mandate_id, user_id, thankyou_token')
+
+                if (token) {
+                    q1 = q1.eq('thankyou_token', token)
+                    q2 = q2.eq('thankyou_token', token)
+                } else {
+                    q1 = q1.eq('id', purchase_id)
+                    q2 = q2.eq('id', purchase_id)
+                }
+
+                const [r1, r2] = await Promise.all([q1.maybeSingle(), q2.maybeSingle()])
+                const found = [r1.data, r2.data].find(d => d?.stripe_customer_id || d?.mollie_customer_id)
+                if (found) { productAccess = found; break }
+            }
+
+            if (productAccess?.stripe_customer_id) {
+                stripeCustomerId = productAccess.stripe_customer_id
+                stripePaymentMethodId = productAccess.stripe_payment_method_id
+                userId = productAccess.user_id
+            } else if (productAccess?.mollie_customer_id) {
+                mollieCustomerId = productAccess.mollie_customer_id
+                mollieMandateId = productAccess.mollie_mandate_id
+                userId = productAccess.user_id
             }
         }
 
