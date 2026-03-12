@@ -419,13 +419,13 @@ export async function handleDashboardStats(
             methodGroups[key].count += 1
         })
 
-        // Calcular taxa de conversão por método: (Aprovados ÷ Tentativas) × 100
+        // Calcular taxa de conversão por método: (Aprovados ÷ Tentativas) × 100, máx 100%
         const paymentMethods = Object.keys(methodGroups).length > 0
             ? Object.entries(methodGroups).map(([icon, data]) => ({
                 name: METHOD_DISPLAY_NAMES[icon] || icon,
                 icon,
                 conversion: attemptsByMethod[icon] > 0
-                    ? Math.round((data.count / attemptsByMethod[icon]) * 10000) / 100
+                    ? Math.min(Math.round((data.count / attemptsByMethod[icon]) * 10000) / 100, 100)
                     : 0,
                 value: data.value,
             }))
