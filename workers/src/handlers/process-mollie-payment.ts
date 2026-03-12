@@ -270,8 +270,8 @@ async function verifyMolliePayment(
     // Já foi processado
     if (record.status === 'paid' && record.access_granted) {
         const redirectUrl = record.product_type === 'app'
-            ? `/access/${record.application_id}`
-            : `/members-login/${record.product_id}`
+            ? `${frontendUrl}/access/${record.application_id}`
+            : `${frontendUrl}/members-login/${record.product_id}`
         return json({ success: true, alreadyProcessed: true, redirectUrl })
     }
 
@@ -304,9 +304,76 @@ async function verifyMolliePayment(
         grantMollieAccess(supabase, env, record, purchaseId, thankyouToken, frontendUrl)
     )
 
-    const redirectUrl = record.product_type === 'app'
-        ? `/access/${record.application_id}`
-        : `/members-login/${record.product_id}`
+    // Resolver redirect via funnel_pages (igual ao Stripe), com fallback hardcoded
+    let redirectUrl: string
+    if (record.checkout_id) {
+        const { data: funnelPage } = await supabase
+            .from('funnel_pages')
+            .select('settings')
+            .eq('checkout_id', record.checkout_id)
+            .eq('page_type', 'checkout')
+            .maybeSingle()
+
+        const pageSettings = funnelPage?.settings as any
+        if (pageSettings?.post_purchase_page_id) {
+            const { data: targetPage } = await supabase
+                .from('funnel_pages')
+                .select('external_url, page_type')
+                .eq('id', pageSettings.post_purchase_page_id)
+                .maybeSingle()
+
+            if (targetPage?.external_url) {
+                const sep = targetPage.external_url.includes('?') ? '&' : '?'
+                redirectUrl = `${targetPage.external_url}${sep}purchase_id=${purchaseId}&token=${thankyouToken}`
+            } else if (targetPage?.page_type === 'thankyou') {
+                redirectUrl = `${frontendUrl}/thankyou/${pageSettings.post_purchase_page_id}?purchase_id=${purchaseId}&token=${thankyouToken}`
+            } else {
+                redirectUrl = record.product_type === 'app'
+                    ? `${frontendUrl}/access/${record.application_id}`
+                    : `${frontendUrl}/members-login/${record.product_id}`
+            }
+        } else if (pageSettings?.post_purchase_redirect_url) {
+            const url = pageSettings.post_purchase_redirect_url as string
+            const sep = url.includes('?') ? '&' : '?'
+            redirectUrl = `${url}${sep}purchase_id=${purchaseId}&token=${thankyouToken}`
+        } else {
+            // Fallback: primeiro upsell ativo
+            const { data: upsellOffer } = await supabase
+                .from('checkout_offers')
+                .select('page_id')
+                .eq('checkout_id', record.checkout_id)
+                .eq('is_active', true)
+                .in('offer_type', ['upsell', 'downsell'])
+                .order('offer_position', { ascending: true })
+                .limit(1)
+                .maybeSingle()
+
+            if (upsellOffer?.page_id) {
+                const { data: upsellPage } = await supabase
+                    .from('funnel_pages')
+                    .select('external_url')
+                    .eq('id', upsellOffer.page_id)
+                    .maybeSingle()
+
+                if (upsellPage?.external_url) {
+                    const sep = upsellPage.external_url.includes('?') ? '&' : '?'
+                    redirectUrl = `${upsellPage.external_url}${sep}purchase_id=${purchaseId}&token=${thankyouToken}`
+                } else {
+                    redirectUrl = record.product_type === 'app'
+                        ? `${frontendUrl}/access/${record.application_id}`
+                        : `${frontendUrl}/members-login/${record.product_id}`
+                }
+            } else {
+                redirectUrl = record.product_type === 'app'
+                    ? `${frontendUrl}/access/${record.application_id}`
+                    : `${frontendUrl}/members-login/${record.product_id}`
+            }
+        }
+    } else {
+        redirectUrl = record.product_type === 'app'
+            ? `${frontendUrl}/access/${record.application_id}`
+            : `${frontendUrl}/members-login/${record.product_id}`
+    }
 
     return json({ success: true, purchaseId, thankyouToken, redirectUrl })
 }
