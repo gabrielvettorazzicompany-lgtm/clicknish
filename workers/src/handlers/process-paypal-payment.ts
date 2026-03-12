@@ -11,6 +11,7 @@
 import { createClient } from '../lib/supabase'
 import { createPayPalClient } from '../lib/paypal'
 import { createCustomerUser } from './customer-auth'
+import { appLangToEmailLang, buildAccessEmailHtml } from '../utils/email-i18n'
 import type { Env } from '../index'
 
 const corsHeaders = {
@@ -431,14 +432,16 @@ async function sendPayPalAccessEmail(
         if (!env.RESEND_API_KEY) return
 
         let productName = '', loginUrl = ''
+        let appLanguage: string | null = null
         const frontendUrl = env.FRONTEND_URL || 'https://app.clicknich.com'
 
         if (productType === 'app' && applicationId) {
             const { data: appData } = await supabase
-                .from('applications').select('name, slug').eq('id', applicationId).single()
+                .from('applications').select('name, slug, language').eq('id', applicationId).single()
             if (appData) {
                 productName = appData.name
                 loginUrl = `${frontendUrl}/access/${appData.slug || productSlug}`
+                appLanguage = appData.language || null
             }
         } else {
             const { data: productData } = await supabase
@@ -451,7 +454,16 @@ async function sendPayPalAccessEmail(
 
         if (!productName) return
 
-        const html = `<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto"><div style="background:linear-gradient(135deg,#0070ba 0%,#003087 100%);padding:40px;text-align:center;border-radius:8px 8px 0 0"><h1 style="color:white;margin:0;font-size:28px">Payment Confirmed!</h1></div><div style="background:#f9fafb;padding:40px;border-radius:0 0 8px 8px"><p style="color:#333;font-size:16px">Hi <strong>${customerName || customerEmail}</strong>,</p><p style="color:#666;font-size:14px;line-height:1.6">Your PayPal payment was confirmed. You now have access to:</p><div style="background:white;padding:20px;border-radius:8px;margin:20px 0;border-left:4px solid #0070ba"><p style="color:#333;font-size:14px;margin:0"><strong>${productName}</strong></p></div>${loginUrl ? `<div style="margin:30px 0;text-align:center"><a href="${loginUrl}" style="background:#0070ba;color:white;padding:14px 32px;text-decoration:none;border-radius:6px;display:inline-block;font-weight:bold;font-size:16px">Access Now</a></div>` : ''}<div style="background:#f3f4f6;padding:15px;border-radius:6px;margin-top:20px"><p style="color:#666;font-size:13px;margin:0"><strong>Instructions:</strong><br>1. Click the button above<br>2. Login with email: <strong>${customerEmail}</strong></p></div></div></div>`
+        const lang = appLangToEmailLang(appLanguage)
+        const { subject, html } = buildAccessEmailHtml({
+            lang,
+            customerName,
+            customerEmail,
+            productName,
+            productsHtml: '',
+            loginUrl,
+            accentColor: '#0070ba',
+        })
 
         await fetch('https://api.resend.com/emails', {
             method: 'POST',
@@ -462,7 +474,7 @@ async function sendPayPalAccessEmail(
             body: JSON.stringify({
                 from: env.RESEND_FROM || 'noreply@clicknich.com',
                 to: customerEmail,
-                subject: `Your access to ${productName} is ready`,
+                subject,
                 html,
             }),
         })

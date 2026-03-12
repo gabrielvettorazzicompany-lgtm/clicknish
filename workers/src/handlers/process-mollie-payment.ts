@@ -9,6 +9,7 @@
 import { createClient } from '../lib/supabase'
 import { createMollieClient, toMollieAmount, currencyToLocale, MOLLIE_RECURRING_METHODS } from '../lib/mollie'
 import { createCustomerUser } from './customer-auth'
+import { appLangToEmailLang, buildAccessEmailHtml } from '../utils/email-i18n'
 import type { Env } from '../index'
 
 const corsHeaders = {
@@ -457,7 +458,7 @@ async function grantMollieAccess(
             const selectedBumpIds: string[] = Array.isArray(selectedOrderBumps) ? selectedOrderBumps : []
 
             const [appRes, appUserRes, appProdsRes, orderBumpsRes, funnelPageRes] = await Promise.all([
-                supabase.from('applications').select('name, slug, owner_id').eq('id', applicationId || productId).single(),
+                supabase.from('applications').select('name, slug, language, owner_id').eq('id', applicationId || productId).single(),
                 supabase.from('app_users').select('user_id').eq('email', customerEmail).eq('application_id', applicationId).maybeSingle(),
                 supabase.from('products').select('id').eq('application_id', applicationId),
                 // Todos os order bumps do checkout (para saber quais excluir do acesso principal)
@@ -526,7 +527,7 @@ async function grantMollieAccess(
                 // Enviar email com password reset link (para cliente criar sua própria senha)
                 if (env.RESEND_API_KEY) {
                     const loginUrl = `${frontendUrl}/access/${app.slug || applicationId}`
-                    await sendMollieAccessEmail(env, customerEmail, customerName, app.name, loginUrl)
+                    await sendMollieAccessEmail(env, customerEmail, customerName, app.name, loginUrl, app.language)
                 }
             }
 
@@ -674,7 +675,7 @@ async function grantMollieAccess(
                 // Email de boas-vindas para marketplace
                 if (env.RESEND_API_KEY && !(memberRes as any).data?.id) {
                     const loginUrl = `${frontendUrl}/members-login/${product.slug || productId}`
-                    await sendMollieAccessEmail(env, customerEmail, customerName, product.name, loginUrl)
+                    await sendMollieAccessEmail(env, customerEmail, customerName, product.name, loginUrl, null)
                 }
             }
 
@@ -722,23 +723,19 @@ async function sendMollieAccessEmail(
     customerName: string,
     productName: string,
     loginUrl: string,
+    appLanguage: string | null | undefined,
 ) {
     try {
-        const html = `<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto">
-<div style="background:linear-gradient(135deg,#ff6b35 0%,#e55a2b 100%);padding:40px;text-align:center;border-radius:8px 8px 0 0">
-  <h1 style="color:white;margin:0;font-size:28px">Pagamento Confirmado!</h1>
-  <p style="color:rgba(255,255,255,0.9);margin:8px 0 0">Obrigado pela sua compra</p>
-</div>
-<div style="background:#f9fafb;padding:40px;border-radius:0 0 8px 8px">
-  <p style="color:#333;font-size:16px">Olá, <strong>${customerName || customerEmail.split('@')[0]}</strong>!</p>
-  <p style="color:#666;font-size:14px">Seu pagamento foi confirmado. Seu acesso a <strong>${productName}</strong> está pronto.</p>
-  <div style="text-align:center;margin:30px 0">
-    <a href="${loginUrl}" style="background:#ff6b35;color:white;padding:14px 32px;text-decoration:none;border-radius:6px;display:inline-block;font-weight:bold;font-size:16px">
-      Acessar Agora
-    </a>
-  </div>
-  <p style="color:#999;font-size:12px;text-align:center">Use o e-mail <strong>${customerEmail}</strong> para fazer login.</p>
-</div></div>`
+        const lang = appLangToEmailLang(appLanguage)
+        const { subject, html } = buildAccessEmailHtml({
+            lang,
+            customerName: customerName || customerEmail,
+            customerEmail,
+            productName,
+            productsHtml: '',
+            loginUrl,
+            accentColor: '#ff6b35',
+        })
 
         await fetch('https://api.resend.com/emails', {
             method: 'POST',
@@ -746,7 +743,7 @@ async function sendMollieAccessEmail(
             body: JSON.stringify({
                 from: env.RESEND_FROM || 'noreply@clicknich.com',
                 to: customerEmail,
-                subject: `Seu acesso a ${productName} está pronto!`,
+                subject,
                 html,
             }),
         })

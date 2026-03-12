@@ -6,6 +6,7 @@
 import { createClient } from '../lib/supabase'
 import { createStripeClient } from '../lib/stripe'
 import { createCustomerUser } from './customer-auth'
+import { appLangToEmailLang, buildAccessEmailHtml } from '../utils/email-i18n'
 import type { Env } from '../index'
 
 /**
@@ -1132,13 +1133,15 @@ async function sendCompleteAccessEmail(
             grantedProductIds: grantedProductIds.length
         })
 
+        let appLanguage: string | null = null
+
         if (productType === 'app' && applicationId && applicationId.trim() !== '') {
             console.log('🔵 BRANCH: App product detected')
             // Buscar dados da aplicação e nomes dos módulos em paralelo
             const [appResult, productsResult] = await Promise.all([
                 supabase
                     .from('applications')
-                    .select('name, slug')
+                    .select('name, slug, language')
                     .eq('id', applicationId)
                     .single(),
                 grantedProductIds.length > 0
@@ -1154,6 +1157,7 @@ async function sendCompleteAccessEmail(
 
             if (appData) {
                 appName = appData.name
+                appLanguage = appData.language || null
                 loginUrl = `${env.FRONTEND_URL || 'https://app.clicknich.com'}/access/${appData.slug || productSlug}`
                 console.log('✅ App data processed:', { appName, loginUrl })
             } else {
@@ -1202,7 +1206,15 @@ async function sendCompleteAccessEmail(
             buttonText: productType === 'app' ? 'Access App Login' : 'Access Members Area'
         })
 
-        const html = `<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto"><div style="background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);padding:40px;text-align:center;border-radius:8px 8px 0 0"><h1 style="color:white;margin:0;font-size:28px">Access Granted</h1></div><div style="background:#f9fafb;padding:40px;border-radius:0 0 8px 8px"><p style="color:#333;font-size:16px">Hi <strong>${customerName || customerEmail}</strong>,</p><p style="color:#666;font-size:14px;line-height:1.6">Great news! You now have access to:</p><div style="background:white;padding:20px;border-radius:8px;margin:20px 0;border-left:4px solid #667eea"><p style="color:#333;font-size:14px;margin-bottom:10px"><strong>${productName}</strong></p>${productsHtml}</div>${loginUrl ? `<div style="margin:30px 0;text-align:center"><a href="${loginUrl}" style="background:#667eea;color:white;padding:14px 32px;text-decoration:none;border-radius:6px;display:inline-block;font-weight:bold;font-size:16px">Access Now</a></div>` : ''}<div style="background:#f3f4f6;padding:15px;border-radius:6px;margin-top:20px"><p style="color:#666;font-size:13px;margin:0"><strong>Access instructions:</strong><br>1. Click the button above<br>2. Email: <strong>${customerEmail}</strong><br>3. If first access, create your password</p></div></div></div>`
+        const lang = appLangToEmailLang(appLanguage)
+        const { subject, html } = buildAccessEmailHtml({
+            lang,
+            customerName: customerName || customerEmail,
+            customerEmail,
+            productName,
+            productsHtml,
+            loginUrl,
+        })
 
         const resendApiKey = env.RESEND_API_KEY
         if (!resendApiKey) {
@@ -1221,7 +1233,7 @@ async function sendCompleteAccessEmail(
             body: JSON.stringify({
                 from: fromAddress,
                 to: customerEmail,
-                subject: `Your access to ${productName} is ready`,
+                subject: subject,
                 html: html,
             }),
         })
