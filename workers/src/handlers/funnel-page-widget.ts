@@ -169,24 +169,30 @@ export async function handleFunnelPageWidget(
     if (pageData?.settings) {
       const s = pageData.settings as any
 
-      if (s.accept_page_id) {
-        const { data: acceptPage } = await supabase
+      const resolveFunnelPageUrl = async (targetPageId: string): Promise<string | null> => {
+        const { data: targetPage } = await supabase
           .from('funnel_pages')
-          .select('external_url')
-          .eq('id', s.accept_page_id)
+          .select('external_url, page_type')
+          .eq('id', targetPageId)
           .maybeSingle()
-        acceptRedirectUrl = acceptPage?.external_url || null
+        if (!targetPage) return null
+        if (targetPage.external_url) return targetPage.external_url
+        // Páginas thankyou internas não têm external_url — gera URL interna
+        if (targetPage.page_type === 'thankyou') {
+          const frontendUrl = env.FRONTEND_URL || 'https://app.clicknich.com'
+          return `${frontendUrl}/thankyou/${targetPageId}`
+        }
+        return null
+      }
+
+      if (s.accept_page_id) {
+        acceptRedirectUrl = await resolveFunnelPageUrl(s.accept_page_id)
       } else if (s.accept_redirect_url) {
         acceptRedirectUrl = s.accept_redirect_url
       }
 
       if (s.reject_page_id) {
-        const { data: rejectPage } = await supabase
-          .from('funnel_pages')
-          .select('external_url')
-          .eq('id', s.reject_page_id)
-          .maybeSingle()
-        rejectRedirectUrl = rejectPage?.external_url || null
+        rejectRedirectUrl = await resolveFunnelPageUrl(s.reject_page_id)
       } else if (s.reject_redirect_url) {
         rejectRedirectUrl = s.reject_redirect_url
       }

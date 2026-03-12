@@ -60,12 +60,11 @@ export default function RedirectConfig({ funnelId, pageId, pageType, onUpdate, o
                 .single()
 
             if (allPages) {
-                // Filter out current page, pages before it, inactive, custom and thank you pages
+                // Filter out current page, pages before it, inactive and custom pages
                 const currentPosition = currentPage?.position ?? 0
                 const availablePages = allPages.filter(p =>
                     p.id !== pageId &&
                     p.position > currentPosition &&
-                    p.page_type !== 'thankyou' &&
                     p.page_type !== 'custom' &&
                     p.page_type !== 'inactive'
                 )
