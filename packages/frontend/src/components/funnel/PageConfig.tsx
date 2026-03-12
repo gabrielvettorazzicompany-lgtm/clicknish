@@ -79,6 +79,7 @@ export default function PageConfig({ page, funnelId, onUpdate }: PageConfigProps
 
     // Refs para estado unificado de settings do checkout
     const latestModules = useRef<string[]>([])
+    const modulesInitialized = useRef(false)
     const latestRedirectSettings = useRef<Record<string, any>>({})
     const latestExternalUrl = useRef<string>(page.external_url || '')
     const latestOfferRedirectSettings = useRef<Record<string, any>>({})
@@ -100,19 +101,36 @@ export default function PageConfig({ page, funnelId, onUpdate }: PageConfigProps
             setSaving(true)
             const { data: existing } = await supabase
                 .from('funnel_pages')
-                .select('settings')
+                .select('settings, checkout_id')
                 .eq('id', page.id)
                 .single()
+            const existingSettings = (existing?.settings as any) || {}
             const merged = {
-                ...(existing?.settings as any || {}),
+                ...existingSettings,
                 ...latestRedirectSettings.current,
-                selected_modules: latestModules.current
+                // só sobrescreve selected_modules se foi inicializado pelo ProductCheckoutCard
+                ...(modulesInitialized.current
+                    ? { selected_modules: latestModules.current }
+                    : existingSettings.selected_modules !== undefined
+                        ? { selected_modules: existingSettings.selected_modules }
+                        : {}),
             }
             const { error } = await supabase
                 .from('funnel_pages')
                 .update({ settings: merged, updated_at: new Date().toISOString() })
                 .eq('id', page.id)
             if (error) throw error
+
+            // Purgar cache KV para que o worker use os novos settings imediatamente
+            const checkoutId = existing?.checkout_id
+            if (checkoutId) {
+                fetch('https://api.clicknich.com/api/cache/purge', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ checkoutId }),
+                }).catch(() => { })
+            }
+
             onUpdate()
             setSaved(true)
             setTimeout(() => setSaved(false), 2000)
@@ -285,7 +303,7 @@ export default function PageConfig({ page, funnelId, onUpdate }: PageConfigProps
                             onCheckoutChange={updateCheckout}
                             onUpdate={onUpdate}
                             pageId={page.id}
-                            onModulesChange={(ids) => { latestModules.current = ids }}
+                            onModulesChange={(ids) => { latestModules.current = ids; modulesInitialized.current = true }}
                         />
                     </div>
 
