@@ -31,6 +31,7 @@ export default function PageConfig({ page, funnelId, onUpdate }: PageConfigProps
     const { t } = useI18n()
     const { user } = useAuthStore()
     const [scriptKey, setScriptKey] = useState(0)
+    const [scriptVisible, setScriptVisible] = useState(false)
     const [offerProductId, setOfferProductId] = useState<string | undefined>(undefined)
     const [offerOneClick, setOfferOneClick] = useState(false)
     const [offerOfferId, setOfferOfferId] = useState<string | undefined>(undefined)
@@ -87,6 +88,7 @@ export default function PageConfig({ page, funnelId, onUpdate }: PageConfigProps
     useEffect(() => {
         latestExternalUrl.current = page.external_url || ''
         latestOfferRedirectSettings.current = {}
+        setScriptVisible(false)
     }, [page.id])
     const [saving, setSaving] = useState(false)
     const [saved, setSaved] = useState(false)
@@ -144,6 +146,11 @@ export default function PageConfig({ page, funnelId, onUpdate }: PageConfigProps
                 .eq('id', page.id)
             if (error) throw error
             onUpdate()
+            // Reset stale URLs — ScriptGenerator vai rebuscar do DB (que já tem os valores salvos)
+            setConfiguredAcceptUrl(undefined)
+            setConfiguredRejectUrl(undefined)
+            setScriptVisible(true)
+            setScriptKey(k => k + 1)
             setSavedOffer(true)
             setTimeout(() => setSavedOffer(false), 2000)
         } catch (e) {
@@ -199,6 +206,8 @@ export default function PageConfig({ page, funnelId, onUpdate }: PageConfigProps
                                 setOfferOneClick(oneClick)
                                 setOfferOfferId(offerId)
                                 setOfferCheckoutId(checkoutId)
+                                // Se já tem oferta salva no DB, mostra script imediatamente
+                                if (offerId) setScriptVisible(true)
                             }}
                         />
                     </div>
@@ -220,20 +229,26 @@ export default function PageConfig({ page, funnelId, onUpdate }: PageConfigProps
 
                     {/* Script Generator */}
                     <div className="p-4">
-                        <ScriptGenerator
-                            key={scriptKey}
-                            funnelId={funnelId}
-                            pageId={page.id}
-                            pageType={page.page_type as 'upsell' | 'downsell' | 'thankyou'}
-                            pageName={page.name}
-                            externalUrl={page.external_url || undefined}
-                            productId={offerProductId}
-                            oneClickPurchase={offerOneClick}
-                            offerId={offerOfferId}
-                            checkoutId={offerCheckoutId}
-                            configuredAcceptUrl={configuredAcceptUrl}
-                            configuredRejectUrl={configuredRejectUrl}
-                        />
+                        {scriptVisible ? (
+                            <ScriptGenerator
+                                key={scriptKey}
+                                funnelId={funnelId}
+                                pageId={page.id}
+                                pageType={page.page_type as 'upsell' | 'downsell' | 'thankyou'}
+                                pageName={page.name}
+                                externalUrl={page.external_url || undefined}
+                                productId={offerProductId}
+                                oneClickPurchase={offerOneClick}
+                                offerId={offerOfferId}
+                                checkoutId={offerCheckoutId}
+                                configuredAcceptUrl={configuredAcceptUrl}
+                                configuredRejectUrl={configuredRejectUrl}
+                            />
+                        ) : (
+                            <div className="py-4 text-center">
+                                <p className="text-xs text-zinc-500">{t('funnel_components.save_to_generate_script') || 'Salve as configurações para gerar o script'}</p>
+                            </div>
+                        )}
                     </div>
 
                     {/* Botão salvar unificado */}

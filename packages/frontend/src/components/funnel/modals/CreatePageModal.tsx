@@ -49,7 +49,7 @@ export default function CreatePageModal({
 
     return (
         <div className="fixed inset-0 bg-black/50 dark:bg-black/50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white dark:bg-transparent rounded-lg max-w-2xl w-full p-6 border border-gray-200 dark:border-[#27272a]">
+            <div className="bg-white dark:bg-zinc-950 rounded-lg max-w-2xl w-full p-6 border border-gray-200 dark:border-[#27272a]">
                 <div className="flex items-center justify-between mb-6">
                     <h2 className="text-lg font-semibold text-gray-900 dark:text-white">{t('funnel_components.create_step')}</h2>
                     <button
