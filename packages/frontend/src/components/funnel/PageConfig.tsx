@@ -373,7 +373,7 @@ export default function PageConfig({ page, funnelId, onUpdate }: PageConfigProps
                                     </label>
                                     <textarea
                                         value={thankyouSettings.description || ''}
-                                        placeholder="Seu pedido foi processado com sucesso..."
+                                        placeholder={t('funnel_components.thankyou_description_placeholder') || 'Seu pedido foi processado com sucesso...'}
                                         rows={3}
                                         onChange={e => setThankyouSettings(s => ({ ...s, description: e.target.value }))}
                                         className="w-full px-3 py-2 text-sm bg-white dark:bg-transparent border border-gray-300 dark:border-zinc-700 rounded text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:border-blue-500 resize-none"
@@ -419,14 +419,14 @@ export default function PageConfig({ page, funnelId, onUpdate }: PageConfigProps
                                             <input
                                                 type="text"
                                                 value={thankyouSettings.cta_text || ''}
-                                                placeholder="Acessar meu produto"
+                                                placeholder={t('funnel_components.cta_text_placeholder') || 'Acessar meu produto'}
                                                 onChange={e => setThankyouSettings(s => ({ ...s, cta_text: e.target.value }))}
                                                 className="w-full px-3 py-2 text-sm bg-white dark:bg-transparent border border-gray-300 dark:border-zinc-700 rounded text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:border-blue-500"
                                             />
                                         </div>
                                         <div>
                                             <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
-                                                URL do botão
+                                                {t('funnel_components.button_url') || 'URL do botão'}
                                             </label>
                                             <input
                                                 type="url"
