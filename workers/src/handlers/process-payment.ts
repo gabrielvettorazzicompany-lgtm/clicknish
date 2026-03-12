@@ -672,6 +672,11 @@ export async function handleProcessPayment(
                                 payment_method: 'card',
                                 payment_status: 'completed',
                                 purchase_price: totalChargeAmount,
+                                stripe_customer_id: stripeCustomer.id,
+                                stripe_payment_method_id: paymentMethodId,
+                                thankyou_token: thankyouToken,
+                                thankyou_token_expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+                                thankyou_max_views: 5,
                                 payout_schedule: producerPayoutSchedule,
                                 created_at: new Date().toISOString(),
                             }, {

@@ -165,22 +165,30 @@ export async function handleProcessUpsell(
 
         // Tenta até 6x com delay crescente — o DB write ocorre via ctx.waitUntil
         // no process-payment e pode ainda não ter finalizado quando o usuário clica no upsell
+        // Busca nas duas tabelas: user_product_access (apps) e user_member_area_access (marketplace)
         let productAccess: any = null
         for (let attempt = 0; attempt < 6; attempt++) {
             if (attempt > 0) await new Promise(r => setTimeout(r, attempt * 2000))
 
-            let q = supabase
+            let q1 = supabase
                 .from('user_product_access')
                 .select('stripe_customer_id, stripe_payment_method_id, mollie_customer_id, mollie_mandate_id, user_id, thankyou_token')
 
+            let q2 = supabase
+                .from('user_member_area_access')
+                .select('stripe_customer_id, stripe_payment_method_id, mollie_customer_id, mollie_mandate_id, user_id, thankyou_token')
+
             if (token) {
-                q = q.eq('thankyou_token', token)
+                q1 = q1.eq('thankyou_token', token)
+                q2 = q2.eq('thankyou_token', token)
             } else {
-                q = q.eq('id', purchase_id)
+                q1 = q1.eq('id', purchase_id)
+                q2 = q2.eq('id', purchase_id)
             }
 
-            const { data } = await q.maybeSingle()
-            if (data?.stripe_customer_id || data?.mollie_customer_id) { productAccess = data; break }
+            const [r1, r2] = await Promise.all([q1.maybeSingle(), q2.maybeSingle()])
+            const found = [r1.data, r2.data].find(d => d?.stripe_customer_id || d?.mollie_customer_id)
+            if (found) { productAccess = found; break }
         }
 
         if (productAccess?.stripe_customer_id) {
