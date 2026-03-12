@@ -28,6 +28,7 @@ export async function handleFunnelPageWidget(
     const pageId = url.searchParams.get('page_id')
     const pageType = url.searchParams.get('type') || 'upsell'
     const purchaseId = url.searchParams.get('purchase_id')
+    const purchaseToken = url.searchParams.get('token')
 
     if (!funnelId || !pageId) {
       return new Response('Missing required parameters: funnel_id, page_id', {
@@ -199,7 +200,7 @@ export async function handleFunnelPageWidget(
     }
 
     // Generate widget JavaScript
-    const widgetScript = generateWidgetScript(offer, product, pageType, purchaseId, funnelId, pageId, checkoutShortUrl, acceptRedirectUrl, rejectRedirectUrl, env)
+    const widgetScript = generateWidgetScript(offer, product, pageType, purchaseId, purchaseToken, funnelId, pageId, checkoutShortUrl, acceptRedirectUrl, rejectRedirectUrl, env)
 
     return new Response(widgetScript, {
       headers: {
@@ -222,6 +223,7 @@ function generateWidgetScript(
   product: any,
   pageType: string,
   purchaseId: string | null,
+  purchaseToken: string | null,
   funnelId: string,
   pageId: string,
   checkoutShortUrl: string | null,
@@ -259,6 +261,7 @@ function generateWidgetScript(
   const FUNNEL_ID = '${funnelId}';
   const PAGE_ID = '${pageId}';
   const PURCHASE_ID = '${purchaseId || ''}';
+  const PURCHASE_TOKEN = '${purchaseToken || ''}';
   const ONE_CLICK = ${offer.one_click_purchase ? 'true' : 'false'};
   const CHECKOUT_URL = '${checkoutShortUrl ? `${frontendUrl}/checkout/${checkoutShortUrl}` : ''}';
   const ACCEPT_REDIRECT_URL = '${acceptRedirectUrl || ''}';
@@ -436,7 +439,7 @@ function generateWidgetScript(
         const response = await fetch('${apiUrl}/process-upsell', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ purchase_id: PURCHASE_ID, offer_id: OFFER.id })
+          body: JSON.stringify({ purchase_id: PURCHASE_ID, token: PURCHASE_TOKEN || undefined, offer_id: OFFER.id })
         });
         
         const result = await response.json();
