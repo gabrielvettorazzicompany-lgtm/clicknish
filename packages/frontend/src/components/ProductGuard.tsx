@@ -76,7 +76,6 @@ export default function ProductGuard({ children }: ProductGuardProps) {
 
         // Token inválido, limpar localStorage
         localStorage.removeItem('customer_access_token')
-        localStorage.removeItem('customer_id')
         localStorage.removeItem('customer_email')
       }
 
@@ -144,59 +143,26 @@ export default function ProductGuard({ children }: ProductGuardProps) {
         return
       }
 
-      // Buscar acesso na tabela user_product_access usando customer_id
-      // Como agora user_id é o customer_id da nossa tabela
-      let query = `user_product_access?user_id=eq.${customerId}&is_active=eq.true&select=id,product_id,created_at,expires_at`
-
-      if (productId) {
-        query += `&product_id=eq.${productId}`
-      }
-
-      if (appId) {
-        query += `&application_id=eq.${appId}`
-      }
-
-      const response = await supabaseRestFetch(query)
+      // Usar o endpoint do worker que já resolve o fallback por email
+      // (user_product_access.user_id pode ser UUID antigo de app_users)
+      const response = await fetch(
+        `https://api.clicknich.com/api/applications/${appId}/products?customer_id=${encodeURIComponent(customerId)}`,
+        { headers: { 'Authorization': `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNnZXF0b2RiaXNnd3Zoa2FhaGl5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjkxMTk1MDIsImV4cCI6MjA4NDY5NTUwMn0.Ov6_rRlThZUBIoL4oT6BGozEhvTUdFsWB6KylDXpFoY` } }
+      )
 
       if (response.ok) {
-        const accessData = await response.json()
+        const products = await response.json()
+        const product = Array.isArray(products)
+          ? products.find((p: any) => p.id === productId)
+          : null
 
-        if (accessData && accessData.length > 0) {
-          // Verificar se não expirou
-          const accessRecord = accessData[0]
-          if (accessRecord.expires_at) {
-            const expiresAt = new Date(accessRecord.expires_at)
-            if (expiresAt < new Date()) {
-              setAccess({
-                has_access: false,
-                user_id: customerId,
-                user_email: customerEmail,
-                purchase_date: accessRecord.created_at,
-                expires_at: accessRecord.expires_at
-              })
-              setLoading(false)
-              return
-            }
-          }
-
-          setAccess({
-            has_access: true,
-            user_id: customerId,
-            user_email: customerEmail,
-            purchase_date: accessRecord.created_at,
-            expires_at: accessRecord.expires_at
-          })
-        } else {
-          // Sem registro de acesso
-          setAccess({
-            has_access: false,
-            user_id: customerId,
-            user_email: customerEmail,
-            purchase_date: new Date().toISOString()
-          })
-        }
+        setAccess({
+          has_access: product?.has_access === true,
+          user_id: customerId,
+          user_email: customerEmail,
+          purchase_date: new Date().toISOString()
+        })
       } else {
-        // Erro na query
         setAccess({
           has_access: false,
           user_id: customerId,
