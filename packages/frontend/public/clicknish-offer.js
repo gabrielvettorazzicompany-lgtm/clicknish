@@ -24,10 +24,15 @@ function initClicknishOffer(config) {
     var purchaseId = params.get('purchase_id') || '';
     var purchaseToken = params.get('token') || '';
 
-    // Build reject URL with purchase_id
+    // Build reject URL with purchase_id and token
     var rejectUrl = config.refusalLinkUrl || '#';
-    if (purchaseId && rejectUrl !== '#') {
-        rejectUrl += (rejectUrl.indexOf('?') > -1 ? '&' : '?') + 'purchase_id=' + purchaseId;
+    if (rejectUrl !== '#') {
+        if (purchaseId) {
+            rejectUrl += (rejectUrl.indexOf('?') > -1 ? '&' : '?') + 'purchase_id=' + purchaseId;
+        }
+        if (purchaseToken) {
+            rejectUrl += (rejectUrl.indexOf('?') > -1 ? '&' : '?') + 'token=' + purchaseToken;
+        }
     }
 
     var styles = config.styles || {};
@@ -42,10 +47,15 @@ function initClicknishOffer(config) {
     var acceptUrl = '#';
 
     if (!isOneClick) {
-        // Standard mode: build accept URL with purchase_id
+        // Standard mode: build accept URL with purchase_id and token
         acceptUrl = config.linkUrl || '#';
-        if (purchaseId && acceptUrl !== '#') {
-            acceptUrl += (acceptUrl.indexOf('?') > -1 ? '&' : '?') + 'purchase_id=' + purchaseId;
+        if (acceptUrl !== '#') {
+            if (purchaseId) {
+                acceptUrl += (acceptUrl.indexOf('?') > -1 ? '&' : '?') + 'purchase_id=' + purchaseId;
+            }
+            if (purchaseToken) {
+                acceptUrl += (acceptUrl.indexOf('?') > -1 ? '&' : '?') + 'token=' + purchaseToken;
+            }
         }
     }
 
@@ -166,8 +176,13 @@ function initClicknishOffer(config) {
                                 // Card declined — fallback to checkout redirect
                                 alert('Your card was declined. You will be redirected to enter new payment details.');
                                 var fallbackUrl = config.linkUrl || '#';
-                                if (purchaseId && fallbackUrl !== '#') {
-                                    fallbackUrl += (fallbackUrl.indexOf('?') > -1 ? '&' : '?') + 'purchase_id=' + purchaseId;
+                                if (fallbackUrl !== '#') {
+                                    if (purchaseId) {
+                                        fallbackUrl += (fallbackUrl.indexOf('?') > -1 ? '&' : '?') + 'purchase_id=' + purchaseId;
+                                    }
+                                    if (purchaseToken) {
+                                        fallbackUrl += (fallbackUrl.indexOf('?') > -1 ? '&' : '?') + 'token=' + purchaseToken;
+                                    }
                                 }
                                 window.location.href = fallbackUrl;
                             } else {
