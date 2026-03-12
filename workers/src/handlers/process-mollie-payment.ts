@@ -336,42 +336,13 @@ async function verifyMolliePayment(
             const url = pageSettings.post_purchase_redirect_url as string
             const sep = url.includes('?') ? '&' : '?'
             redirectUrl = `${url}${sep}purchase_id=${purchaseId}&token=${thankyouToken}`
-        } else {
-            // Fallback: primeiro upsell ativo
-            const { data: upsellOffer } = await supabase
-                .from('checkout_offers')
-                .select('page_id')
-                .eq('checkout_id', record.checkout_id)
-                .eq('is_active', true)
-                .in('offer_type', ['upsell', 'downsell'])
-                .order('offer_position', { ascending: true })
-                .limit(1)
-                .maybeSingle()
-
-            if (upsellOffer?.page_id) {
-                const { data: upsellPage } = await supabase
-                    .from('funnel_pages')
-                    .select('external_url')
-                    .eq('id', upsellOffer.page_id)
-                    .maybeSingle()
-
-                if (upsellPage?.external_url) {
-                    const sep = upsellPage.external_url.includes('?') ? '&' : '?'
-                    redirectUrl = `${upsellPage.external_url}${sep}purchase_id=${purchaseId}&token=${thankyouToken}`
-                } else {
-                    redirectUrl = record.product_type === 'app'
-                        ? `${frontendUrl}/access/${record.application_id}`
-                        : `${frontendUrl}/members-login/${record.product_id}`
-                }
-            } else {
-                redirectUrl = record.product_type === 'app'
-                    ? `${frontendUrl}/access/${record.application_id}`
-                    : `${frontendUrl}/members-login/${record.product_id}`
-            }
         }
-    } else {
+    }
+
+    // Fallback para login do produto se nada configurado
+    if (!redirectUrl) {
         redirectUrl = record.product_type === 'app'
-            ? `${frontendUrl}/access/${record.application_id}`
+            ? `${frontendUrl}/access/${record.application_id || record.product_id}`
             : `${frontendUrl}/members-login/${record.product_id}`
     }
 

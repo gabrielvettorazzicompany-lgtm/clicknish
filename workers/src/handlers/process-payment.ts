@@ -811,37 +811,10 @@ export async function handleProcessPayment(
                 }
             }
 
-            // 3. Fallback: buscar primeiro upsell/downsell ativo (comportamento anterior)
-            if (!redirectUrl) {
-                const { data: upsellOffer } = await supabase
-                    .from('checkout_offers')
-                    .select('id, page_id, offer_type')
-                    .eq('checkout_id', checkoutId)
-                    .eq('is_active', true)
-                    .in('offer_type', ['upsell', 'downsell'])
-                    .order('offer_position', { ascending: true })
-                    .limit(1)
-                    .maybeSingle() as any
-
-                if ((upsellOffer as any)?.page_id) {
-                    const { data: funnelPage } = await supabase
-                        .from('funnel_pages')
-                        .select('external_url')
-                        .eq('id', (upsellOffer as any).page_id)
-                        .maybeSingle() as any
-
-                    if ((funnelPage as any)?.external_url) {
-                        const upsellUrl = (funnelPage as any).external_url
-                        const separator = upsellUrl.includes('?') ? '&' : '?'
-                        redirectUrl = `${upsellUrl}${separator}purchase_id=${purchaseId}&token=${thankyouToken}`
-                    }
-                }
-            }
         }
 
-        // Se não tem redirect configurado, redirecionar para login do produto
+        // Fallback para login do produto se nada configurado
         if (!redirectUrl) {
-            // Apps usam /access/{slug}, Marketplace usa /members-login/{slug}
             if (productType === 'app') {
                 redirectUrl = `/access/${productSlug}`
             } else {
