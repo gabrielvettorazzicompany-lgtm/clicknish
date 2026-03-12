@@ -64,6 +64,52 @@ export interface MollieMethodInfo {
     _links: { self: { href: string } }
 }
 
+export interface MollieCustomer {
+    resource: 'customer'
+    id: string
+    name: string | null
+    email: string | null
+    locale: string | null
+    metadata: Record<string, any>
+    createdAt: string
+    _links: Record<string, any>
+}
+
+export interface MollieMandate {
+    resource: 'mandate'
+    id: string
+    status: 'valid' | 'invalid' | 'pending'
+    method: string
+    details: Record<string, any>
+    mandateReference: string | null
+    signatureDate: string | null
+    createdAt: string
+    _links: Record<string, any>
+}
+
+/** Métodos Mollie que suportam sequenceType: 'first' para mandatos recorrentes */
+export const MOLLIE_RECURRING_METHODS = new Set([
+    'creditcard',
+    'ideal',
+    'bancontact',
+    'directdebit',
+])
+
+export interface MollieFirstPaymentRequest extends MolliePaymentRequest {
+    sequenceType: 'first'
+    customerId: string
+}
+
+export interface MollieRecurringPaymentRequest {
+    amount: MollieAmount
+    description: string
+    customerId: string
+    mandateId?: string
+    sequenceType: 'recurring'
+    webhookUrl?: string
+    metadata?: Record<string, string>
+}
+
 export class MollieClient {
     private apiKey: string
     private baseHeaders: Record<string, string>
@@ -132,6 +178,71 @@ export class MollieClient {
 
         const data = await res.json() as any
         return (data?._embedded?.methods || []) as MollieMethodInfo[]
+    }
+
+    /**
+     * Cria um cliente Mollie (necessário para pagamentos recorrentes)
+     */
+    async createCustomer(email: string, name?: string): Promise<MollieCustomer> {
+        const res = await fetch(`${MOLLIE_BASE}/customers`, {
+            method: 'POST',
+            headers: this.baseHeaders,
+            body: JSON.stringify({ email, name: name || undefined }),
+        })
+        if (!res.ok) {
+            const err = await res.json().catch(() => ({})) as any
+            throw new Error(`Mollie createCustomer failed: ${err?.detail || err?.message || res.statusText}`)
+        }
+        return res.json() as Promise<MollieCustomer>
+    }
+
+    /**
+     * Busca clientes Mollie pelo e-mail
+     */
+    async listCustomersByEmail(email: string): Promise<MollieCustomer[]> {
+        const url = `${MOLLIE_BASE}/customers?email=${encodeURIComponent(email)}`
+        const res = await fetch(url, { headers: this.baseHeaders })
+        if (!res.ok) return []
+        const data = await res.json() as any
+        return (data?._embedded?.customers || []) as MollieCustomer[]
+    }
+
+    /**
+     * Obtém (ou cria) cliente Mollie pelo e-mail — evita duplicatas
+     */
+    async getOrCreateCustomer(email: string, name?: string): Promise<MollieCustomer> {
+        const existing = await this.listCustomersByEmail(email)
+        if (existing.length > 0) return existing[0]
+        return this.createCustomer(email, name)
+    }
+
+    /**
+     * Lista os mandatos de um cliente Mollie
+     */
+    async listMandates(customerId: string): Promise<MollieMandate[]> {
+        const res = await fetch(`${MOLLIE_BASE}/customers/${customerId}/mandates`, {
+            headers: this.baseHeaders,
+        })
+        if (!res.ok) return []
+        const data = await res.json() as any
+        return (data?._embedded?.mandates || []) as MollieMandate[]
+    }
+
+    /**
+     * Cria um pagamento recorrente (1-click) usando mandato existente
+     * Não exige redirect — processado em background pela Mollie
+     */
+    async createRecurringPayment(params: MollieRecurringPaymentRequest): Promise<MolliePayment> {
+        const res = await fetch(`${MOLLIE_BASE}/payments`, {
+            method: 'POST',
+            headers: this.baseHeaders,
+            body: JSON.stringify(params),
+        })
+        if (!res.ok) {
+            const err = await res.json().catch(() => ({})) as any
+            throw new Error(`Mollie createRecurringPayment failed: ${err?.detail || err?.message || res.statusText}`)
+        }
+        return res.json() as Promise<MolliePayment>
     }
 }
 

@@ -1,10 +1,13 @@
 /**
  * Handler: Process Upsell
- * Processa upsells/downsells com 1-click (usa cartão salvo)
+ * Processa upsells/downsells com 1-click (usa cartão/mandato salvo)
+ * Suporta Stripe (off_session) e Mollie (recurring)
  */
 
 import { createClient } from '../lib/supabase'
 import { createStripeClient } from '../lib/stripe'
+import { createMollieClient, toMollieAmount } from '../lib/mollie'
+import { resolveMollieKey } from './process-mollie-payment'
 import type { Env } from '../index'
 
 /**
@@ -77,7 +80,7 @@ export async function handleProcessUpsell(
 
         // Inicializar clientes
         const supabase = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY)
-        // stripe é atribuído após resolução do provedor do vendedor
+        // stripe é resolvido mais tarde, apenas se necessário
         let stripe: ReturnType<typeof createStripeClient>
 
         // 1. Fetch the offer details
@@ -146,12 +149,13 @@ export async function handleProcessUpsell(
             (parentApplicationId
                 ? (await supabase.from('applications').select('owner_id').eq('id', parentApplicationId).maybeSingle()).data?.owner_id
                 : null)
-        stripe = createStripeClient(await resolveStripeKey(supabase, productOwnerId || null))
 
-        // 3. Find the original purchase to get stripe customer/payment method
+        // 3. Find the original purchase to get payment method (Stripe or Mollie)
         // Busca por thankyou_token (confiável — salvo no upsert) ou fallback por id
         let stripeCustomerId: string | null = null
         let stripePaymentMethodId: string | null = null
+        let mollieCustomerId: string | null = null
+        let mollieMandateId: string | null = null
         let userId: string | null = null
 
         // Tenta até 4x com delay crescente — o DB write ocorre via ctx.waitUntil
@@ -162,7 +166,7 @@ export async function handleProcessUpsell(
 
             let q = supabase
                 .from('user_product_access')
-                .select('stripe_customer_id, stripe_payment_method_id, user_id')
+                .select('stripe_customer_id, stripe_payment_method_id, mollie_customer_id, mollie_mandate_id, user_id')
 
             if (token) {
                 q = q.eq('thankyou_token', token)
@@ -171,148 +175,158 @@ export async function handleProcessUpsell(
             }
 
             const { data } = await q.maybeSingle()
-            if (data?.stripe_customer_id) { productAccess = data; break }
+            if (data?.stripe_customer_id || data?.mollie_customer_id) { productAccess = data; break }
         }
 
         if (productAccess?.stripe_customer_id) {
             stripeCustomerId = productAccess.stripe_customer_id
             stripePaymentMethodId = productAccess.stripe_payment_method_id
             userId = productAccess.user_id
+        } else if (productAccess?.mollie_customer_id) {
+            mollieCustomerId = productAccess.mollie_customer_id
+            mollieMandateId = productAccess.mollie_mandate_id
+            userId = productAccess.user_id
         }
 
-        if (!stripeCustomerId || !stripePaymentMethodId || !userId) {
+        if (!userId) {
             throw new Error('Payment method not found for this purchase. Cannot process one-click upsell.')
-        }
-
-        // Get customer email from Stripe
-        const stripeCustomer = await stripe.customers.retrieve(stripeCustomerId)
-        if (stripeCustomer.deleted) {
-            throw new Error('Stripe customer was deleted')
         }
 
         // 4. Determine the price
         const finalPrice = offer.offer_price || offer.original_price || product.price
-        const currency = offer.currency || product.currency || 'brl'
+        const currency = (offer.currency || product.currency || 'eur').toUpperCase()
 
         if (finalPrice <= 0) {
             throw new Error('Invalid price for upsell offer')
         }
 
-        // 5. Create PaymentIntent with off_session (automatic charge)
-        // Idempotency key previne cobrança dupla se a request for retentada
-        const idempotencyKey = `upsell_${purchase_id}_${offer_id}`
-        const paymentIntent = await stripe.paymentIntents.create({
-            amount: Math.round(finalPrice * 100),
-            currency: currency,
-            customer: stripeCustomerId,
-            payment_method: stripePaymentMethodId,
-            confirm: true,
-            off_session: true,
-            automatic_payment_methods: {
-                enabled: true,
-                allow_redirects: 'never',
-            },
-            metadata: {
-                product_id: product.id,
-                product_name: product.name,
-                offer_id: offer.id,
-                offer_type: offer.offer_type,
-                original_purchase_id: purchase_id,
-                is_upsell: 'true',
-            },
-            description: `${offer.offer_type === 'upsell' ? 'Upsell' : 'Downsell'}: ${product.name}`,
-        }, { idempotencyKey })
+        // ══════════════════════════════════════════════════════════════════
+        // STRIPE PATH — cobrar usando cartão salvo
+        // ══════════════════════════════════════════════════════════════════
+        if (stripeCustomerId && stripePaymentMethodId) {
+            stripe = createStripeClient(await resolveStripeKey(supabase, productOwnerId || null))
 
-        if (paymentIntent.status !== 'succeeded') {
-            throw new Error(`Payment failed with status: ${paymentIntent.status}`)
-        }
+            const stripeCustomer = await stripe.customers.retrieve(stripeCustomerId)
+            if (stripeCustomer.deleted) {
+                throw new Error('Stripe customer was deleted')
+            }
 
-        // 6. Grant access to the upsell product
-        let newAccess: any = null
-
-        if (isAppProduct && parentApplicationId) {
-            const { data } = await supabase
-                .from('user_product_access')
-                .upsert({
-                    user_id: userId,
+            const idempotencyKey = `upsell_${purchase_id || token}_${offer_id}`
+            const paymentIntent = await stripe.paymentIntents.create({
+                amount: Math.round(finalPrice * 100),
+                currency: currency.toLowerCase(),
+                customer: stripeCustomerId,
+                payment_method: stripePaymentMethodId,
+                confirm: true,
+                off_session: true,
+                automatic_payment_methods: { enabled: true, allow_redirects: 'never' },
+                metadata: {
                     product_id: product.id,
-                    application_id: parentApplicationId,
-                    access_type: 'purchase',
-                    is_active: true,
-                    stripe_customer_id: stripeCustomerId,
-                    stripe_payment_method_id: stripePaymentMethodId,
-                    created_at: new Date().toISOString(),
-                }, {
-                    onConflict: 'user_id,product_id',
-                    ignoreDuplicates: false,
-                })
-                .select('id')
-                .single()
-            newAccess = data
-        } else if (isApplication) {
-            const { data } = await supabase
-                .from('user_product_access')
-                .upsert({
-                    user_id: userId,
-                    application_id: product.id,
-                    access_type: 'purchase',
-                    is_active: true,
-                    stripe_customer_id: stripeCustomerId,
-                    stripe_payment_method_id: stripePaymentMethodId,
-                    created_at: new Date().toISOString(),
-                }, {
-                    onConflict: 'user_id,application_id',
-                    ignoreDuplicates: false,
-                })
-                .select('id')
-                .single()
-            newAccess = data
-        } else {
-            const { data } = await supabase
-                .from('user_product_access')
-                .upsert({
-                    user_id: userId,
-                    member_area_id: product.id,
-                    access_type: 'purchase',
-                    is_active: true,
-                    payment_id: paymentIntent.id,
-                    payment_method: 'card',
-                    payment_status: 'completed',
-                    purchase_price: finalPrice,
-                    stripe_customer_id: stripeCustomerId,
-                    stripe_payment_method_id: stripePaymentMethodId,
-                    created_at: new Date().toISOString(),
-                }, {
-                    onConflict: 'user_id,member_area_id',
-                    ignoreDuplicates: false,
-                })
-                .select('id')
-                .single()
-            newAccess = data
-        }
+                    product_name: product.name,
+                    offer_id: offer.id,
+                    offer_type: offer.offer_type,
+                    original_purchase_id: purchase_id || '',
+                    is_upsell: 'true',
+                },
+                description: `${offer.offer_type === 'upsell' ? 'Upsell' : 'Downsell'}: ${product.name}`,
+            }, { idempotencyKey })
 
-        // 7. Record analytics em background
-        ctx.waitUntil(
-            supabase.from('offer_analytics').insert({
-                checkout_offer_id: offer.id,
-                user_id: userId,
-                event_type: 'accepted',
+            if (paymentIntent.status !== 'succeeded') {
+                throw new Error(`Payment failed with status: ${paymentIntent.status}`)
+            }
+
+            const newAccess = await grantUpsellAccess(supabase, {
+                userId, product, isAppProduct, isApplication, parentApplicationId,
+                paymentId: paymentIntent.id, paymentMethod: 'card',
+                stripeCustomerId, stripePaymentMethodId, finalPrice,
             })
-        )
 
-        return new Response(
-            JSON.stringify({
+            ctx.waitUntil(
+                supabase.from('offer_analytics').insert({
+                    checkout_offer_id: offer.id, user_id: userId, event_type: 'accepted',
+                })
+            )
+
+            return new Response(JSON.stringify({
                 success: true,
                 paymentIntentId: paymentIntent.id,
                 status: paymentIntent.status,
                 message: 'Upsell payment processed successfully',
                 purchaseId: newAccess?.id || purchase_id,
-            }),
-            {
-                headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-                status: 200,
+            }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 })
+        }
+
+        // ══════════════════════════════════════════════════════════════════
+        // MOLLIE PATH — cobrar usando mandato recorrente
+        // ══════════════════════════════════════════════════════════════════
+        if (mollieCustomerId) {
+            if (!mollieMandateId) {
+                // Tentar buscar mandato em tempo real (pode ter sido criado após grantMollieAccess)
+                const mollieKey = await resolveMollieKey(supabase, productOwnerId || null)
+                if (mollieKey) {
+                    const mollie = createMollieClient(mollieKey)
+                    const mandates = await mollie.listMandates(mollieCustomerId)
+                    const validMandate = mandates.find(m => m.status === 'valid') || mandates[0]
+                    if (validMandate) mollieMandateId = validMandate.id
+                }
             }
-        )
+
+            if (!mollieMandateId) {
+                throw new Error('Nenhum mandato Mollie válido encontrado para esta compra. Pagamento 1-click não disponível.')
+            }
+
+            const mollieKey = await resolveMollieKey(supabase, productOwnerId || null)
+            if (!mollieKey) throw new Error('Provedor Mollie não configurado')
+
+            const mollie = createMollieClient(mollieKey)
+            const webhookUrl = `https://api.clicknich.com/api/webhooks/mollie`
+
+            const molliePayment = await mollie.createRecurringPayment({
+                amount: toMollieAmount(finalPrice, currency),
+                description: `${offer.offer_type === 'upsell' ? 'Upsell' : 'Downsell'}: ${product.name}`,
+                customerId: mollieCustomerId,
+                mandateId: mollieMandateId,
+                sequenceType: 'recurring',
+                webhookUrl,
+                metadata: {
+                    product_id: product.id,
+                    offer_id: offer.id,
+                    offer_type: offer.offer_type,
+                    original_purchase_id: purchase_id || '',
+                    is_upsell: 'true',
+                    user_id: userId,
+                },
+            })
+
+            // Pagamentos recorrentes Mollie ficam 'pending' inicialmente
+            // Concede acesso de forma otimista; webhook revoga se falhar
+            const isPending = molliePayment.status === 'pending' || molliePayment.status === 'open'
+            if (!isPending && molliePayment.status !== 'paid') {
+                throw new Error(`Mollie recurring payment failed with status: ${molliePayment.status}`)
+            }
+
+            const newAccess = await grantUpsellAccess(supabase, {
+                userId, product, isAppProduct, isApplication, parentApplicationId,
+                paymentId: molliePayment.id, paymentMethod: 'mollie',
+                mollieCustomerId, mollieMandateId, finalPrice,
+            })
+
+            ctx.waitUntil(
+                supabase.from('offer_analytics').insert({
+                    checkout_offer_id: offer.id, user_id: userId, event_type: 'accepted',
+                })
+            )
+
+            return new Response(JSON.stringify({
+                success: true,
+                molliePaymentId: molliePayment.id,
+                status: molliePayment.status,
+                message: 'Upsell payment processed successfully',
+                purchaseId: newAccess?.id || purchase_id,
+            }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 })
+        }
+
+        throw new Error('Payment method not found for this purchase. Cannot process one-click upsell.')
 
     } catch (error: any) {
         console.error('Upsell payment error:', error)
@@ -332,5 +346,66 @@ export async function handleProcessUpsell(
                 status: 400,
             }
         )
+    }
+}
+
+/**
+ * Helper: libera acesso ao produto upsell no user_product_access
+ */
+async function grantUpsellAccess(supabase: any, opts: {
+    userId: string
+    product: any
+    isAppProduct: boolean
+    isApplication: boolean
+    parentApplicationId: string | null
+    paymentId: string
+    paymentMethod: string
+    stripeCustomerId?: string | null
+    stripePaymentMethodId?: string | null
+    mollieCustomerId?: string | null
+    mollieMandateId?: string | null
+    finalPrice: number
+}): Promise<{ id: string } | null> {
+    const {
+        userId, product, isAppProduct, isApplication, parentApplicationId,
+        paymentId, paymentMethod, stripeCustomerId, stripePaymentMethodId,
+        mollieCustomerId, mollieMandateId, finalPrice,
+    } = opts
+
+    const commonFields: Record<string, any> = {
+        access_type: 'purchase',
+        is_active: true,
+        payment_id: paymentId,
+        payment_method: paymentMethod,
+        payment_status: 'completed',
+        purchase_price: finalPrice,
+        created_at: new Date().toISOString(),
+    }
+    if (stripeCustomerId) commonFields.stripe_customer_id = stripeCustomerId
+    if (stripePaymentMethodId) commonFields.stripe_payment_method_id = stripePaymentMethodId
+    if (mollieCustomerId) commonFields.mollie_customer_id = mollieCustomerId
+    if (mollieMandateId) commonFields.mollie_mandate_id = mollieMandateId
+
+    if (isAppProduct && parentApplicationId) {
+        const { data } = await supabase
+            .from('user_product_access')
+            .upsert({ user_id: userId, product_id: product.id, application_id: parentApplicationId, ...commonFields },
+                { onConflict: 'user_id,product_id', ignoreDuplicates: false })
+            .select('id').single()
+        return data
+    } else if (isApplication) {
+        const { data } = await supabase
+            .from('user_product_access')
+            .upsert({ user_id: userId, application_id: product.id, ...commonFields },
+                { onConflict: 'user_id,application_id', ignoreDuplicates: false })
+            .select('id').single()
+        return data
+    } else {
+        const { data } = await supabase
+            .from('user_product_access')
+            .upsert({ user_id: userId, member_area_id: product.id, ...commonFields },
+                { onConflict: 'user_id,member_area_id', ignoreDuplicates: false })
+            .select('id').single()
+        return data
     }
 }

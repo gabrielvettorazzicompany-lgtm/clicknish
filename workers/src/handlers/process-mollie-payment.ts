@@ -7,7 +7,7 @@
  */
 
 import { createClient } from '../lib/supabase'
-import { createMollieClient, toMollieAmount, currencyToLocale } from '../lib/mollie'
+import { createMollieClient, toMollieAmount, currencyToLocale, MOLLIE_RECURRING_METHODS } from '../lib/mollie'
 import { createCustomerUser } from './customer-auth'
 import type { Env } from '../index'
 
@@ -164,8 +164,21 @@ export async function handleProcessMolliePayment(
         const webhookUrl = `https://api.clicknich.com/api/webhooks/mollie`
         const returnUrl = `${frontendUrl}/checkout/${checkoutId || productId}?mollie_return=1&paymentId=${internalPaymentId}`
 
+        // Para métodos que suportam recorrência, criar/obter cliente Mollie
+        // Isso habilita sequenceType: 'first' e gera um mandato após pagamento
+        const supportsRecurring = MOLLIE_RECURRING_METHODS.has(mollieMethod)
+        let mollieCustomerId: string | null = null
+        if (supportsRecurring) {
+            try {
+                const customer = await mollie.getOrCreateCustomer(customerEmail, customerName || undefined)
+                mollieCustomerId = customer.id
+            } catch (e: any) {
+                console.warn('[process-mollie-payment] Não foi possível criar Customer Mollie:', e.message)
+            }
+        }
+
         // Criar pagamento Mollie
-        const molliePayment = await mollie.createPayment({
+        const paymentParams: any = {
             amount: toMollieAmount(finalPrice, currency),
             description: `${productName} — ${customerEmail}`,
             redirectUrl: returnUrl,
@@ -185,7 +198,12 @@ export async function handleProcessMolliePayment(
                 seller_id: sellerOwnerId || '',
                 order_bumps: selectedBumpIds.join(','),
             },
-        })
+        }
+        if (supportsRecurring && mollieCustomerId) {
+            paymentParams.sequenceType = 'first'
+            paymentParams.customerId = mollieCustomerId
+        }
+        const molliePayment = await mollie.createPayment(paymentParams)
 
         // Salvar registro pendente no DB
         await supabase.from('mollie_payments').insert({
@@ -207,6 +225,8 @@ export async function handleProcessMolliePayment(
             tracking_parameters: trackingParameters || null,
             selected_order_bumps: selectedBumpIds,
             metadata: molliePayment.metadata || {},
+            mollie_customer_id: mollieCustomerId || null,
+            sequence_type: supportsRecurring ? 'first' : 'oneoff',
         })
 
         const checkoutUrl = molliePayment._links.checkout?.href
@@ -356,7 +376,28 @@ async function grantMollieAccess(
             seller_id: sellerId,
             selected_order_bumps: selectedOrderBumps,
             mollie_payment_id: molliePaymentId,
+            mollie_customer_id: mollieCustomerIdFromRecord,
         } = record
+
+        // Resolver mandato Mollie para habilitar 1-click em upsells
+        let mandateMollieCustomerId: string | null = mollieCustomerIdFromRecord || null
+        let mandateMollieId: string | null = null
+        if (mandateMollieCustomerId) {
+            try {
+                const mollieKey = await resolveMollieKey(supabase, sellerId || null)
+                if (mollieKey) {
+                    const mollie = createMollieClient(mollieKey)
+                    const mandates = await mollie.listMandates(mandateMollieCustomerId)
+                    const validMandate = mandates.find(m => m.status === 'valid') || mandates[0]
+                    if (validMandate) {
+                        mandateMollieId = validMandate.id
+                        console.log(`[grantMollieAccess] Mandato Mollie encontrado: ${mandateMollieId}`)
+                    }
+                }
+            } catch (e: any) {
+                console.warn('[grantMollieAccess] Não foi possível buscar mandato:', e.message)
+            }
+        }
 
         // Plano de saque vigente
         let producerPayoutSchedule = 'D+5'
@@ -504,6 +545,8 @@ async function grantMollieAccess(
                             thankyou_token: thankyouToken,
                             thankyou_token_expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
                             thankyou_max_views: 5,
+                            ...(mandateMollieCustomerId ? { mollie_customer_id: mandateMollieCustomerId } : {}),
+                            ...(mandateMollieId ? { mollie_mandate_id: mandateMollieId } : {}),
                         }).eq('id', (batchAccess as any[])[0].id)
                         : Promise.resolve(),
                     checkoutId
