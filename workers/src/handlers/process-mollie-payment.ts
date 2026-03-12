@@ -270,10 +270,30 @@ async function verifyMolliePayment(
 
     // Já foi processado
     if (record.status === 'paid' && record.access_granted) {
-        const redirectUrl = record.product_type === 'app'
+        // Tentar buscar purchase_id e thankyou_token salvos para incluir na URL
+        let savedPurchaseId = record.purchase_id || null
+        let savedToken: string | null = null
+        if (savedPurchaseId) {
+            const { data: upa } = await supabase
+                .from('user_product_access')
+                .select('thankyou_token')
+                .eq('payment_id', record.mollie_payment_id)
+                .not('thankyou_token', 'is', null)
+                .limit(1)
+                .maybeSingle()
+            savedToken = upa?.thankyou_token || null
+        }
+
+        let redirectUrl = record.product_type === 'app'
             ? `${frontendUrl}/access/${record.application_id}`
             : `${frontendUrl}/members-login/${record.product_id}`
-        return json({ success: true, alreadyProcessed: true, redirectUrl })
+
+        if (savedPurchaseId && savedToken) {
+            const sep = redirectUrl.includes('?') ? '&' : '?'
+            redirectUrl = `${redirectUrl}${sep}purchase_id=${savedPurchaseId}&token=${savedToken}`
+        }
+
+        return json({ success: true, alreadyProcessed: true, redirectUrl, purchaseId: savedPurchaseId, thankyouToken: savedToken })
     }
 
     // Buscar chave Mollie
@@ -300,10 +320,10 @@ async function verifyMolliePayment(
     const purchaseId = crypto.randomUUID()
     const thankyouToken = crypto.randomUUID()
 
-    // Liberar acesso em background
-    ctx.waitUntil(
-        grantMollieAccess(supabase, env, record, purchaseId, thankyouToken, frontendUrl)
-    )
+    // Liberar acesso SINCRONAMENTE antes de redirecionar o usuário
+    // Isso garante que mollie_customer_id e thankyou_token estejam salvos
+    // antes de o usuário chegar na página de upsell e tentar a compra 1-click
+    await grantMollieAccess(supabase, env, record, purchaseId, thankyouToken, frontendUrl)
 
     // Resolver redirect via funnel_pages (igual ao Stripe), com fallback hardcoded
     let redirectUrl: string
