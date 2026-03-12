@@ -134,8 +134,6 @@ export default function CheckoutRedirectConfig({ funnelId, pageId, onUpdate, onS
                 ...settings
             }
 
-            console.log('🔍 Debug Save: Saving redirect settings:', newSettings)
-
             const { error } = await supabase
                 .from('funnel_pages')
                 .update({
@@ -145,11 +143,9 @@ export default function CheckoutRedirectConfig({ funnelId, pageId, onUpdate, onS
                 .eq('id', pageId)
 
             if (error) {
-                console.error('🔍 Save error:', error)
+                console.error('Error saving redirect settings:', error)
                 throw error
             }
-
-            console.log('🔍 Debug Save: Successfully saved redirect settings')
 
             // Purgar cache KV do checkout vinculado para que o novo redirect seja carregado imediatamente
             if (existingPage?.checkout_id) {
