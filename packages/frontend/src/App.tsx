@@ -49,6 +49,7 @@ const ProductContent = lazy(() => import('./pages/products/ProductContent'))
 const ProductIdGuide = lazy(() => import('./pages/products/ProductIdGuide'))
 const ProductView = lazy(() => import('./pages/products/ProductView'))
 const ProductAccess = lazy(() => import('./pages/products/ProductAccess'))
+const ThankYouPage = lazy(() => import('./pages/funnel/ThankYouPage'))
 
 // Pages - Checkout (lazy loaded)
 const CheckoutBuilder = lazy(() => import('./pages/checkout/CheckoutBuilder'))
@@ -446,6 +447,12 @@ export default function App() {
           <Route path="/access/:appSlug/:productSlug" element={
             <Suspense fallback={<PageLoader />}>
               <ProductAccess />
+            </Suspense>
+          } />
+          {/* Funnel Thank You Page */}
+          <Route path="/thankyou/:pageId" element={
+            <Suspense fallback={<PageLoader />}>
+              <ThankYouPage />
             </Suspense>
           } />
           {/* Members Area Login */}

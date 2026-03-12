@@ -60,10 +60,9 @@ export default function CheckoutRedirectConfig({ funnelId, pageId, onUpdate, onS
                 const availablePages = allPages.filter(p =>
                     p.id !== pageId &&
                     p.position > currentPosition &&
-                    ['upsell', 'downsell'].includes(p.page_type) &&
+                    ['upsell', 'downsell', 'thankyou'].includes(p.page_type) &&
                     p.page_type !== 'custom' &&
-                    p.page_type !== 'inactive' &&
-                    p.page_type !== 'thankyou'
+                    p.page_type !== 'inactive'
                 )
                 setPages(availablePages)
             }

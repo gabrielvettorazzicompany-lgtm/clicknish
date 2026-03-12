@@ -10,6 +10,7 @@ interface CreatePageModalProps {
 }
 
 const PAGE_TYPES = [
+    { value: 'thankyou', labelKey: 'funnel_components.page_types.thankyou', descKey: 'funnel_components.thankyou_description' },
     { value: 'upsell', labelKey: 'funnel_components.upsell_label', descKey: 'funnel_components.upsell_desc' },
     { value: 'downsell', labelKey: 'funnel_components.downsell_label', descKey: 'funnel_components.downsell_desc' }
 ]

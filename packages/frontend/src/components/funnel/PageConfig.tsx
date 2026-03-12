@@ -38,6 +38,41 @@ export default function PageConfig({ page, funnelId, onUpdate }: PageConfigProps
     const [configuredAcceptUrl, setConfiguredAcceptUrl] = useState<string | undefined>(undefined)
     const [configuredRejectUrl, setConfiguredRejectUrl] = useState<string | undefined>(undefined)
 
+    const isThankyouPage = page.page_type === 'thankyou'
+
+    // Estado para configurações da thankyou page
+    const [thankyouSettings, setThankyouSettings] = useState<Record<string, any>>({})
+    const [loadingThankyou, setLoadingThankyou] = useState(false)
+    const [savingThankyou, setSavingThankyou] = useState(false)
+    const [savedThankyou, setSavedThankyou] = useState(false)
+
+    useEffect(() => {
+        if (!isThankyouPage) return
+        setLoadingThankyou(true)
+        supabase.from('funnel_pages').select('settings').eq('id', page.id).single()
+            .then(({ data }) => {
+                if (data?.settings) setThankyouSettings(data.settings as any)
+            })
+            .finally(() => setLoadingThankyou(false))
+    }, [page.id, isThankyouPage])
+
+    const handleSaveThankyouSettings = async () => {
+        try {
+            setSavingThankyou(true)
+            const { error } = await supabase.from('funnel_pages')
+                .update({ settings: thankyouSettings, updated_at: new Date().toISOString() })
+                .eq('id', page.id)
+            if (error) throw error
+            onUpdate()
+            setSavedThankyou(true)
+            setTimeout(() => setSavedThankyou(false), 2000)
+        } catch (e) {
+            console.error('Error saving thankyou settings:', e)
+        } finally {
+            setSavingThankyou(false)
+        }
+    }
+
     const isCheckoutPage = page.page_type === 'checkout'
     const needsScript = ['upsell', 'downsell'].includes(page.page_type)
 
@@ -267,6 +302,108 @@ export default function PageConfig({ page, funnelId, onUpdate }: PageConfigProps
                             {saved
                                 ? <><Check size={12} /> {t('common.saved')}</>
                                 : <><Save size={12} /> {saving ? t('common.saving') : t('common.save')}</>
+                            }
+                        </button>
+                    </div>
+                </div>
+            )}
+
+            {/* Config da Página de Obrigado */}
+            {isThankyouPage && (
+                <div className="rounded-lg border border-gray-200 dark:border-zinc-800 divide-y divide-gray-200 dark:divide-zinc-800">
+                    <div className="p-4 space-y-4">
+                        <h3 className="text-sm font-medium text-gray-900 dark:text-white">{t('funnel_components.thankyou_page') || 'Página de Obrigado'}</h3>
+
+                        {loadingThankyou ? (
+                            <p className="text-xs text-gray-400">{t('funnel_components.loading')}</p>
+                        ) : (
+                            <>
+                                {/* Título */}
+                                <div>
+                                    <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
+                                        {t('funnel_components.thankyou_title')}
+                                    </label>
+                                    <input
+                                        type="text"
+                                        value={thankyouSettings.title || ''}
+                                        placeholder={t('funnel_components.thankyou_title_placeholder') || 'Obrigado pela sua compra!'}
+                                        onChange={e => setThankyouSettings(s => ({ ...s, title: e.target.value }))}
+                                        className="w-full px-3 py-2 text-sm bg-white dark:bg-transparent border border-gray-300 dark:border-zinc-700 rounded text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:border-blue-500"
+                                    />
+                                </div>
+
+                                {/* Descrição */}
+                                <div>
+                                    <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
+                                        {t('funnel_components.thankyou_description')}
+                                    </label>
+                                    <textarea
+                                        value={thankyouSettings.description || ''}
+                                        placeholder="Seu pedido foi processado com sucesso..."
+                                        rows={3}
+                                        onChange={e => setThankyouSettings(s => ({ ...s, description: e.target.value }))}
+                                        className="w-full px-3 py-2 text-sm bg-white dark:bg-transparent border border-gray-300 dark:border-zinc-700 rounded text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:border-blue-500 resize-none"
+                                    />
+                                </div>
+
+                                {/* CTA Button */}
+                                <div className="flex items-center gap-2">
+                                    <input
+                                        id="show-cta"
+                                        type="checkbox"
+                                        checked={thankyouSettings.show_cta_button !== false}
+                                        onChange={e => setThankyouSettings(s => ({ ...s, show_cta_button: e.target.checked }))}
+                                        className="w-4 h-4 accent-blue-500"
+                                    />
+                                    <label htmlFor="show-cta" className="text-xs text-gray-600 dark:text-gray-400">
+                                        {t('funnel_components.show_cta_button') || 'Mostrar botão de ação'}
+                                    </label>
+                                </div>
+
+                                {thankyouSettings.show_cta_button !== false && (
+                                    <div className="space-y-3 pl-2 border-l-2 border-zinc-700">
+                                        <div>
+                                            <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
+                                                {t('funnel_components.button_text')}
+                                            </label>
+                                            <input
+                                                type="text"
+                                                value={thankyouSettings.cta_text || ''}
+                                                placeholder="Acessar meu produto"
+                                                onChange={e => setThankyouSettings(s => ({ ...s, cta_text: e.target.value }))}
+                                                className="w-full px-3 py-2 text-sm bg-white dark:bg-transparent border border-gray-300 dark:border-zinc-700 rounded text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:border-blue-500"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
+                                                URL do botão
+                                            </label>
+                                            <input
+                                                type="url"
+                                                value={thankyouSettings.cta_url || ''}
+                                                placeholder="https://..."
+                                                onChange={e => setThankyouSettings(s => ({ ...s, cta_url: e.target.value }))}
+                                                className="w-full px-3 py-2 text-sm bg-white dark:bg-transparent border border-gray-300 dark:border-zinc-700 rounded text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:border-blue-500"
+                                            />
+                                        </div>
+                                    </div>
+                                )}
+                            </>
+                        )}
+                    </div>
+
+                    <div className="p-4 flex justify-end">
+                        <button
+                            onClick={handleSaveThankyouSettings}
+                            disabled={savingThankyou || loadingThankyou}
+                            className={`flex items-center gap-1.5 px-4 py-1.5 rounded text-xs font-medium transition-all ${savedThankyou
+                                ? 'bg-green-500/10 text-green-400'
+                                : 'bg-white hover:bg-zinc-100 text-black disabled:opacity-30 disabled:cursor-not-allowed'
+                                }`}
+                        >
+                            {savedThankyou
+                                ? <><Check size={12} /> {t('common.saved')}</>
+                                : <><Save size={12} /> {savingThankyou ? t('common.saving') : t('common.save')}</>
                             }
                         </button>
                     </div>

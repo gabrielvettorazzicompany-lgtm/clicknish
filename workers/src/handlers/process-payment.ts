@@ -792,13 +792,16 @@ export async function handleProcessPayment(
                     // Redirecionar para uma página específica do funil
                     const { data: targetPage } = await supabase
                         .from('funnel_pages')
-                        .select('external_url')
+                        .select('external_url, page_type')
                         .eq('id', s.post_purchase_page_id)
                         .maybeSingle() as any
 
                     if ((targetPage as any)?.external_url) {
                         const sep = (targetPage as any).external_url.includes('?') ? '&' : '?'
                         redirectUrl = `${(targetPage as any).external_url}${sep}purchase_id=${purchaseId}&token=${thankyouToken}`
+                    } else if ((targetPage as any)?.page_type === 'thankyou') {
+                        // Página de obrigado interna (sem external_url)
+                        redirectUrl = `https://app.clicknich.com/thankyou/${s.post_purchase_page_id}?purchase_id=${purchaseId}&token=${thankyouToken}`
                     }
                 } else if (s.post_purchase_redirect_url) {
                     // URL direta (login page ou URL personalizada)

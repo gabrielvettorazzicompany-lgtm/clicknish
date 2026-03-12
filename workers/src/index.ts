@@ -378,6 +378,26 @@ async function handleApiRoute(
         return handleFunnelPageWidget(request, env, ctx)
     }
 
+    // GET /api/funnel-pages/:pageId/public - Settings públicos de uma funnel page (thankyou)
+    const funnelPagePublicMatch = pathname.match(/^\/api\/funnel-pages\/([^/]+)\/public$/)
+    if (funnelPagePublicMatch && request.method === 'GET') {
+        const pageId = funnelPagePublicMatch[1]
+        const { createClient } = await import('./lib/supabase')
+        const supabase = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY)
+        const { data, error } = await supabase
+            .from('funnel_pages')
+            .select('page_type, settings')
+            .eq('id', pageId)
+            .eq('page_type', 'thankyou')
+            .maybeSingle()
+        if (error || !data) {
+            return new Response(JSON.stringify({ error: 'Page not found' }), { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+        }
+        return new Response(JSON.stringify({ page_type: data.page_type, settings: data.settings || {} }), {
+            status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        })
+    }
+
     // POST /api/offer-analytics - Analytics de ofertas
     if (pathname === '/api/offer-analytics' && request.method === 'POST') {
         return handleOfferAnalytics(request, env, ctx)
