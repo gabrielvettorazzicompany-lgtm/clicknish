@@ -61,6 +61,17 @@ interface Comment {
   created_at: string
 }
 
+function getCustomerIdFromToken(): string | null {
+  const token = localStorage.getItem('customer_access_token')
+  if (!token) return null
+  try {
+    const payload = JSON.parse(atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')))
+    return payload.sub || null
+  } catch {
+    return null
+  }
+}
+
 export default function AppDashboard() {
   const { appId } = useParams()
   const navigate = useNavigate()
@@ -109,7 +120,7 @@ export default function AppDashboard() {
   const [currentUser] = useState(() => {
     // Prioridade: sistema de auth customizado (customer)
     const customerEmail = localStorage.getItem('customer_email')
-    const customerId = localStorage.getItem('customer_id')
+    const customerId = getCustomerIdFromToken()
 
     if (customerEmail && customerId) {
       return {
@@ -134,7 +145,6 @@ export default function AppDashboard() {
 
   const handleLogout = () => {
     localStorage.removeItem('customer_access_token')
-    localStorage.removeItem('customer_id')
     localStorage.removeItem('customer_email')
     window.location.href = `/access/${appId}`
   }
@@ -174,84 +184,27 @@ export default function AppDashboard() {
       }
 
       // Buscar produtos do app com controle de acesso
-      // Primeiro, tentar obter o usuário autenticado via Supabase Auth
-      const { data: { user: authUserData } } = await supabase.auth.getUser()
-
       // Prioridade: sistema de auth customizado (customer)
-      let userId = localStorage.getItem('customer_id') || authUserData?.id
-      let userEmail = localStorage.getItem('customer_email') || authUserData?.email || ''
+      const { data: { user: authUserData } } = await supabase.auth.getUser()
+      let userId = getCustomerIdFromToken() || authUserData?.id || ''
 
-      if (!userId && !localStorage.getItem('customer_id')) {
+      if (!userId) {
         const userData = localStorage.getItem('user_data')
         if (userData) {
-          try {
-            const parsedData = JSON.parse(userData)
-            userEmail = parsedData.email || ''
-            userId = parsedData.id || ''
-          } catch (e) {
-            console.error('Error parsing user_data:', e)
-          }
+          try { userId = JSON.parse(userData).id || '' } catch (e) { }
         }
       }
 
-      // Buscar todos os produtos primeiro
-      const productsResponse = await supabaseFetch(`applications/${appId}/products`)
+      // O worker usa service_role e retorna has_access por produto quando customer_id é fornecido
+      const productsUrl = userId
+        ? `applications/${appId}/products?customer_id=${encodeURIComponent(userId)}`
+        : `applications/${appId}/products`
+
+      const productsResponse = await supabaseFetch(productsUrl)
 
       if (productsResponse.ok) {
-        const allProducts = await productsResponse.json()
-
-        if (userId) {
-          // Usuário autenticado - buscar acessos diretamente pelo user_id (auth.uid)
-          // RLS vai verificar automaticamente que user_id = auth.uid()
-          const accessResponse = await supabaseRestFetch(`user_product_access?user_id=eq.${userId}&application_id=eq.${appId}&select=product_id`)
-
-          if (accessResponse.ok) {
-            const accessData = await accessResponse.json()
-            const allowedProductIds = accessData.map((a: any) => a.product_id)
-
-            // Marcar produtos com has_access
-            const productsWithAccess = allProducts.map((p: Product) => ({
-              ...p,
-              has_access: allowedProductIds.includes(p.id)
-            }))
-            setProducts(productsWithAccess)
-          } else {
-            // Se falhou ao buscar acesso, tentar fallback via email
-            if (userEmail) {
-              const userResponse = await supabaseRestFetch(`app_users?email=eq.${userEmail}&application_id=eq.${appId}&select=user_id`)
-              if (userResponse.ok) {
-                const userDataResponse = await userResponse.json()
-                if (userDataResponse && userDataResponse.length > 0) {
-                  const appUserId = userDataResponse[0].user_id
-                  if (appUserId) {
-                    const accessResponse2 = await supabaseRestFetch(`user_product_access?user_id=eq.${appUserId}&application_id=eq.${appId}&select=product_id`)
-                    if (accessResponse2.ok) {
-                      const accessData2 = await accessResponse2.json()
-                      const allowedProductIds2 = accessData2.map((a: any) => a.product_id)
-                      setProducts(allProducts.map((p: Product) => ({
-                        ...p,
-                        has_access: allowedProductIds2.includes(p.id)
-                      })))
-                    } else {
-                      setProducts(allProducts.map((p: Product) => ({ ...p, has_access: false })))
-                    }
-                  } else {
-                    setProducts(allProducts.map((p: Product) => ({ ...p, has_access: false })))
-                  }
-                } else {
-                  setProducts(allProducts.map((p: Product) => ({ ...p, has_access: false })))
-                }
-              } else {
-                setProducts(allProducts.map((p: Product) => ({ ...p, has_access: false })))
-              }
-            } else {
-              setProducts(allProducts.map((p: Product) => ({ ...p, has_access: false })))
-            }
-          }
-        } else {
-          // Sem usuário autenticado, marcar todos como bloqueados
-          setProducts(allProducts.map((p: Product) => ({ ...p, has_access: false })))
-        }
+        const products = await productsResponse.json()
+        setProducts(products)
       }
 
       // Buscar banners do app

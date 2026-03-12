@@ -75,146 +75,47 @@ export async function handleOrders(
             const fromDateObj = fromDate ? new Date(fromDate) : undefined
             let endOfDay: Date | undefined
             if (toDate) {
-                // Adiciona 24h-1ms ao início do dia local enviado pelo frontend (em UTC),
-                // evitando o bug de timezone do setHours em ambiente UTC do worker.
                 endOfDay = new Date(new Date(toDate).getTime() + 24 * 60 * 60 * 1000 - 1)
             }
 
-            // Buscar apps do usuário
-            const { data: userApps } = await supabase
-                .from('applications')
-                .select('id, name')
-                .eq('owner_id', userId)
-            const appIds = userApps?.map(a => a.id) || []
-            const appNames = new Map(userApps?.map(a => [a.id, a.name]) || [])
-
-            // Buscar member_areas do usuário
-            const { data: userMemberAreas } = await supabase
-                .from('member_areas')
-                .select('id, name')
-                .eq('owner_id', userId)
-            const memberAreaIds = userMemberAreas?.map(m => m.id) || []
-            const memberAreaNames = new Map(userMemberAreas?.map(m => [m.id, m.name]) || [])
-
-            // Helper para resultado vazio
-            const emptyResult = () => Promise.resolve({ data: [], error: null })
-
-            // Queries em paralelo
-            let mktQuery: any = emptyResult()
-            if (memberAreaIds.length > 0) {
-                let query = supabase
-                    .from('user_product_access')
-                    .select('id, created_at, purchase_price, payment_method, payment_status, payment_id, user_id, member_area_id')
-                    .in('member_area_id', memberAreaIds)
-                    .neq('access_type', 'manual')
-                    .order('created_at', { ascending: false })
-                    .limit(500)
-
-                if (fromDateObj) query = query.gte('created_at', fromDateObj.toISOString())
-                if (endOfDay) query = query.lte('created_at', endOfDay.toISOString())
-                mktQuery = query
-            }
-
-            let appQuery: any = emptyResult()
-            if (appIds.length > 0) {
-                let query = supabase
-                    .from('user_product_access')
-                    .select('id, created_at, purchase_price, payment_method, payment_status, payment_id, user_id, application_id, product_id')
-                    .in('application_id', appIds)
-                    .neq('access_type', 'manual')
-                    .order('created_at', { ascending: false })
-                    .limit(500)
-
-                if (fromDateObj) query = query.gte('created_at', fromDateObj.toISOString())
-                if (endOfDay) query = query.lte('created_at', endOfDay.toISOString())
-                appQuery = query
-            }
-
-            // Buscar emails via sale_locations
-            const saleLocQuery = supabase
-                .from('sale_locations')
-                .select('customer_email, checkout_id, customer_id')
-                .eq('user_id', userId)
-
-            const [mktResult, appResult, saleLocResult] = await Promise.all([
-                mktQuery, appQuery, saleLocQuery
+            // Buscar apps e member_areas do usuário (para nomes dos produtos)
+            const [appsResult, memberAreasResult] = await Promise.all([
+                supabase.from('applications').select('id, name').eq('owner_id', userId),
+                supabase.from('member_areas').select('id, name').eq('owner_id', userId)
             ])
 
-            // Coletar user_ids para buscar nomes
-            const allUserIds = new Set<string>()
-            for (const sale of [...(mktResult.data || []), ...(appResult.data || [])]) {
-                if (sale.user_id) allUserIds.add(sale.user_id)
+            const productNames = new Map<string, { name: string; type: 'app' | 'marketplace' }>()
+            for (const a of (appsResult.data || [])) productNames.set(a.id, { name: a.name, type: 'app' })
+            for (const m of (memberAreasResult.data || [])) productNames.set(m.id, { name: m.name, type: 'marketplace' })
+
+            // Fonte principal: sale_locations — 1 linha por venda, com email já disponível
+            let query = supabase
+                .from('sale_locations')
+                .select('id, sale_date, amount, currency, payment_method, customer_email, customer_id, product_id, checkout_id, user_product_access_id')
+                .eq('user_id', userId)
+                .order('sale_date', { ascending: false })
+                .limit(500)
+
+            if (selectedProduct) query = query.eq('product_id', selectedProduct)
+            if (fromDateObj) query = query.gte('sale_date', fromDateObj.toISOString())
+            if (endOfDay) query = query.lte('sale_date', endOfDay.toISOString())
+
+            const { data: salesData } = await query
+            const sales = salesData || []
+
+            // Buscar status de pagamento via user_product_access (para apps)
+            const accessIds = sales.map(s => s.user_product_access_id).filter(Boolean)
+            let statusMap = new Map<string, string>()
+            if (accessIds.length > 0) {
+                const { data: accessData } = await supabase
+                    .from('user_product_access')
+                    .select('id, payment_status')
+                    .in('id', accessIds)
+                for (const a of (accessData || [])) statusMap.set(a.id, a.payment_status)
             }
 
-            // Buscar nomes em paralelo
-            const userIdList = Array.from(allUserIds)
-            const [appUsersResult, memberProfilesResult] = userIdList.length > 0
-                ? await Promise.all([
-                    supabase.from('app_users').select('user_id, full_name, email').in('user_id', userIdList),
-                    supabase.from('member_profiles').select('id, name, email').in('id', userIdList)
-                ])
-                : [{ data: [] }, { data: [] }]
-
-            // Mapa user_id → nome
-            const nameByUserId = new Map<string, string>()
-            for (const u of (appUsersResult.data || [])) {
-                if (u.user_id && (u.full_name || u.email)) {
-                    nameByUserId.set(u.user_id, u.full_name || u.email.split('@')[0])
-                }
-            }
-            for (const m of (memberProfilesResult.data || [])) {
-                if (m.id && (m.name || m.email)) {
-                    if (!nameByUserId.has(m.id)) {
-                        nameByUserId.set(m.id, m.name || m.email.split('@')[0])
-                    }
-                }
-            }
-
-            // Mapa para emails
-            const emailByKey = new Map<string, string>()
-            for (const sl of (saleLocResult.data || [])) {
-                if (sl.customer_email) {
-                    if (sl.checkout_id) emailByKey.set(sl.checkout_id, sl.customer_email)
-                    if (sl.customer_id) emailByKey.set(sl.customer_id, sl.customer_email)
-                }
-            }
-
-            // Combinar resultados — desduplicar por payment_id para apps com módulos (N linhas por pedido)
-            const seenIds = new Set<string>()
-            const seenPaymentIds = new Set<string>()
-            const rawAll: any[] = []
-
-            for (const sale of (mktResult.data || [])) {
-                if (!seenIds.has(sale.id)) {
-                    seenIds.add(sale.id)
-                    rawAll.push({
-                        ...sale,
-                        productName: memberAreaNames.get(sale.member_area_id) || 'Produto',
-                        productId: sale.member_area_id,
-                        source: 'marketplace'
-                    })
-                }
-            }
-
-            for (const sale of (appResult.data || [])) {
-                // Para apps: desduplicar por payment_id (N módulos = 1 pedido)
-                const payKey = sale.payment_id ?? sale.id
-                if (seenPaymentIds.has(payKey)) continue
-                seenPaymentIds.add(payKey)
-                if (!seenIds.has(sale.id)) {
-                    seenIds.add(sale.id)
-                    rawAll.push({
-                        ...sale,
-                        productName: appNames.get(sale.application_id) || 'App',
-                        productId: sale.application_id,
-                        source: 'app'
-                    })
-                }
-            }
-
-            // Mapear para Order
-            const toStatus = (s: string): 'completed' | 'pending' | 'failed' => {
-                if (s === 'completed' || s === 'paid' || s === 'approved') return 'completed'
+            const toStatus = (s: string | null | undefined): 'completed' | 'pending' | 'failed' => {
+                if (!s || s === 'completed' || s === 'paid' || s === 'approved') return 'completed'
                 if (s === 'pending' || s === 'processing') return 'pending'
                 return 'failed'
             }
@@ -225,30 +126,40 @@ export async function handleOrders(
                 if (l.includes('pix')) return 'pix'
                 if (l.includes('boleto') || l.includes('bank_slip')) return 'boleto'
                 if (l.includes('paypal')) return 'paypal'
-                if (l.includes('transfer')) return 'bank_transfer'
-                return 'credit_card'
+                if (l.includes('transfer') || l === 'banktransfer') return 'bank_transfer'
+                if (l === 'ideal') return 'ideal'
+                if (l === 'bancontact') return 'bancontact'
+                if (l === 'sofort' || l === 'sofortbanking') return 'sofort'
+                if (l === 'giropay') return 'giropay'
+                if (l === 'eps') return 'eps'
+                if (l === 'przelewy24' || l === 'p24') return 'przelewy24'
+                if (l === 'kbc') return 'kbc'
+                if (l === 'belfius') return 'belfius'
+                if (l === 'applepay') return 'apple_pay'
+                if (l === 'mollie') return 'mollie'
+                if (l.includes('credit') || l.includes('card') || l === 'creditcard') return 'credit_card'
+                return m
             }
 
-            const orders: Order[] = rawAll.map((sale, idx) => {
-                const email = emailByKey.get(sale.payment_id) ||
-                    emailByKey.get(sale.id) ||
-                    emailByKey.get(sale.user_id) ||
-                    ''
+            const orders: Order[] = sales.map((sale, idx) => {
+                const product = productNames.get(sale.product_id)
+                const paymentStatus = statusMap.get(sale.user_product_access_id) || null
+                const email = sale.customer_email || ''
 
                 return {
                     id: sale.id,
                     orderNumber: `#${String(idx + 1).padStart(4, '0')}`,
-                    date: sale.created_at,
-                    total: sale.purchase_price || 0,
+                    date: sale.sale_date,
+                    total: parseFloat(sale.amount || 0),
                     customer: {
-                        name: nameByUserId.get(sale.user_id) || (email ? email.split('@')[0] : 'Cliente'),
+                        name: email ? email.split('@')[0] : 'Cliente',
                         email: email
                     },
                     paymentMethod: normalizeMethod(sale.payment_method),
-                    paymentStatus: toStatus(sale.payment_status || 'completed'),
-                    productName: sale.productName,
-                    productId: sale.productId,
-                    productType: sale.source
+                    paymentStatus: toStatus(paymentStatus),
+                    productName: product?.name || 'Produto',
+                    productId: sale.product_id,
+                    productType: product?.type || 'app'
                 }
             })
 

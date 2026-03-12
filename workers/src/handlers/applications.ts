@@ -67,8 +67,11 @@ export async function handleApplications(
         }
 
         // GET /applications/:id/products - List application products (public)
+        // Aceita query param ?customer_id=xxx para retornar has_access por produto
         if (request.method === 'GET' && pathSegments.length === 2 && pathSegments[1] === 'products') {
             const appId = pathSegments[0]
+            const url = new URL(request.url)
+            const customerId = url.searchParams.get('customer_id')
 
             const { data, error } = await supabase
                 .from('products')
@@ -77,7 +80,51 @@ export async function handleApplications(
                 .order('order', { ascending: true })
 
             if (error) throw error
-            return jsonResponse(data || [])
+            const products = data || []
+
+            // Se customer_id fornecido, buscar quais produtos têm acesso (service_role bypassa RLS)
+            if (customerId && products.length > 0) {
+                // Coletar todos os user_ids associados ao customer:
+                // 1. O próprio customer_id (customer_auth.id)
+                // 2. O user_id do app_users vinculado ao email (pode ser UUID diferente em registros antigos)
+                const userIdsToCheck = new Set<string>([customerId])
+
+                const { data: appUserData } = await supabase
+                    .from('app_users')
+                    .select('user_id')
+                    .eq('application_id', appId)
+                    .in('user_id', [customerId])
+
+                // Buscar também pelo email do customer_auth
+                const { data: customerData } = await supabase
+                    .from('customer_auth')
+                    .select('email')
+                    .eq('id', customerId)
+                    .maybeSingle()
+
+                if (customerData?.email) {
+                    const { data: appUserByEmail } = await supabase
+                        .from('app_users')
+                        .select('user_id')
+                        .eq('application_id', appId)
+                        .eq('email', customerData.email)
+                        .maybeSingle()
+
+                    if (appUserByEmail?.user_id) userIdsToCheck.add(appUserByEmail.user_id)
+                }
+
+                const { data: accessData } = await supabase
+                    .from('user_product_access')
+                    .select('product_id')
+                    .in('user_id', Array.from(userIdsToCheck))
+                    .eq('application_id', appId)
+                    .eq('is_active', true)
+
+                const allowedIds = new Set((accessData || []).map((a: any) => a.product_id))
+                return jsonResponse(products.map((p: any) => ({ ...p, has_access: allowedIds.has(p.id) })))
+            }
+
+            return jsonResponse(products)
         }
 
         // GET /applications/:id/banners - Get application banners (public)

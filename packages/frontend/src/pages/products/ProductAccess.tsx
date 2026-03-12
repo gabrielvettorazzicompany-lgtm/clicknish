@@ -528,7 +528,6 @@ export default function ProductAccess() {
 
         // Salvar tokens customizados
         localStorage.setItem('customer_access_token', data.access_token)
-        localStorage.setItem('customer_id', data.customer_id)
         localStorage.setItem('customer_email', data.email)
         localStorage.setItem('session_expires', new Date(Date.now() + (data.expires_in * 1000)).toISOString())
       } else {
