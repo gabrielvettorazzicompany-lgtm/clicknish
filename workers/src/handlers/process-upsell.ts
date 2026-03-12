@@ -84,16 +84,21 @@ export async function handleProcessUpsell(
         let stripe: ReturnType<typeof createStripeClient>
 
         // 1. Fetch the offer details
-        const { data: offer, error: offerError } = await supabase
+        const { data: offerRaw, error: offerError } = await supabase
             .from('checkout_offers')
-            .select('id, product_id, product_type, application_id, offer_price, original_price, title, one_click_purchase, offer_type, currency, page_id')
+            .select('id, product_id, product_type, application_id, offer_price, original_price, title, one_click_purchase, offer_type, currency, page_id, is_active')
             .eq('id', offer_id)
-            .eq('is_active', true)
             .single()
 
-        if (offerError || !offer) {
-            throw new Error('Offer not found or inactive')
+        if (offerError || !offerRaw) {
+            throw new Error('Offer not found')
         }
+
+        if (!offerRaw.is_active) {
+            throw new Error('Offer is inactive')
+        }
+
+        const offer = offerRaw
 
         if (!offer.one_click_purchase) {
             throw new Error('This offer does not support one-click purchase')

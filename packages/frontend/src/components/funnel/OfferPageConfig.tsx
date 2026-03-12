@@ -431,6 +431,8 @@ const OfferPageConfig = forwardRef<OfferPageConfigHandle, OfferPageConfigProps>(
                 product_name: selectedProduct?.name || null,
             }
 
+            let savedId: string | undefined = offer?.id
+
             if (offer?.id) {
                 const { error } = await supabase
                     .from('checkout_offers')
@@ -444,6 +446,7 @@ const OfferPageConfig = forwardRef<OfferPageConfigHandle, OfferPageConfigProps>(
                     .select()
                     .single()
                 if (error) throw error
+                savedId = data.id
                 setOffer({ ...form, id: data.id })
                 setForm(prev => ({ ...prev, id: data.id }))
             }
@@ -452,7 +455,6 @@ const OfferPageConfig = forwardRef<OfferPageConfigHandle, OfferPageConfigProps>(
             setTimeout(() => setSaved(false), 2000)
 
             // Notify parent with offer data so ScriptGenerator gets it via props
-            const savedId = offer?.id || form.id
             onOfferLoaded?.(form.product_id, form.one_click_purchase, savedId, form.checkout_id || undefined)
 
             onUpdate()
