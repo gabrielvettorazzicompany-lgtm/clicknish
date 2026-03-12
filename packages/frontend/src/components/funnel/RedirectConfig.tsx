@@ -125,6 +125,12 @@ export default function RedirectConfig({ funnelId, pageId, pageType, onUpdate, o
             const page = allPages.find(p => p.id === targetPageId)
             if (page?.external_url) return page.external_url
 
+            // For thankyou pages without external_url, return internal thankyou URL
+            if (page && page.page_type === 'thankyou') {
+                const frontendUrl = (import.meta.env as any).VITE_APP_URL || window.location.origin
+                return `${frontendUrl}/thankyou/${page.id}`
+            }
+
             // For upsell/downsell pages without external_url, find their checkout URL
             if (page && ['upsell', 'downsell'].includes(page.page_type)) {
                 // Find the checkout_offer linked to this page

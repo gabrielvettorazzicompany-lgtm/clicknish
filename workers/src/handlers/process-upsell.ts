@@ -86,7 +86,7 @@ export async function handleProcessUpsell(
         // 1. Fetch the offer details
         const { data: offer, error: offerError } = await supabase
             .from('checkout_offers')
-            .select('id, product_id, product_type, application_id, offer_price, original_price, title, one_click_purchase, offer_type, currency')
+            .select('id, product_id, product_type, application_id, offer_price, original_price, title, one_click_purchase, offer_type, currency, page_id')
             .eq('id', offer_id)
             .eq('is_active', true)
             .single()
@@ -166,7 +166,7 @@ export async function handleProcessUpsell(
 
             let q = supabase
                 .from('user_product_access')
-                .select('stripe_customer_id, stripe_payment_method_id, mollie_customer_id, mollie_mandate_id, user_id')
+                .select('stripe_customer_id, stripe_payment_method_id, mollie_customer_id, mollie_mandate_id, user_id, thankyou_token')
 
             if (token) {
                 q = q.eq('thankyou_token', token)
@@ -247,12 +247,45 @@ export async function handleProcessUpsell(
                 })
             )
 
+            // Resolve redirect URL from offer page settings
+            let redirectUrl: string | null = null
+            if (offer.page_id) {
+                const { data: page } = await supabase
+                    .from('funnel_pages')
+                    .select('settings')
+                    .eq('id', offer.page_id)
+                    .maybeSingle()
+
+                const settings = page?.settings as any
+                if (settings?.accept_redirect_url) {
+                    const url = settings.accept_redirect_url
+                    const sep = url.includes('?') ? '&' : '?'
+                    redirectUrl = `${url}${sep}purchase_id=${newAccess?.id || purchase_id}&token=${productAccess?.thankyou_token || token}`
+                } else if (settings?.accept_page_id) {
+                    const { data: targetPage } = await supabase
+                        .from('funnel_pages')
+                        .select('external_url, page_type')
+                        .eq('id', settings.accept_page_id)
+                        .maybeSingle()
+
+                    if (targetPage?.external_url) {
+                        const sep = targetPage.external_url.includes('?') ? '&' : '?'
+                        redirectUrl = `${targetPage.external_url}${sep}purchase_id=${newAccess?.id || purchase_id}&token=${productAccess?.thankyou_token || token}`
+                    } else if (targetPage?.page_type === 'thankyou') {
+                        // Thank you page interna
+                        const frontendUrl = env.FRONTEND_URL || 'https://app.clicknich.com'
+                        redirectUrl = `${frontendUrl}/thankyou/${settings.accept_page_id}?purchase_id=${newAccess?.id || purchase_id}&token=${productAccess?.thankyou_token || token}`
+                    }
+                }
+            }
+
             return new Response(JSON.stringify({
                 success: true,
                 paymentIntentId: paymentIntent.id,
                 status: paymentIntent.status,
                 message: 'Upsell payment processed successfully',
                 purchaseId: newAccess?.id || purchase_id,
+                redirectUrl: redirectUrl
             }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 })
         }
 
@@ -317,12 +350,45 @@ export async function handleProcessUpsell(
                 })
             )
 
+            // Resolve redirect URL from offer page settings
+            let redirectUrl: string | null = null
+            if (offer.page_id) {
+                const { data: page } = await supabase
+                    .from('funnel_pages')
+                    .select('settings')
+                    .eq('id', offer.page_id)
+                    .maybeSingle()
+
+                const settings = page?.settings as any
+                if (settings?.accept_redirect_url) {
+                    const url = settings.accept_redirect_url
+                    const sep = url.includes('?') ? '&' : '?'
+                    redirectUrl = `${url}${sep}purchase_id=${newAccess?.id || purchase_id}&token=${productAccess?.thankyou_token || token}`
+                } else if (settings?.accept_page_id) {
+                    const { data: targetPage } = await supabase
+                        .from('funnel_pages')
+                        .select('external_url, page_type')
+                        .eq('id', settings.accept_page_id)
+                        .maybeSingle()
+
+                    if (targetPage?.external_url) {
+                        const sep = targetPage.external_url.includes('?') ? '&' : '?'
+                        redirectUrl = `${targetPage.external_url}${sep}purchase_id=${newAccess?.id || purchase_id}&token=${productAccess?.thankyou_token || token}`
+                    } else if (targetPage?.page_type === 'thankyou') {
+                        // Thank you page interna
+                        const frontendUrl = env.FRONTEND_URL || 'https://app.clicknich.com'
+                        redirectUrl = `${frontendUrl}/thankyou/${settings.accept_page_id}?purchase_id=${newAccess?.id || purchase_id}&token=${productAccess?.thankyou_token || token}`
+                    }
+                }
+            }
+
             return new Response(JSON.stringify({
                 success: true,
                 molliePaymentId: molliePayment.id,
                 status: molliePayment.status,
                 message: 'Upsell payment processed successfully',
                 purchaseId: newAccess?.id || purchase_id,
+                redirectUrl: redirectUrl
             }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 })
         }
 

@@ -138,13 +138,22 @@ function initClicknishOffer(config) {
                         if (data.success) {
                             // Update purchase_id if a new one was returned
                             var nextPurchaseId = data.purchaseId || purchaseId;
-                            if (nextPurchaseId && successUrl !== '#') {
-                                // Replace or add purchase_id in the success URL
-                                var url = new URL(successUrl, window.location.origin);
-                                url.searchParams.set('purchase_id', nextPurchaseId);
-                                window.location.href = url.toString();
+
+                            // Use redirectUrl from backend if available, otherwise use successUrl
+                            var finalRedirectUrl = data.redirectUrl || successUrl;
+
+                            if (nextPurchaseId && finalRedirectUrl !== '#') {
+                                // For backend redirectUrl, use as-is (already contains purchase_id/token)
+                                if (data.redirectUrl) {
+                                    window.location.href = data.redirectUrl;
+                                } else {
+                                    // For successUrl, replace or add purchase_id
+                                    var url = new URL(successUrl, window.location.origin);
+                                    url.searchParams.set('purchase_id', nextPurchaseId);
+                                    window.location.href = url.toString();
+                                }
                             } else {
-                                window.location.href = successUrl;
+                                window.location.href = finalRedirectUrl;
                             }
                         } else {
                             // Payment failed
