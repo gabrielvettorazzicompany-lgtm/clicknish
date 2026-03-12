@@ -523,7 +523,7 @@ export async function handleProcessPayment(
                             return filtered
                         })()
 
-                        const accessRecords = productsToGrant.map((product: any) => ({
+                        const accessRecords = productsToGrant.map((product: any, index: number) => ({
                             user_id: userId,
                             product_id: product.id,
                             application_id: applicationId,
@@ -537,6 +537,13 @@ export async function handleProcessPayment(
                             stripe_payment_method_id: paymentMethodId,
                             payout_schedule: producerPayoutSchedule,
                             created_at: new Date().toISOString(),
+                            // Salvar thankyou_token no primeiro registro atomicamente
+                            // para que process-upsell encontre stripe_customer_id + token juntos
+                            ...(index === 0 ? {
+                                thankyou_token: thankyouToken,
+                                thankyou_token_expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+                                thankyou_max_views: 5,
+                            } : {}),
                         }))
 
                         const { data: batchAccess } = await supabase
@@ -566,16 +573,6 @@ export async function handleProcessPayment(
                                 city: geoData.city,
                             }),
                         ]
-
-                        if (batchAccess && Array.isArray(batchAccess) && batchAccess.length > 0) {
-                            bgTasks.push(
-                                supabase.from('user_product_access').update({
-                                    thankyou_token: thankyouToken,
-                                    thankyou_token_expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
-                                    thankyou_max_views: 5
-                                }).eq('id', batchAccess[0].id)
-                            )
-                        }
 
                         // Registrar conversão em checkout_analytics se houver checkoutId
                         if (checkoutId) {

@@ -163,11 +163,11 @@ export async function handleProcessUpsell(
         let mollieMandateId: string | null = null
         let userId: string | null = null
 
-        // Tenta até 4x com delay crescente — o DB write ocorre via ctx.waitUntil
+        // Tenta até 6x com delay crescente — o DB write ocorre via ctx.waitUntil
         // no process-payment e pode ainda não ter finalizado quando o usuário clica no upsell
         let productAccess: any = null
-        for (let attempt = 0; attempt < 4; attempt++) {
-            if (attempt > 0) await new Promise(r => setTimeout(r, attempt * 1500))
+        for (let attempt = 0; attempt < 6; attempt++) {
+            if (attempt > 0) await new Promise(r => setTimeout(r, attempt * 2000))
 
             let q = supabase
                 .from('user_product_access')
