@@ -513,7 +513,7 @@ export default function FunnelEditor() {
                                                             </p>
                                                         </div>
 
-                                                        {!['checkout', 'thankyou'].includes(page.page_type) && (
+                                                        {page.page_type !== 'checkout' && (
                                                             <button
                                                                 onClick={(e) => {
                                                                     e.stopPropagation()
