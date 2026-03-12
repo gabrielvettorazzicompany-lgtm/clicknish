@@ -380,8 +380,8 @@ export async function handleDashboardStats(
             .sort((a, b) => a.date.localeCompare(b.date))
             .slice(-7)
 
-        // Calcular taxa de conversão: (Vendas Aprovadas ÷ Inícios de Checkout) × 100
-        const conversionRate = checkoutsCount > 0 ? (salesCount / checkoutsCount) * 100 : 0
+        // Calcular taxa de conversão: (Vendas Aprovadas ÷ Tentativas de Pagamento) × 100
+        const conversionRate = attemptsCount > 0 ? (salesCount / attemptsCount) * 100 : 0
         const refundRate = salesCount > 0 ? (refundCount / salesCount) * 100 : 0
         const abandonedCheckouts = checkoutsCount - salesCount
 
