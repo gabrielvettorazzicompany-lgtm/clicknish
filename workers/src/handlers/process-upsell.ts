@@ -201,6 +201,40 @@ export async function handleProcessUpsell(
             userId = productAccess.user_id
         }
 
+        // Fallback: buscar no KV se o DB ainda não foi escrito (race condition)
+        if (!productAccess && token && env.CACHE) {
+            try {
+                const kvData = await env.CACHE.get(`upsell_token:${token}`, 'json') as any
+                if (kvData?.stripe_customer_id) {
+                    stripeCustomerId = kvData.stripe_customer_id
+                    stripePaymentMethodId = kvData.stripe_payment_method_id
+                    // userId ainda não disponível no KV — buscar por stripe_customer_id
+                    const { data: accessByCustomer } = await supabase
+                        .from('user_product_access')
+                        .select('user_id')
+                        .eq('stripe_customer_id', kvData.stripe_customer_id)
+                        .order('created_at', { ascending: false })
+                        .limit(1)
+                        .maybeSingle()
+                    userId = accessByCustomer?.user_id || null
+                    // Se ainda não tem userId no DB, aguardar mais um pouco
+                    if (!userId) {
+                        await new Promise(r => setTimeout(r, 3000))
+                        const { data: retryAccess } = await supabase
+                            .from('user_product_access')
+                            .select('user_id')
+                            .eq('stripe_customer_id', kvData.stripe_customer_id)
+                            .order('created_at', { ascending: false })
+                            .limit(1)
+                            .maybeSingle()
+                        userId = retryAccess?.user_id || null
+                    }
+                }
+            } catch (kvErr) {
+                console.warn('KV read failed:', kvErr)
+            }
+        }
+
         if (!userId) {
             throw new Error('Payment method not found for this purchase. Cannot process one-click upsell.')
         }

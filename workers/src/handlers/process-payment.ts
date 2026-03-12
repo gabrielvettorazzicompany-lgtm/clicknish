@@ -849,6 +849,27 @@ export async function handleProcessPayment(
             ))
         }
 
+        // ═══════════════════════════════════════════════════════════════════
+        // SALVAR CREDENCIAIS NO KV SINCRONAMENTE (antes de retornar)
+        // Garante que process-upsell encontre stripe_customer_id + token
+        // mesmo que o ctx.waitUntil ainda não tenha terminado de escrever no DB
+        // ═══════════════════════════════════════════════════════════════════
+        if (env.CACHE && thankyouToken && stripeCustomer?.id) {
+            try {
+                await env.CACHE.put(
+                    `upsell_token:${thankyouToken}`,
+                    JSON.stringify({
+                        stripe_customer_id: stripeCustomer.id,
+                        stripe_payment_method_id: paymentMethodId,
+                        purchase_id: purchaseId,
+                    }),
+                    { expirationTtl: 7 * 24 * 60 * 60 } // 7 dias
+                )
+            } catch (kvErr) {
+                console.warn('KV write failed (non-fatal):', kvErr)
+            }
+        }
+
         return new Response(
             JSON.stringify({
                 success: true,
