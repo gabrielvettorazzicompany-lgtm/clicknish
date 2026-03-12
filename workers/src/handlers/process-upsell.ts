@@ -161,6 +161,7 @@ export async function handleProcessUpsell(
         let mollieCustomerId: string | null = null
         let mollieMandateId: string | null = null
         let userId: string | null = null
+        let productAccess: any = null  // referenciado nas redirectUrls abaixo
 
         // ─── PASSO 1: KV primeiro (novas compras — escrito de forma síncrona antes do response) ───
         // O DB é gravado via ctx.waitUntil (background) e pode ainda não ter terminado.
@@ -203,7 +204,6 @@ export async function handleProcessUpsell(
         // ─── PASSO 2: Fallback DB (compras antigas sem KV, ou Mollie) ───
         // Busca nas duas tabelas: user_product_access (apps) e user_member_area_access (marketplace)
         if (!foundViaKV) {
-            let productAccess: any = null
             for (let attempt = 0; attempt < 6; attempt++) {
                 if (attempt > 0) await new Promise(r => setTimeout(r, attempt * 2000))
 
