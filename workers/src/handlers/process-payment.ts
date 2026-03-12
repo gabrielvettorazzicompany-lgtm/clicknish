@@ -862,6 +862,8 @@ export async function handleProcessPayment(
                         stripe_customer_id: stripeCustomer.id,
                         stripe_payment_method_id: paymentMethodId,
                         purchase_id: purchaseId,
+                        // user_id disponível para usuários existentes (evita esperar DB no upsell)
+                        user_id: existingAppUserData?.user_id || null,
                     }),
                     { expirationTtl: 7 * 24 * 60 * 60 } // 7 dias
                 )

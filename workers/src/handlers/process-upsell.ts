@@ -173,19 +173,26 @@ export async function handleProcessUpsell(
                     foundViaKV = true
                     stripeCustomerId = kvData.stripe_customer_id
                     stripePaymentMethodId = kvData.stripe_payment_method_id
-                    // Buscar user_id no DB — o ctx.waitUntil pode ainda estar gravando, tentar algumas vezes
-                    for (let i = 0; i < 4; i++) {
-                        if (i > 0) await new Promise(r => setTimeout(r, i * 1500))
-                        const [r1, r2] = await Promise.all([
-                            supabase.from('user_product_access').select('user_id')
-                                .eq('stripe_customer_id', kvData.stripe_customer_id)
-                                .order('created_at', { ascending: false }).limit(1).maybeSingle(),
-                            supabase.from('user_member_area_access').select('user_id')
-                                .eq('stripe_customer_id', kvData.stripe_customer_id)
-                                .order('created_at', { ascending: false }).limit(1).maybeSingle(),
-                        ])
-                        const found = r1.data?.user_id || r2.data?.user_id || null
-                        if (found) { userId = found; break }
+
+                    // user_id salvo no KV para usuários existentes (zero latência)
+                    if (kvData.user_id) {
+                        userId = kvData.user_id
+                    } else {
+                        // Novo usuário — user_id só existe após ctx.waitUntil gravar no DB
+                        // Tentar até 8x com delay crescente (máx ~25s)
+                        for (let i = 0; i < 8; i++) {
+                            if (i > 0) await new Promise(r => setTimeout(r, Math.min(i * 2000, 6000)))
+                            const [r1, r2] = await Promise.all([
+                                supabase.from('user_product_access').select('user_id')
+                                    .eq('stripe_customer_id', kvData.stripe_customer_id)
+                                    .order('created_at', { ascending: false }).limit(1).maybeSingle(),
+                                supabase.from('user_member_area_access').select('user_id')
+                                    .eq('stripe_customer_id', kvData.stripe_customer_id)
+                                    .order('created_at', { ascending: false }).limit(1).maybeSingle(),
+                            ])
+                            const found = r1.data?.user_id || r2.data?.user_id || null
+                            if (found) { userId = found; break }
+                        }
                     }
                 }
             } catch (kvErr) {
