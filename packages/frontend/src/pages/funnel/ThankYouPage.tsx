@@ -52,7 +52,7 @@ export default function ThankYouPage() {
                 {/* Ícone de sucesso ou imagem personalizada */}
                 <div className="flex justify-center">
                     {settings?.image_data || settings?.image_url ? (
-                        <div className="w-20 h-20 rounded-full overflow-hidden border border-white/10">
+                        <div className="w-20 h-20 rounded-lg overflow-hidden border border-white/10">
                             <img 
                                 src={settings.image_data || settings.image_url} 
                                 alt="Sucesso" 
