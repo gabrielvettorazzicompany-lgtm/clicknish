@@ -9,6 +9,8 @@ interface ThankYouSettings {
     cta_text?: string
     cta_url?: string
     background_color?: string
+    image_url?: string
+    image_data?: string
 }
 
 export default function ThankYouPage() {
@@ -47,11 +49,36 @@ export default function ThankYouPage() {
     return (
         <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center p-4">
             <div className="max-w-md w-full text-center space-y-6">
-                {/* Ícone de sucesso */}
+                {/* Ícone de sucesso ou imagem personalizada */}
                 <div className="flex justify-center">
-                    <div className="w-20 h-20 rounded-full bg-green-500/10 border border-green-500/20 flex items-center justify-center">
-                        <CheckCircle size={40} className="text-green-400" />
-                    </div>
+                    {settings?.image_data || settings?.image_url ? (
+                        <div className="w-20 h-20 rounded-full overflow-hidden border border-white/10">
+                            <img 
+                                src={settings.image_data || settings.image_url} 
+                                alt="Sucesso" 
+                                className="w-full h-full object-cover"
+                                onError={(e) => {
+                                    // Fallback para o ícone se a imagem não carregar
+                                    e.currentTarget.style.display = 'none'
+                                    const parent = e.currentTarget.parentElement
+                                    if (parent) {
+                                        parent.innerHTML = `
+                                            <div class="w-20 h-20 rounded-full bg-green-500/10 border border-green-500/20 flex items-center justify-center">
+                                                <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-green-400">
+                                                    <path d="M9 12l2 2 4-4"></path>
+                                                    <circle cx="12" cy="12" r="10"></circle>
+                                                </svg>
+                                            </div>
+                                        `
+                                    }
+                                }}
+                            />
+                        </div>
+                    ) : (
+                        <div className="w-20 h-20 rounded-full bg-green-500/10 border border-green-500/20 flex items-center justify-center">
+                            <CheckCircle size={40} className="text-green-400" />
+                        </div>
+                    )}
                 </div>
 
                 {/* Título */}

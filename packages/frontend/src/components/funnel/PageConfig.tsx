@@ -8,6 +8,7 @@ import ProductCheckoutCard from './ProductCheckoutCard'
 import OfferPageConfig, { OfferPageConfigHandle } from './OfferPageConfig'
 import RedirectConfig from './RedirectConfig'
 import CheckoutRedirectConfig from './CheckoutRedirectConfig'
+import ImageUploader from '@/components/ImageUploader'
 import { useState, useRef, useEffect } from 'react'
 import { supabase } from '@/services/supabase'
 import { Save, Check } from 'lucide-react'
@@ -377,6 +378,22 @@ export default function PageConfig({ page, funnelId, onUpdate }: PageConfigProps
                                         onChange={e => setThankyouSettings(s => ({ ...s, description: e.target.value }))}
                                         className="w-full px-3 py-2 text-sm bg-white dark:bg-transparent border border-gray-300 dark:border-zinc-700 rounded text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:border-blue-500 resize-none"
                                     />
+                                </div>
+
+                                {/* Imagem */}
+                                <div>
+                                    <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
+                                        {t('funnel_components.thankyou_image_optional')}
+                                    </label>
+                                    <ImageUploader
+                                        onImageSelect={(imageData) => setThankyouSettings(s => ({ ...s, image_data: imageData }))}
+                                        currentImage={thankyouSettings.image_data || ''}
+                                        placeholder={t('funnel_components.thankyou_image_placeholder')}
+                                        aspectRatio="square"
+                                    />
+                                    <p className="text-xs text-gray-400 mt-1">
+                                        {t('funnel_components.thankyou_image_description')}
+                                    </p>
                                 </div>
 
                                 {/* CTA Button */}
