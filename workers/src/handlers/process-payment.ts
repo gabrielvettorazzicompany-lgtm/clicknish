@@ -431,10 +431,33 @@ export async function handleProcessPayment(
         }
 
         // ═══════════════════════════════════════════════════════════════════
-        // ⚡ OTIMIZAÇÃO: Gerar IDs ANTES de processar acesso (response streaming)
+        // ⚡ OTIMIZAÇÃO: Gerar IDs + criar usuário ANTES do ctx.waitUntil
+        // user_id precisa estar disponível para ser salvo no KV junto com
+        // stripe_customer_id, garantindo que process-upsell não precise
+        // esperar o DB ser escrito (ctx.waitUntil) para processar o upsell.
         // ═══════════════════════════════════════════════════════════════════
         const purchaseId = crypto.randomUUID()
         const thankyouToken = crypto.randomUUID()
+
+        // Resolver user_id sincronamente (antes do ctx.waitUntil)
+        // Para usuários existentes: já temos. Para novos: criar agora.
+        let resolvedUserId: string = existingAppUserData?.user_id || ''
+        let newUserCreated = false
+        if (!resolvedUserId && paymentIntent.status === 'succeeded') {
+            try {
+                const authData = await createCustomerUser(supabase, env, {
+                    email: customerEmail,
+                    name: customerName,
+                    phone: customerPhone,
+                    created_via: 'purchase'
+                })
+                resolvedUserId = authData.user.id
+                newUserCreated = true
+            } catch (userErr: any) {
+                console.error('createCustomerUser failed (sync):', userErr)
+                // resolvedUserId continua '' — o ctx.waitUntil tentará novamente
+            }
+        }
 
         // Calcular quais módulos serão liberados AGORA para usar no email
         // (feito aqui fora do waitUntil para evitar race condition com o upsert)
@@ -468,28 +491,26 @@ export async function handleProcessPayment(
                     console.warn('Pagamento não aprovado, acesso não liberado:', paymentIntent.status)
                     return
                 }
-                let userId: string = ''
+                let userId: string = resolvedUserId
 
                 if (productType === 'app') {
                     // FLUXO PARA APPS
-                    const existingAppUser = existingAppUserData
                     const orderBumpProductIds = orderBumpProductIdsData
                     const appProducts = appProductsData
 
-                    // Processar usuário
-                    if (existingAppUser) {
-                        userId = existingAppUser.user_id
-                    } else {
+                    // Se resolvedUserId falhou no sync (raro), tentar novamente aqui
+                    if (!userId) {
                         const authData = await createCustomerUser(supabase, env, {
                             email: customerEmail,
                             name: customerName,
                             phone: customerPhone,
                             created_via: 'purchase'
                         })
-
                         userId = authData.user.id
+                    }
 
-                        // upsert app_users — usa email como chave de conflito pois user_id pode ser null em registros antigos
+                    // upsert app_users para novos usuários criados sincronamente
+                    if (newUserCreated) {
                         const { error: appUserUpsertError } = await supabase.from('app_users').upsert({
                             user_id: userId,
                             email: customerEmail,
@@ -627,15 +648,17 @@ export async function handleProcessPayment(
                 } else {
                     // FLUXO PARA MARKETPLACE
 
-                    // Step 1: Criar customer via novo sistema
-                    const authData = await createCustomerUser(supabase, env, {
-                        email: customerEmail,
-                        name: customerName,
-                        phone: customerPhone,
-                        created_via: 'purchase'
-                    })
-
-                    userId = authData.user.id
+                    // user_id já resolvido sincronamente antes do ctx.waitUntil
+                    // Se falhou (raro), tentar novamente aqui
+                    if (!userId) {
+                        const authData = await createCustomerUser(supabase, env, {
+                            email: customerEmail,
+                            name: customerName,
+                            phone: customerPhone,
+                            created_via: 'purchase'
+                        })
+                        userId = authData.user.id
+                    }
 
                     // Step 2: Criar/atualizar member profile (sempre, independente do auth)
                     const { data: memberProfileData, error: memberProfileError } = await supabase
@@ -862,8 +885,8 @@ export async function handleProcessPayment(
                         stripe_customer_id: stripeCustomer.id,
                         stripe_payment_method_id: paymentMethodId,
                         purchase_id: purchaseId,
-                        // user_id disponível para usuários existentes (evita esperar DB no upsell)
-                        user_id: existingAppUserData?.user_id || null,
+                        // user_id resolvido sincronamente — process-upsell usa direto sem esperar DB
+                        user_id: resolvedUserId || null,
                     }),
                     { expirationTtl: 7 * 24 * 60 * 60 } // 7 dias
                 )
