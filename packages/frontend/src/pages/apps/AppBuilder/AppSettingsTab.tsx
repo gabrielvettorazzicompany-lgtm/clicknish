@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { useI18n } from '@/i18n'
+import { supabase } from '@/services/supabase'
 
 // CDN oficial da Mollie para ícones de métodos de pagamento
 const MOLLIE_ICON_BASE = 'https://www.mollie.com/external/icons/payment-methods'
@@ -30,10 +31,8 @@ const PaypalIcon = () => (
     </svg>
 )
 
-const BASE_METHODS: MethodOption[] = [
-    { id: 'credit_card', label: 'Cartão de Crédito' },
-    { id: 'paypal', label: 'PayPal' },
-]
+const PAYPAL_METHOD: MethodOption = { id: 'paypal', label: 'PayPal' }
+const CREDIT_CARD_METHOD: MethodOption = { id: 'credit_card', label: 'Cartão de Crédito' }
 
 interface Props {
     selectedPaymentMethods: string[]
@@ -60,6 +59,7 @@ export default function AppSettingsTab({
     const [localSelected, setLocalSelected] = useState<string[]>(selectedPaymentMethods)
     const [localDynamic, setLocalDynamic] = useState(dynamicCheckout)
     const [mollieMethods, setMollieMethods] = useState<MethodOption[]>([])
+    const [stripeActive, setStripeActive] = useState(false)
     const [saving, setSaving] = useState(false)
     const [hasChanges, setHasChanges] = useState(false)
 
@@ -68,6 +68,19 @@ export default function AppSettingsTab({
         setLocalDynamic(dynamicCheckout)
         setHasChanges(false)
     }, [selectedPaymentMethods, dynamicCheckout])
+
+    // Verificar se há provedor Stripe ativo
+    useEffect(() => {
+        supabase
+            .from('payment_providers')
+            .select('id')
+            .in('type', ['stripe', 'stripe_connect'])
+            .eq('is_active', true)
+            .limit(1)
+            .maybeSingle()
+            .then(({ data }) => setStripeActive(!!data))
+            .catch(() => {})
+    }, [])
 
     // Buscar métodos Mollie habilitados pelo admin (sem filtro de país)
     useEffect(() => {
@@ -85,7 +98,11 @@ export default function AppSettingsTab({
             .catch(() => {})
     }, [])
 
-    const allMethods = [...BASE_METHODS, ...mollieMethods]
+    const allMethods = [
+        ...(stripeActive ? [CREDIT_CARD_METHOD] : []),
+        PAYPAL_METHOD,
+        ...mollieMethods,
+    ]
 
     const handleToggle = (id: string) => {
         const isSelected = localSelected.includes(id)

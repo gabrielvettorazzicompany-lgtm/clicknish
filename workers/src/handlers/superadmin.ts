@@ -893,6 +893,18 @@ export async function handleSuperadmin(request: Request, env: any, pathSegments:
                     available.unshift({ id: 'card', label: 'Card (Visa, Mastercard, etc.)', active: true })
                 }
 
+                // Apple Pay e Google Pay não são capabilities separadas — funcionam
+                // sobre card_payments. Adicioná-las sempre que card estiver disponível.
+                const cardEntry = available.find(m => m.id === 'card')
+                if (cardEntry) {
+                    if (!available.find(m => m.id === 'apple_pay')) {
+                        available.push({ id: 'apple_pay', label: 'Apple Pay', active: cardEntry.active })
+                    }
+                    if (!available.find(m => m.id === 'google_pay')) {
+                        available.push({ id: 'google_pay', label: 'Google Pay', active: cardEntry.active })
+                    }
+                }
+
                 return new Response(JSON.stringify({
                     available,
                     enabled: prov.enabled_methods || [],
