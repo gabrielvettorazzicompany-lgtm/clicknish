@@ -289,15 +289,17 @@ async function handleApiRoute(
         }
 
         const STRIPE_ICONS: Record<string, string> = {
-            ideal: 'https://js.stripe.com/v3/fingerprinted/img/ideal-c5bfeec4a7cd2e5879dd91c6e32e8b32.svg',
-            bancontact: 'https://js.stripe.com/v3/fingerprinted/img/bancontact-c8e77f2bb9a86de2df96d27dfca1eb14.svg',
-            sofort: 'https://js.stripe.com/v3/fingerprinted/img/sofort-fa2fdbba8e1041db5e3060c4d53acab0.svg',
-            giropay: 'https://js.stripe.com/v3/fingerprinted/img/giropay-9a06a5fc20abb8bfa0e7e3de6b96e3cc.svg',
-            eps: 'https://js.stripe.com/v3/fingerprinted/img/eps-91acf2b6a57c93e38de8e5cbee226b9c.svg',
-            p24: 'https://js.stripe.com/v3/fingerprinted/img/p24-be2d0b8af5a82f2ef4b888e4c7bde0ba.svg',
-            alipay: 'https://js.stripe.com/v3/fingerprinted/img/alipay-b45c41ff2fb931cd1cf3606a68462f5f.svg',
-            klarna: 'https://js.stripe.com/v3/fingerprinted/img/klarna-c78b83e7e0c2b3dce3c8a2f93b1e3e3a.svg',
-            sepa_debit: 'https://js.stripe.com/v3/fingerprinted/img/sepa_debit-fb2b07a1f89b59aca0a9b3d7d6c2f1c4.svg',
+            ideal: 'https://upload.wikimedia.org/wikipedia/commons/thumb/b/b0/Ideal-logo.svg/200px-Ideal-logo.svg.png',
+            bancontact: 'https://checkoutshopper-live.adyen.com/checkoutshopper/images/logos/bancontact.svg',
+            sofort: 'https://checkoutshopper-live.adyen.com/checkoutshopper/images/logos/directEbanking.svg',
+            giropay: 'https://checkoutshopper-live.adyen.com/checkoutshopper/images/logos/giropay.svg',
+            eps: 'https://checkoutshopper-live.adyen.com/checkoutshopper/images/logos/eps.svg',
+            p24: 'https://checkoutshopper-live.adyen.com/checkoutshopper/images/logos/p24.svg',
+            alipay: 'https://checkoutshopper-live.adyen.com/checkoutshopper/images/logos/alipay.svg',
+            klarna: 'https://cdn.klarna.com/1.0/shared/image/generic/logo/en_us/basic/logo_black.png',
+            sepa_debit: 'https://checkoutshopper-live.adyen.com/checkoutshopper/images/logos/sepadirectdebit.svg',
+            link: 'https://js.stripe.com/v3/fingerprinted/img/link.svg',
+            amazon_pay: 'https://checkoutshopper-live.adyen.com/checkoutshopper/images/logos/amazonpay.svg',
         }
 
         const methods = enabledMethods.map(id => ({

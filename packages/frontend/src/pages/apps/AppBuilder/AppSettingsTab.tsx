@@ -34,6 +34,18 @@ const PaypalIcon = () => (
 const PAYPAL_METHOD: MethodOption = { id: 'paypal', label: 'PayPal' }
 const CREDIT_CARD_METHOD: MethodOption = { id: 'credit_card', label: 'Cartão de Crédito' }
 
+const MethodTextBadge = ({ label }: { label: string }) => (
+    <span className="text-[9px] font-bold text-gray-500 uppercase tracking-tight leading-none text-center w-5">
+        {label.slice(0, 3)}
+    </span>
+)
+
+const MethodIcon = ({ iconUrl, label }: { iconUrl: string; label: string }) => {
+    const [err, setErr] = React.useState(false)
+    if (err) return <MethodTextBadge label={label} />
+    return <img src={iconUrl} alt={label} className="w-5 h-4 object-contain" onError={() => setErr(true)} />
+}
+
 interface Props {
     selectedPaymentMethods: string[]
     defaultPaymentMethod: string
@@ -225,9 +237,9 @@ export default function AppSettingsTab({
                                 {method.id === 'credit_card' ? <CreditCardIcon /> :
                                  method.id === 'paypal' ? <PaypalIcon /> :
                                  method.iconUrl ? (
-                                    <img src={method.iconUrl} alt={method.label} className="w-5 h-4 object-contain" />
+                                    <MethodIcon iconUrl={method.iconUrl} label={method.label} />
                                  ) : (
-                                    <span className="text-sm">💳</span>
+                                    <MethodTextBadge label={method.label} />
                                  )}
                             </div>
 
