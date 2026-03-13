@@ -273,17 +273,22 @@ export default function CheckoutPublic() {
         })
             .then(r => r.json())
             .then((result: any) => {
-                if (result.success) {
-                    const cleanUrl = window.location.pathname
-                    window.history.replaceState({}, '', cleanUrl)
-                    if (result.redirectUrl) {
-                        window.location.href = result.redirectUrl
-                    }
+                if (result.success && result.redirectUrl) {
+                    window.location.href = result.redirectUrl
                 } else {
+                    // Pagamento falhou ou sem redirectUrl — limpar params e carregar checkout normalmente
+                    window.history.replaceState({}, '', window.location.pathname)
                     setStripeVerifying(false)
+                    setLoading(true)
+                    fetchData()
                 }
             })
-            .catch(() => setStripeVerifying(false))
+            .catch(() => {
+                window.history.replaceState({}, '', window.location.pathname)
+                setStripeVerifying(false)
+                setLoading(true)
+                fetchData()
+            })
     }, [])
 
     // Buscar métodos Mollie habilitados — filtros dependem do modo
