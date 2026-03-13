@@ -139,6 +139,7 @@ export default function CheckoutPublic() {
 
     // ⚡ Se dados já disponíveis no HTML, começa sem loading (zero skeleton)
     const [loading, setLoading] = useState(!snap)
+    const [reloadKey, setReloadKey] = useState(0)
     const [fetchError, setFetchError] = useState(false)
     const [product, setProduct] = useState<Product | null>(snap?.product ?? null)
     const [checkout, setCheckout] = useState<Checkout | null>(snap?.checkout ?? null)
@@ -252,10 +253,17 @@ export default function CheckoutPublic() {
                         window.location.href = result.redirectUrl
                     }
                 } else {
+                    window.history.replaceState({}, '', window.location.pathname)
                     setMollieVerifying(false)
+                    setLoading(true)
+                    setReloadKey(k => k + 1)
                 }
             })
-            .catch(() => setMollieVerifying(false))
+            .catch(() => {
+                setMollieVerifying(false)
+                setLoading(true)
+                setReloadKey(k => k + 1)
+            })
     }, [])
 
     // Verificar retorno do Stripe redirect (iDEAL, Bancontact, etc.)
@@ -280,14 +288,14 @@ export default function CheckoutPublic() {
                     window.history.replaceState({}, '', window.location.pathname)
                     setStripeVerifying(false)
                     setLoading(true)
-                    fetchData()
+                    setReloadKey(k => k + 1) // dispara o useEffect principal (sem chamar fetchData manualmente)
                 }
             })
             .catch(() => {
                 window.history.replaceState({}, '', window.location.pathname)
                 setStripeVerifying(false)
                 setLoading(true)
-                fetchData()
+                setReloadKey(k => k + 1)
             })
     }, [])
 
@@ -877,7 +885,7 @@ export default function CheckoutPublic() {
         } else {
             setLoading(false)
         }
-    }, [productId, checkoutId, shortId, fetchData, loading]) // loading: re-executa ao clicar "Tentar novamente"
+    }, [productId, checkoutId, shortId, fetchData, reloadKey]) // reloadKey: re-executa ao clicar "Tentar novamente" ou após verify falhar
 
     const lang = checkout?.language || 'en'
     const t = getTranslations(lang as CheckoutLanguage)
@@ -959,7 +967,7 @@ export default function CheckoutPublic() {
                 <div className="text-center">
                     <p className="text-gray-400 text-sm mb-4">Não foi possível carregar o checkout.</p>
                     <button
-                        onClick={() => { setFetchError(false); setLoading(true) }}
+                        onClick={() => { setFetchError(false); setLoading(true); setReloadKey(k => k + 1) }}
                         className="px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700"
                     >
                         Tentar novamente
