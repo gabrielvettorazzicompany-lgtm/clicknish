@@ -87,7 +87,7 @@ function Dashboard() {
     return `${value.toFixed(1)}%`
   }
 
-  const ticketMedio = stats.salesCount > 0 ? stats.totalSales / stats.salesCount : 0
+  const ticketMedio = stats.salesCount > 0 ? (stats.totalNetSales ?? stats.totalSales) / stats.salesCount : 0
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-[#080b14] flex transition-colors duration-200 relative">
@@ -140,7 +140,7 @@ function Dashboard() {
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <StatCard
                 title={t('dashboard.total_sales')}
-                value={formatCurrency(stats.totalSales)}
+                value={formatCurrency(stats.totalNetSales ?? stats.totalSales)}
                 subtitle={t('dashboard.during_period')}
                 color="indigo"
                 loading={loadingStats}

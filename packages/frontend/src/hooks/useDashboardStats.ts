@@ -4,6 +4,7 @@ import { supabase } from '@/services/supabase'
 
 interface DashboardStats {
     totalSales: number
+    totalNetSales: number
     salesCount: number
     conversionRate: number
     checkouts: number
@@ -34,6 +35,7 @@ interface Product {
 
 const defaultStats: DashboardStats = {
     totalSales: 0,
+    totalNetSales: 0,
     salesCount: 0,
     conversionRate: 0,
     checkouts: 0,

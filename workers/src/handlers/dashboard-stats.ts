@@ -351,9 +351,19 @@ export async function handleDashboardStats(
         const allRefunds = [...marketplaceRefunds, ...appRefunds]
         const allAttempts = [...marketplaceAttempts, ...appAttempts]
 
+        const NON_USD_SPREAD = 0.018
+        const TRANSACTION_FEE = 0.49
+
         const totalSales = allSales.reduce((sum, sale) => {
             return sum + parseFloat(sale.amount || 0)
         }, 0)
+
+        const totalNetSales = Math.max(0, allSales.reduce((sum, sale) => {
+            const amount = parseFloat(sale.amount || 0)
+            const cur = (sale.currency || 'USD').toUpperCase()
+            const effectiveAmount = cur !== 'USD' ? amount * (1 - NON_USD_SPREAD) : amount
+            return sum + effectiveAmount
+        }, 0) - (allSales.length * TRANSACTION_FEE))
 
         const salesCount = allSales.length
         const attemptsCount = allAttempts.length
@@ -442,6 +452,7 @@ export async function handleDashboardStats(
 
         const stats = {
             totalSales,
+            totalNetSales,
             salesCount,
             conversionRate: Math.round(conversionRate * 100) / 100,
             checkouts: checkoutsCount,
