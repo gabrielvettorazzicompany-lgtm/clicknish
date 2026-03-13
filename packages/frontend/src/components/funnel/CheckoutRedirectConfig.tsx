@@ -200,7 +200,7 @@ export default function CheckoutRedirectConfig({ funnelId, pageId, onUpdate, onS
                         {t('funnel_components.checkout_redirect.description')}
                     </label>
                     <select
-                        value={loginUrl && settings.post_purchase_redirect_url === loginUrl ? '_login' : (settings.post_purchase_page_id || (settings.post_purchase_redirect_url ? '_custom' : ''))}
+                        value={loginUrl && settings.post_purchase_redirect_url === loginUrl ? '_login' : (settings.post_purchase_page_id || (settings.post_purchase_redirect_url !== undefined ? '_custom' : ''))}
                         onChange={(e) => {
                             const value = e.target.value
                             let next: RedirectSettings
