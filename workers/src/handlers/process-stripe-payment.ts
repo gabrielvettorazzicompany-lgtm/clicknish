@@ -362,7 +362,12 @@ async function verifyStripeRedirectPayment(
         .update({ status: paymentIntent.status, updated_at: new Date().toISOString() })
         .eq('id', internalPaymentId)
 
-    if (paymentIntent.status !== 'succeeded') {
+    // Para métodos de redirect (iDEAL, Bancontact, etc.), 'processing' significa que o
+    // banco autorizou o pagamento — o dinheiro é garantido. O webhook confirmará depois.
+    // Tratar 'processing' como sucesso para não deixar o usuário na tela de erro.
+    const isApproved = paymentIntent.status === 'succeeded' || paymentIntent.status === 'processing'
+
+    if (!isApproved) {
         return json({
             success: false,
             status: paymentIntent.status,
