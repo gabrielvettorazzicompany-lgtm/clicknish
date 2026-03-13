@@ -7,6 +7,7 @@ export interface Order {
     orderNumber: string
     date: string
     total: number
+    currency: string
     customer: {
         name: string
         email: string

@@ -65,8 +65,16 @@ const OrdersTable = memo(function OrdersTable({
     const { t } = useI18n()
 
     // Memoizar formatters
-    const formatCurrency = useCallback((value: number) => {
-        return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+    const formatCurrency = useCallback((value: number, currency: string) => {
+        const safeCurrency = currency || 'BRL'
+        const currencyMap: { [key: string]: string } = {
+            'USD': 'en-US',
+            'EUR': 'de-DE',
+            'CHF': 'de-CH',
+            'BRL': 'pt-BR'
+        }
+        const locale = currencyMap[safeCurrency] || 'en-US'
+        return value.toLocaleString(locale, { style: 'currency', currency: safeCurrency })
     }, [])
 
     const formatDate = useCallback((date: string) => {
@@ -174,7 +182,7 @@ const OrdersTable = memo(function OrdersTable({
                             </TableCell>
                             <TableCell>
                                 <span className="text-sm font-semibold text-gray-900 dark:text-gray-100 whitespace-nowrap">
-                                    {formatCurrency(order.total)}
+                                    {formatCurrency(order.total, order.currency || 'BRL')}
                                 </span>
                             </TableCell>
                             <TableCell>

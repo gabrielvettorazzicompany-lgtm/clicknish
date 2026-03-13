@@ -714,23 +714,53 @@ export default function ProductsManagement({ embedded = false }: { embedded?: bo
                                 {filteredProducts.length > 0 && (
                                     <div>
                                         <h2 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-3">Products</h2>
-                                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
-                                            {filteredProducts.map((product) => (
-                                                <ProductCard
-                                                    key={product.id}
-                                                    product={product}
-                                                    onEdit={handleEditProduct}
-                                                    onDelete={handleDeleteProduct}
-                                                    onCopyLink={copyProductLink}
-                                                    onOpenAccess={openProductAccess}
-                                                    generateAccessUrl={generateProductAccessUrl}
-                                                    copiedLinks={copiedLinks}
-                                                    formatCurrency={formatCurrency}
-                                                    getStatusColor={getStatusColor}
-                                                    getStatusText={getStatusText}
-                                                    onSubmitReview={handleSubmitProductForReview}
-                                                />
-                                            ))}
+                                        <div className="overflow-x-auto">
+                                            <table className="min-w-full bg-white dark:bg-[#080b14] rounded-lg">
+                                                <thead>
+                                                    <tr>
+                                                        <th className="px-4 py-2 text-left">Foto</th>
+                                                        <th className="px-4 py-2 text-left">Nome</th>
+                                                        <th className="px-4 py-2 text-left">Descrição</th>
+                                                        <th className="px-4 py-2 text-left">Preço</th>
+                                                        <th className="px-4 py-2 text-left">Categoria</th>
+                                                        <th className="px-4 py-2 text-left">Status</th>
+                                                        <th className="px-4 py-2 text-left">Criado em</th>
+                                                        <th className="px-4 py-2 text-left">Ações</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    {filteredProducts.map((product) => (
+                                                        <tr key={product.id} className="border-b border-gray-200 dark:border-white/10">
+                                                            <td className="px-4 py-2">
+                                                                {product.image_url ? (
+                                                                    <img src={product.image_url} alt={product.name} className="w-16 h-16 object-cover rounded" />
+                                                                ) : (
+                                                                    <div className="w-16 h-16 bg-gray-100 dark:bg-white/5 rounded"></div>
+                                                                )}
+                                                            </td>
+                                                            <td className="px-4 py-2 font-semibold">{product.name}</td>
+                                                            <td className="px-4 py-2 text-sm text-gray-700 dark:text-gray-300">{product.description}</td>
+                                                            <td className="px-4 py-2">{formatCurrency(product.price, product.currency)}</td>
+                                                            <td className="px-4 py-2">{product.category}</td>
+                                                            <td className="px-4 py-2">
+                                                                <span className={`px-2 py-1 rounded text-xs font-medium ${getStatusColor(product.status)}`}>{getStatusText(product.status)}</span>
+                                                            </td>
+                                                            <td className="px-4 py-2 text-xs">{new Date(product.created_at).toLocaleDateString('pt-BR')}</td>
+                                                            <td className="px-4 py-2">
+                                                                <button onClick={() => openProductAccess(product.slug)} className="mr-2 text-blue-500 hover:text-blue-700" title="Acessar">
+                                                                    <svg xmlns="http://www.w3.org/2000/svg" className="inline w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 3v4m0 0V3m0 4h4m-4 0H3m7 7v4m0 0v-4m0 4h4m-4 0H3" /></svg>
+                                                                </button>
+                                                                <button onClick={() => handleEditProduct(product)} className="mr-2 text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white" title="Editar">
+                                                                    <svg xmlns="http://www.w3.org/2000/svg" className="inline w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536M9 13l6.536-6.536a2 2 0 112.828 2.828L11.828 15.828a2 2 0 01-2.828 0L9 13z" /></svg>
+                                                                </button>
+                                                                <button onClick={() => handleDeleteProduct(product.id)} className="text-red-500 hover:text-red-700" title="Excluir">
+                                                                    <svg xmlns="http://www.w3.org/2000/svg" className="inline w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                                                                </button>
+                                                            </td>
+                                                        </tr>
+                                                    ))}
+                                                </tbody>
+                                            </table>
                                         </div>
                                     </div>
                                 )}
