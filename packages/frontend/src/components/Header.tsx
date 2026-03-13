@@ -44,17 +44,18 @@ const Header = memo(function Header({ onMenuClick }: HeaderProps) {
       {/* Right Section */}
       <div className="flex items-center gap-1.5 sm:gap-3 flex-1 justify-end pointer-events-auto">
         <ThemeToggle />
-        <button
-          onClick={() => {
-            const langs = ['pt', 'es', 'en', 'fr', 'de'] as const
-            const next = langs[(langs.indexOf(language as typeof langs[number]) + 1) % langs.length]
-            handleLanguageChange(next)
-          }}
-          className="h-8 px-2 sm:px-2.5 bg-white dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded text-xs font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/10 focus:outline-none focus:ring-1 focus:ring-blue-400 cursor-pointer transition-colors"
+        <select
+          value={language}
+          onChange={(e) => handleLanguageChange(e.target.value as 'pt' | 'es' | 'en' | 'fr' | 'de')}
+          className="h-8 px-2 sm:px-2.5 bg-white dark:bg-[#0d1117] border border-gray-200 dark:border-white/10 rounded text-xs font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/10 focus:outline-none focus:ring-1 focus:ring-blue-400 cursor-pointer transition-colors appearance-none"
           title="Idioma"
         >
-          {language.toUpperCase()}
-        </button>
+          <option value="pt">PT</option>
+          <option value="es">ES</option>
+          <option value="en">EN</option>
+          <option value="fr">FR</option>
+          <option value="de">DE</option>
+        </select>
         <UserProfileDropdown />
       </div>
     </header>
