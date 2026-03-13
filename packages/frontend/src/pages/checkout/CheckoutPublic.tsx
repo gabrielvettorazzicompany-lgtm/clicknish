@@ -590,6 +590,7 @@ export default function CheckoutPublic() {
                         id: appData.id,
                         name: appData.name,
                         price: 0,
+                        currency: appData.currency || 'USD',
                         image_url: appData.logo_url,
                         description: appData.description || '',
                         payment_methods: appData.payment_methods,

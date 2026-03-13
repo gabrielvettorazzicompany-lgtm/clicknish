@@ -143,7 +143,7 @@ export default function CheckoutBuilder() {
                     id: appData.id,
                     name: appData.name,
                     price: 0,
-                    currency: 'USD',
+                    currency: appData.currency || 'USD',
                     payment_methods: appData.payment_methods || ['credit_card'],
                     default_payment_method: appData.default_payment_method || 'credit_card',
                     image_url: appData.logo_url,
