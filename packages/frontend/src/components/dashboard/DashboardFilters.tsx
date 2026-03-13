@@ -1,3 +1,4 @@
+import { useState, useRef, useEffect } from 'react'
 import { Eye, EyeOff } from 'lucide-react'
 import { DateRange } from 'react-day-picker'
 import { Select, SelectItem } from '@heroui/react'
@@ -32,12 +33,26 @@ export default function DashboardFilters({
 }: DashboardFiltersProps) {
     const { t } = useI18n()
     const hasAppSelection = !!(selectedApp || selectedMarketplace)
+    const [currencyOpen, setCurrencyOpen] = useState(false)
+    const currencyRef = useRef<HTMLDivElement>(null)
+
+    useEffect(() => {
+        function handleClickOutside(e: MouseEvent) {
+            if (currencyRef.current && !currencyRef.current.contains(e.target as Node)) {
+                setCurrencyOpen(false)
+            }
+        }
+        document.addEventListener('mousedown', handleClickOutside)
+        return () => document.removeEventListener('mousedown', handleClickOutside)
+    }, [])
+
+    const DASHBOARD_CURRENCIES = ['BRL', 'USD', 'EUR', 'CHF']
 
     return (
         <div className="flex flex-wrap items-center gap-1.5">
             {/* App/Marketplace Filter */}
             {combinedItems.length > 0 && onAppChange && (
-                <div className="w-full sm:w-48">
+                <div className="w-full sm:w-48 overflow-hidden">
                     <Select
                         aria-label={t('dashboard.filter_by_store')}
                         selectedKeys={selectedApp || selectedMarketplace ? [selectedApp || selectedMarketplace] : []}
@@ -46,6 +61,7 @@ export default function DashboardFilters({
                         radius="md"
                         size="sm"
                         placeholder={t('dashboard.all_stores')}
+                        selectorIcon={<></>}
                         classNames={{
                             trigger: 'bg-white dark:bg-white/5 dark:backdrop-blur-xl border-gray-200 dark:border-white/10 hover:border-primary data-[focus=true]:border-primary h-8',
                             value: 'text-xs text-gray-700 dark:text-gray-300',
@@ -60,16 +76,30 @@ export default function DashboardFilters({
                 </div>
             )}
             {/* Moeda */}
-            <select
-                value={selectedCurrency}
-                onChange={(e) => onCurrencyChange(e.target.value)}
-                className="h-8 px-2.5 bg-white dark:bg-white/5 dark:backdrop-blur-xl border border-gray-200 dark:border-white/10 rounded-md text-xs text-gray-600 dark:text-gray-300 focus:outline-none focus:ring-1 focus:ring-blue-400 cursor-pointer"
-            >
-                <option value="BRL">BRL</option>
-                <option value="USD">USD</option>
-                <option value="EUR">EUR</option>
-                <option value="CHF">CHF</option>
-            </select>
+            <div ref={currencyRef} className="relative">
+                <button
+                    onClick={() => setCurrencyOpen(o => !o)}
+                    className="h-8 px-2.5 bg-white dark:bg-white/5 dark:backdrop-blur-xl border border-gray-200 dark:border-white/10 rounded-md text-xs font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/10 focus:outline-none focus:ring-1 focus:ring-blue-400 cursor-pointer transition-colors"
+                >
+                    {selectedCurrency}
+                </button>
+                {currencyOpen && (
+                    <div className="absolute top-full left-0 mt-1 bg-white dark:bg-[#0d1117] border border-gray-200 dark:border-white/10 rounded-md shadow-lg z-50 py-1 min-w-[80px]">
+                        {DASHBOARD_CURRENCIES.map(c => (
+                            <button
+                                key={c}
+                                onClick={() => { onCurrencyChange(c); setCurrencyOpen(false) }}
+                                className={`w-full text-left px-3 py-1.5 text-xs transition-colors ${c === selectedCurrency
+                                        ? 'text-blue-500 dark:text-blue-400 font-semibold'
+                                        : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-white/5'
+                                    }`}
+                            >
+                                {c}
+                            </button>
+                        ))}
+                    </div>
+                )}
+            </div>
 
             {/* Date Range Picker */}
             <DateRangePicker value={dateRange} onChange={onDateRangeChange} />
