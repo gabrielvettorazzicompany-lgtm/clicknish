@@ -126,10 +126,12 @@ export class PayPalClient {
     }
 
     /**
-     * Criar uma ordem no PayPal com Vault habilitado (salva método de pagamento para upsell)
-     * Após captura, a resposta conterá payment_source.paypal.attributes.vault.id
+     * Criar uma ordem no PayPal com Vault habilitado (salva método de pagamento para upsell one-click)
+     * Requer "Reference Transactions" ativado pelo PayPal no account do merchant.
+     * Se não estiver ativado, o PayPal retorna "failed business validation" — usar createOrder como fallback.
+     * Após captura bem-sucedida, a resposta conterá payment_source.paypal.attributes.vault.id
      */
-    async createOrderWithVault(orderData: PayPalOrderRequest & { returnUrl: string; cancelUrl: string }): Promise<PayPalOrderResponse> {
+    async createOrderWithVault(orderData: PayPalOrderRequest & { returnUrl: string; cancelUrl: string }): Promise<PayPalOrderResponse & { _vaultEnabled?: boolean }> {
         const requestBody = {
             intent: 'CAPTURE',
             purchase_units: [{
@@ -163,10 +165,23 @@ export class PayPalClient {
             }
         }
 
-        return this.request('/v2/checkout/orders', {
-            method: 'POST',
-            body: requestBody
-        })
+        try {
+            const result = await this.request('/v2/checkout/orders', { method: 'POST', body: requestBody }) as any
+            result._vaultEnabled = true
+            return result
+        } catch (err: any) {
+            // Vault não ativado na conta — fallback para ordem padrão (sem one-click upsell)
+            const isVaultError = err?.message?.includes('business validation') ||
+                err?.message?.includes('VAULT_NOT_SUPPORTED') ||
+                err?.message?.includes('semantically incorrect')
+            if (isVaultError) {
+                console.warn('[paypal] Vault não ativado — usando createOrder padrão. Ative "Reference Transactions" no PayPal Developer Dashboard.')
+                const fallback = await this.createOrder(orderData) as any
+                fallback._vaultEnabled = false
+                return fallback
+            }
+            throw err
+        }
     }
 
     /**
