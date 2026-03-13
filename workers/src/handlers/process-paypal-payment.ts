@@ -138,18 +138,20 @@ export async function handlePayPalPayment(
         const returnUrl = `${frontendUrl}/paypal-return?${returnParams.toString()}`
         const cancelUrl = `${frontendUrl}/checkout/${productId}`
 
-        // Criar ordem no PayPal
-        const order = await paypal.createOrder({
+        // Criar ordem no PayPal com Vault habilitado (salva método para upsell one-click)
+        const order = await paypal.createOrderWithVault({
             amount: totalChargeAmount,
             currency: currency.toUpperCase(),
             description: productName,
             customId: [productId, checkoutId, customerEmail].filter(Boolean).join('|'),
             invoiceId: `${checkoutId || productId}_${Date.now()}`,
+            returnUrl,
+            cancelUrl,
         })
 
         // Para o redirect flow (sem action / action === undefined), retornar approvalUrl
         // Para o SDK flow (action === 'create'), retornar apenas orderId
-        const approvalLink = order.links?.find((l: any) => l.rel === 'approve')
+        const approvalLink = order.links?.find((l: any) => l.rel === 'approve' || l.rel === 'payer-action')
         const approvalUrl = approvalLink?.href || ''
 
         if (action === 'create') {
@@ -217,6 +219,10 @@ async function capturePayPalOrder(
     const capturedAmount = parseFloat(captureDetails?.amount?.value || totalAmount || '0')
     const currency = captureDetails?.amount?.currency_code || 'USD'
 
+    // Extrair vault_id para upsell one-click (salvo após aprovação do cliente)
+    const paypalVaultId: string | null =
+        captureResult.payment_source?.paypal?.attributes?.vault?.id || null
+
     // Gerar IDs de compra
     const purchaseId = crypto.randomUUID()
     const thankyouToken = crypto.randomUUID()
@@ -273,7 +279,7 @@ async function capturePayPalOrder(
                 // Liberar acesso aos produtos do app
                 const appProducts = ((appProductsResult as any).data || []) as any[]
                 if (appProducts.length > 0 && userId) {
-                    const accessRecords = appProducts.map((p: any) => ({
+                    const accessRecords = appProducts.map((p: any, index: number) => ({
                         user_id: userId,
                         product_id: p.id,
                         application_id: applicationId,
@@ -284,6 +290,13 @@ async function capturePayPalOrder(
                         payment_status: 'completed',
                         purchase_price: capturedAmount,
                         created_at: new Date().toISOString(),
+                        // Salvar vault_id + thankyou_token no primeiro registro
+                        ...(index === 0 ? {
+                            paypal_payment_token_id: paypalVaultId,
+                            thankyou_token: thankyouToken,
+                            thankyou_token_expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+                            thankyou_max_views: 5,
+                        } : {}),
                     }))
                     await supabase.from('user_product_access').upsert(accessRecords, {
                         onConflict: 'user_id,product_id', ignoreDuplicates: false
@@ -352,6 +365,10 @@ async function capturePayPalOrder(
                         payment_method: 'paypal',
                         payment_status: 'completed',
                         purchase_price: capturedAmount,
+                        paypal_payment_token_id: paypalVaultId,
+                        thankyou_token: thankyouToken,
+                        thankyou_token_expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+                        thankyou_max_views: 5,
                         created_at: new Date().toISOString(),
                     }, { onConflict: 'user_id,member_area_id', ignoreDuplicates: false })
                 }
@@ -396,6 +413,24 @@ async function capturePayPalOrder(
             console.error('PayPal background access grant failed:', bgError)
         }
     })())
+
+    // Salvar vault_id + user_id no KV sincronamente (antes de retornar)
+    // Garante que process-upsell encontre os dados imediatamente
+    if (env.CACHE && thankyouToken && paypalVaultId) {
+        try {
+            await env.CACHE.put(
+                `upsell_token:${thankyouToken}`,
+                JSON.stringify({
+                    paypal_payment_token_id: paypalVaultId,
+                    purchase_id: purchaseId,
+                    // user_id não disponível aqui (resolvido no ctx.waitUntil) — process-upsell busca no DB
+                }),
+                { expirationTtl: 7 * 24 * 60 * 60 }
+            )
+        } catch (kvErr) {
+            console.warn('KV write failed (non-fatal):', kvErr)
+        }
+    }
 
     // Retornar sucesso imediato enquanto o acesso é liberado em background
     const frontendUrl = env.FRONTEND_URL || 'https://app.clicknich.com'

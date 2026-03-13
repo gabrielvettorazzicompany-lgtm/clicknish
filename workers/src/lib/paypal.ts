@@ -126,7 +126,85 @@ export class PayPalClient {
     }
 
     /**
-     * Criar uma ordem no PayPal
+     * Criar uma ordem no PayPal com Vault habilitado (salva método de pagamento para upsell)
+     * Após captura, a resposta conterá payment_source.paypal.attributes.vault.id
+     */
+    async createOrderWithVault(orderData: PayPalOrderRequest & { returnUrl: string; cancelUrl: string }): Promise<PayPalOrderResponse> {
+        const requestBody = {
+            intent: 'CAPTURE',
+            purchase_units: [{
+                amount: {
+                    currency_code: orderData.currency,
+                    value: orderData.amount.toFixed(2)
+                },
+                description: orderData.description || 'Purchase',
+                custom_id: orderData.customId,
+                invoice_id: orderData.invoiceId
+            }],
+            payment_source: {
+                paypal: {
+                    experience_context: {
+                        payment_method_preference: 'IMMEDIATE_PAYMENT_REQUIRED',
+                        brand_name: 'Clicknich',
+                        locale: 'en-US',
+                        landing_page: 'LOGIN',
+                        shipping_preference: 'NO_SHIPPING',
+                        user_action: 'PAY_NOW',
+                        return_url: orderData.returnUrl,
+                        cancel_url: orderData.cancelUrl,
+                    },
+                    attributes: {
+                        vault: {
+                            store_in_vault: 'ON_SUCCESS',
+                            usage_type: 'MERCHANT',
+                        }
+                    }
+                }
+            }
+        }
+
+        return this.request('/v2/checkout/orders', {
+            method: 'POST',
+            body: requestBody
+        })
+    }
+
+    /**
+     * Cobrar upsell usando vault_id salvo (sem redirect — cliente não precisa aprovar)
+     */
+    async chargeVaultedPayment(vaultId: string, orderData: PayPalOrderRequest): Promise<any> {
+        const requestBody = {
+            intent: 'CAPTURE',
+            purchase_units: [{
+                amount: {
+                    currency_code: orderData.currency,
+                    value: orderData.amount.toFixed(2)
+                },
+                description: orderData.description || 'Purchase',
+                custom_id: orderData.customId,
+                invoice_id: orderData.invoiceId
+            }],
+            payment_source: {
+                token: {
+                    id: vaultId,
+                    type: 'PAYMENT_METHOD_TOKEN',
+                }
+            }
+        }
+
+        const order = await this.request('/v2/checkout/orders', {
+            method: 'POST',
+            body: requestBody
+        })
+
+        // Capturar automaticamente (cliente não precisa aprovar)
+        return this.request(`/v2/checkout/orders/${order.id}/capture`, {
+            method: 'POST'
+        })
+    }
+
+    /**
+     * Criar uma ordem no PayPal (sem vault — compatibilidade)
      */
     async createOrder(orderData: PayPalOrderRequest): Promise<PayPalOrderResponse> {
         const requestBody = {

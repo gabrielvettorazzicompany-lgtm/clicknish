@@ -1,12 +1,13 @@
 /**
  * Handler: Process Upsell
  * Processa upsells/downsells com 1-click (usa cartão/mandato salvo)
- * Suporta Stripe (off_session) e Mollie (recurring)
+ * Suporta Stripe (off_session), Mollie (recurring) e PayPal (vault)
  */
 
 import { createClient } from '../lib/supabase'
 import { createStripeClient } from '../lib/stripe'
 import { createMollieClient, toMollieAmount } from '../lib/mollie'
+import { createPayPalClient } from '../lib/paypal'
 import { resolveMollieKey } from './process-mollie-payment'
 import type { Env } from '../index'
 
@@ -155,11 +156,12 @@ export async function handleProcessUpsell(
                 ? (await supabase.from('applications').select('owner_id').eq('id', parentApplicationId).maybeSingle()).data?.owner_id
                 : null)
 
-        // 3. Find the original purchase to get payment method (Stripe or Mollie)
+        // 3. Find the original purchase to get payment method (Stripe or Mollie or PayPal)
         let stripeCustomerId: string | null = null
         let stripePaymentMethodId: string | null = null
         let mollieCustomerId: string | null = null
         let mollieMandateId: string | null = null
+        let paypalPaymentTokenId: string | null = null
         let userId: string | null = null
         let productAccess: any = null  // referenciado nas redirectUrls abaixo
 
@@ -195,6 +197,25 @@ export async function handleProcessUpsell(
                             if (found) { userId = found; break }
                         }
                     }
+                } else if (kvData?.paypal_payment_token_id) {
+                    // PayPal Vault path
+                    foundViaKV = true
+                    paypalPaymentTokenId = kvData.paypal_payment_token_id
+                    // user_id é resolvido pelo ctx.waitUntil em process-paypal-payment
+                    // Tentar até 8x no DB por paypal_payment_token_id
+                    for (let i = 0; i < 8; i++) {
+                        if (i > 0) await new Promise(r => setTimeout(r, Math.min(i * 2000, 6000)))
+                        const [r1, r2] = await Promise.all([
+                            supabase.from('user_product_access').select('user_id')
+                                .eq('paypal_payment_token_id', paypalPaymentTokenId)
+                                .order('created_at', { ascending: false }).limit(1).maybeSingle(),
+                            supabase.from('user_member_area_access').select('user_id')
+                                .eq('paypal_payment_token_id', paypalPaymentTokenId)
+                                .order('created_at', { ascending: false }).limit(1).maybeSingle(),
+                        ])
+                        const found = r1.data?.user_id || r2.data?.user_id || null
+                        if (found) { userId = found; break }
+                    }
                 }
             } catch (kvErr) {
                 console.warn('KV read failed, fallback to DB:', kvErr)
@@ -209,11 +230,11 @@ export async function handleProcessUpsell(
 
                 let q1 = supabase
                     .from('user_product_access')
-                    .select('stripe_customer_id, stripe_payment_method_id, mollie_customer_id, mollie_mandate_id, user_id, thankyou_token')
+                    .select('stripe_customer_id, stripe_payment_method_id, mollie_customer_id, mollie_mandate_id, paypal_payment_token_id, user_id, thankyou_token')
 
                 let q2 = supabase
                     .from('user_member_area_access')
-                    .select('stripe_customer_id, stripe_payment_method_id, mollie_customer_id, mollie_mandate_id, user_id, thankyou_token')
+                    .select('stripe_customer_id, stripe_payment_method_id, mollie_customer_id, mollie_mandate_id, paypal_payment_token_id, user_id, thankyou_token')
 
                 if (token) {
                     q1 = q1.eq('thankyou_token', token)
@@ -224,7 +245,7 @@ export async function handleProcessUpsell(
                 }
 
                 const [r1, r2] = await Promise.all([q1.maybeSingle(), q2.maybeSingle()])
-                const found = [r1.data, r2.data].find(d => d?.stripe_customer_id || d?.mollie_customer_id)
+                const found = [r1.data, r2.data].find(d => d?.stripe_customer_id || d?.mollie_customer_id || d?.paypal_payment_token_id)
                 if (found) { productAccess = found; break }
             }
 
@@ -235,6 +256,9 @@ export async function handleProcessUpsell(
             } else if (productAccess?.mollie_customer_id) {
                 mollieCustomerId = productAccess.mollie_customer_id
                 mollieMandateId = productAccess.mollie_mandate_id
+                userId = productAccess.user_id
+            } else if (productAccess?.paypal_payment_token_id) {
+                paypalPaymentTokenId = productAccess.paypal_payment_token_id
                 userId = productAccess.user_id
             }
         }
@@ -440,6 +464,84 @@ export async function handleProcessUpsell(
                 message: 'Upsell payment processed successfully',
                 purchaseId: newAccess?.id || purchase_id,
                 redirectUrl: redirectUrl
+            }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 })
+        }
+
+        // ══════════════════════════════════════════════════════════════════
+        // PAYPAL VAULT PATH — cobrar usando payment token salvo (sem redirect)
+        // ══════════════════════════════════════════════════════════════════
+        if (paypalPaymentTokenId) {
+            const paypalClientId = env.PAYPAL_CLIENT_ID
+            const paypalClientSecret = env.PAYPAL_CLIENT_SECRET
+            const paypalEnvironment = (env.PAYPAL_ENVIRONMENT || 'live') as 'sandbox' | 'live'
+
+            if (!paypalClientId || !paypalClientSecret) {
+                throw new Error('PayPal não configurado')
+            }
+
+            const paypal = createPayPalClient(paypalClientId, paypalClientSecret, paypalEnvironment)
+
+            const captureResult = await paypal.chargeVaultedPayment(paypalPaymentTokenId, {
+                amount: finalPrice,
+                currency: currency.toLowerCase(),
+                description: `${offer.offer_type === 'upsell' ? 'Upsell' : 'Downsell'}: ${product.name}`,
+                invoiceId: `upsell_${offer_id}_${Date.now()}`,
+            })
+
+            if (captureResult.status !== 'COMPLETED') {
+                throw new Error(`PayPal vault charge failed: status=${captureResult.status}`)
+            }
+
+            const paypalTransactionId = captureResult.purchase_units?.[0]?.payments?.captures?.[0]?.id || captureResult.id
+
+            const newAccess = await grantUpsellAccess(supabase, {
+                userId, product, isAppProduct, isApplication, parentApplicationId,
+                paymentId: paypalTransactionId, paymentMethod: 'paypal',
+                mollieCustomerId: null, mollieMandateId: null, finalPrice,
+            })
+
+            ctx.waitUntil(
+                supabase.from('offer_analytics').insert({
+                    checkout_offer_id: offer.id, user_id: userId, event_type: 'accepted',
+                })
+            )
+
+            let redirectUrl: string | null = null
+            if (offer.page_id) {
+                const { data: page } = await supabase
+                    .from('funnel_pages')
+                    .select('settings')
+                    .eq('id', offer.page_id)
+                    .maybeSingle()
+
+                const settings = page?.settings as any
+                if (settings?.accept_redirect_url) {
+                    const url = settings.accept_redirect_url
+                    const sep = url.includes('?') ? '&' : '?'
+                    redirectUrl = `${url}${sep}purchase_id=${newAccess?.id || purchase_id}&token=${productAccess?.thankyou_token || token}`
+                } else if (settings?.accept_page_id) {
+                    const { data: targetPage } = await supabase
+                        .from('funnel_pages')
+                        .select('external_url, page_type')
+                        .eq('id', settings.accept_page_id)
+                        .maybeSingle()
+
+                    if (targetPage?.external_url) {
+                        const sep = targetPage.external_url.includes('?') ? '&' : '?'
+                        redirectUrl = `${targetPage.external_url}${sep}purchase_id=${newAccess?.id || purchase_id}&token=${productAccess?.thankyou_token || token}`
+                    } else if (targetPage?.page_type === 'thankyou') {
+                        const frontendUrl = env.FRONTEND_URL || 'https://app.clicknich.com'
+                        redirectUrl = `${frontendUrl}/thankyou/${settings.accept_page_id}?purchase_id=${newAccess?.id || purchase_id}&token=${productAccess?.thankyou_token || token}`
+                    }
+                }
+            }
+
+            return new Response(JSON.stringify({
+                success: true,
+                paypalTransactionId,
+                message: 'Upsell payment processed successfully',
+                purchaseId: newAccess?.id || purchase_id,
+                redirectUrl,
             }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 })
         }
 
