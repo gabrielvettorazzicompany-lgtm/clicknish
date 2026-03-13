@@ -206,7 +206,7 @@ export class PayPalClient {
     /**
      * Criar uma ordem no PayPal (sem vault — compatibilidade)
      */
-    async createOrder(orderData: PayPalOrderRequest): Promise<PayPalOrderResponse> {
+    async createOrder(orderData: PayPalOrderRequest & { returnUrl?: string; cancelUrl?: string }): Promise<PayPalOrderResponse> {
         const requestBody = {
             intent: 'CAPTURE',
             purchase_units: [{
@@ -218,13 +218,19 @@ export class PayPalClient {
                 custom_id: orderData.customId,
                 invoice_id: orderData.invoiceId
             }],
-            application_context: {
-                return_url: 'https://app.clicknich.com/success',
-                cancel_url: 'https://app.clicknich.com/cancel',
-                brand_name: 'Clicknich',
-                locale: 'en-US',
-                landing_page: 'NO_PREFERENCE',
-                user_action: 'PAY_NOW'
+            payment_source: {
+                paypal: {
+                    experience_context: {
+                        payment_method_preference: 'IMMEDIATE_PAYMENT_REQUIRED',
+                        brand_name: 'Clicknich',
+                        locale: 'en-US',
+                        landing_page: 'LOGIN',
+                        shipping_preference: 'NO_SHIPPING',
+                        user_action: 'PAY_NOW',
+                        return_url: orderData.returnUrl || 'https://app.clicknich.com/paypal-return',
+                        cancel_url: orderData.cancelUrl || 'https://app.clicknich.com',
+                    }
+                }
             }
         }
 

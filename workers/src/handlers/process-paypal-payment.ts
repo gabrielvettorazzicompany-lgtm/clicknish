@@ -138,8 +138,8 @@ export async function handlePayPalPayment(
         const returnUrl = `${frontendUrl}/paypal-return?${returnParams.toString()}`
         const cancelUrl = `${frontendUrl}/checkout/${productId}`
 
-        // Criar ordem no PayPal com Vault habilitado (salva método para upsell one-click)
-        const order = await paypal.createOrderWithVault({
+        // Criar ordem no PayPal (vault salvo automaticamente se retornado na captura)
+        const order = await paypal.createOrder({
             amount: totalChargeAmount,
             currency: currency.toUpperCase(),
             description: productName,
