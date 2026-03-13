@@ -7,6 +7,7 @@ import { createClient } from '../lib/supabase'
 import { createStripeClient } from '../lib/stripe'
 import { createCustomerUser } from './customer-auth'
 import { appLangToEmailLang, buildAccessEmailHtml } from '../utils/email-i18n'
+import { applyFxConversion } from '../lib/fx'
 import type { Env } from '../index'
 
 /**
@@ -316,11 +317,23 @@ export async function handleProcessPayment(
         const bumpsTotal = verifiedBumps.reduce((sum, b) => sum + b.price, 0)
         const baseTotal = finalPrice + bumpsTotal
 
+        // ═══════════════════════════════════════════════════════════════════
+        // CONVERSÃO FX: converter total para moeda do cliente (+1.7% spread)
+        // Usa cf-ipcountry do Cloudflare — sem depender do frontend
+        // ═══════════════════════════════════════════════════════════════════
+        const clientCountryForFx = request.headers.get('cf-ipcountry')
+        const fxResult = await applyFxConversion(baseTotal, currency, clientCountryForFx, env)
+        const chargeAmount = fxResult.displayPrice
+        const chargeCurrency = fxResult.displayCurrency.toLowerCase()
+        if (fxResult.displayCurrency !== fxResult.baseCurrency) {
+            console.log(`[fx] ${baseTotal} ${currency} → ${chargeAmount} ${chargeCurrency} (country: ${clientCountryForFx})`)
+        }
+
         // Calcular juros server-side (mesmo cálculo do frontend): até 6x sem juros, >6x = 2.5%/mês simples
         const installmentCount = Math.min(Math.max(1, Math.floor(installments)), 12)
         const totalChargeAmount = installmentCount > 6
-            ? parseFloat((baseTotal * (1 + 0.025 * installmentCount)).toFixed(2))
-            : baseTotal
+            ? parseFloat((chargeAmount * (1 + 0.025 * installmentCount)).toFixed(2))
+            : chargeAmount
 
         console.log('Order bumps:', { selected: selectedBumpIds.length, verified: verifiedBumps.length, bumpsTotal, totalChargeAmount })
         console.log('Installments:', { installmentCount, baseTotal, totalChargeAmount })
@@ -369,7 +382,7 @@ export async function handleProcessPayment(
         const paymentIntent = await stripe.paymentIntents.create(
             {
                 amount: Math.round(totalChargeAmount * 100),
-                currency: currency,
+                currency: chargeCurrency,
                 customer: stripeCustomer.id,
                 payment_method: paymentMethodId,
                 confirm: true,

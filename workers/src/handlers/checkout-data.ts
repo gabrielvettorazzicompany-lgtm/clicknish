@@ -14,7 +14,49 @@
 
 import { createClient } from '../lib/supabase'
 import { checkoutNetworkOptimizer } from '../lib/network-optimizer'
+import { applyFxConversion, roundForCurrency } from '../lib/fx'
 import type { Env } from '../index'
+
+function json(data: any, status = 200) {
+    return new Response(JSON.stringify(data), {
+        status,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    })
+}
+
+/**
+ * Aplica conversão FX ao resultado, adicionando displayPrice/displayCurrency ao produto e ofertas.
+ * O resultado original (base) NÃO é mutado — o cache KV sempre armazena a versão sem FX.
+ */
+async function withFxConversion(result: any, clientCountry: string | null | undefined, env: Env): Promise<any> {
+    if (!result?.product) return result
+    const basePrice = result.checkout?.custom_price || result.product?.price || 0
+    const baseCurrency = (result.product?.currency || 'USD').toUpperCase()
+    if (basePrice <= 0) return result
+
+    const fxResult = await applyFxConversion(basePrice, baseCurrency, clientCountry, env)
+
+    // Aplicar mesma taxa nas ofertas (order bumps) se houve conversão
+    let convertedOffers = result.offers
+    if (result.offers?.length > 0 && fxResult.rateApplied !== 1) {
+        convertedOffers = result.offers.map((offer: any) => ({
+            ...offer,
+            display_price: roundForCurrency((offer.offer_price || 0) * fxResult.rateApplied, fxResult.displayCurrency),
+            display_currency: fxResult.displayCurrency,
+        }))
+    }
+
+    return {
+        ...result,
+        product: {
+            ...result.product,
+            currency: fxResult.baseCurrency,
+            displayPrice: fxResult.displayPrice,
+            displayCurrency: fxResult.displayCurrency,
+        },
+        offers: convertedOffers,
+    }
+}
 
 const corsHeaders = {
     'Access-Control-Allow-Origin': '*',
@@ -58,15 +100,19 @@ export async function handleCheckoutData(
 
             if (cached) {
                 console.log(`[checkout-data] ⚡ CACHE HIT: ${shortId}`)
+                const clientCountry = (request as any).cf?.country || request.headers.get('cf-ipcountry')
+                const withFx = await withFxConversion(cached, clientCountry, env)
                 return checkoutNetworkOptimizer.createCheckoutResponse(
-                    JSON.stringify(cached),
+                    JSON.stringify(withFx),
                     { shortId, cacheHit: true, processingTime: 1 }
                 )
             }
             if (microCached) {
                 console.log(`[checkout-data] ⚡ MICRO CACHE HIT: ${shortId}`)
+                const clientCountry = (request as any).cf?.country || request.headers.get('cf-ipcountry')
+                const withFx = await withFxConversion(microCached, clientCountry, env)
                 return checkoutNetworkOptimizer.createCheckoutResponse(
-                    JSON.stringify(microCached),
+                    JSON.stringify(withFx),
                     { shortId, cacheHit: true, processingTime: 2 }
                 )
             }
@@ -131,6 +177,7 @@ export async function handleCheckoutData(
                                 id: prod.id,
                                 name: prod.name,
                                 price: isApp ? 0 : (prod as any).price || 0,
+                                currency: isApp ? 'USD' : ((prod as any).currency || 'USD').toUpperCase(),
                                 image_url: isApp ? (prod as any).logo_url : (prod as any).image_url,
                                 description: prod.description || '',
                                 payment_methods: (prod as any).payment_methods || ['credit_card'],
@@ -228,6 +275,7 @@ export async function handleCheckoutData(
         }
 
         if (env.CACHE && finalResult) {
+            // Salva versão BASE (sem FX) no KV — cache compartilhado entre todos os usuários
             const serialized = JSON.stringify(finalResult)
             const mainCachePromise = env.CACHE.put(cacheKey, serialized, { expirationTtl: 86400 })
             const microCachePromise = env.CACHE.put(microCacheKey, serialized, { expirationTtl: 120 })
@@ -237,8 +285,12 @@ export async function handleCheckoutData(
             else await writeAll
         }
 
+        // Aplicar FX DEPOIS de salvar no cache (resposta personalizada por IP)
+        const clientCountry = (request as any).cf?.country || request.headers.get('cf-ipcountry')
+        const resultWithFx = await withFxConversion(finalResult, clientCountry, env)
+
         return checkoutNetworkOptimizer.createCheckoutResponse(
-            JSON.stringify(finalResult),
+            JSON.stringify(resultWithFx),
             { shortId, cacheHit: false, processingTime: 0 }
         )
 

@@ -8,6 +8,7 @@
 
 import { createClient } from '../lib/supabase'
 import { createMollieClient, toMollieAmount, currencyToLocale, MOLLIE_RECURRING_METHODS } from '../lib/mollie'
+import { applyFxConversion } from '../lib/fx'
 import { createCustomerUser } from './customer-auth'
 import { appLangToEmailLang, buildAccessEmailHtml } from '../utils/email-i18n'
 import type { Env } from '../index'
@@ -152,6 +153,19 @@ export async function handleProcessMolliePayment(
 
         if (finalPrice <= 0) return json({ error: 'Valor inválido' }, 400)
 
+        // ══════════════════════════════════════════════════════════════
+        // CONVERSÃO FX: converter para moeda do cliente via IP (CF headers)
+        // Resolve automaticamente o erro do iDEAL com produto em USD —
+        // clientes holandeses vêem EUR, e o iDEAL aceita EUR.
+        // ══════════════════════════════════════════════════════════════
+        const clientCountryForFx = request.headers.get('cf-ipcountry')
+        const fxResult = await applyFxConversion(finalPrice, currency, clientCountryForFx, env)
+        const chargeAmount = fxResult.displayPrice
+        const chargeCurrency = fxResult.displayCurrency
+        if (chargeCurrency !== fxResult.baseCurrency) {
+            console.log(`[fx] Mollie: ${finalPrice} ${currency} → ${chargeAmount} ${chargeCurrency} (country: ${clientCountryForFx})`)
+        }
+
         // Resolver chave Mollie
         const mollieKey = await resolveMollieKey(supabase, sellerOwnerId)
         if (!mollieKey) return json({ error: 'Provedor Mollie não configurado' }, 503)
@@ -180,12 +194,12 @@ export async function handleProcessMolliePayment(
 
         // Criar pagamento Mollie
         const paymentParams: any = {
-            amount: toMollieAmount(finalPrice, currency),
+            amount: toMollieAmount(chargeAmount, chargeCurrency),
             description: `${productName} — ${customerEmail}`,
             redirectUrl: returnUrl,
             webhookUrl,
             method: mollieMethod,
-            locale: currencyToLocale(currency),
+            locale: currencyToLocale(chargeCurrency),
             metadata: {
                 internal_payment_id: internalPaymentId,
                 product_id: productId || '',
@@ -217,8 +231,8 @@ export async function handleProcessMolliePayment(
             customer_email: customerEmail,
             customer_name: customerName || null,
             customer_phone: customerPhone || null,
-            amount: finalPrice,
-            currency,
+            amount: chargeAmount,
+            currency: chargeCurrency,
             method: mollieMethod,
             status: 'open',
             seller_id: sellerOwnerId || null,

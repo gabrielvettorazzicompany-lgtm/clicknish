@@ -16,6 +16,9 @@ interface Product {
     id: string
     name: string
     price: number
+    currency?: string
+    displayPrice?: number
+    displayCurrency?: string
     image_url?: string
     description?: string
     payment_methods?: string[]
@@ -68,6 +71,9 @@ function buildInitialState(raw: any) {
         id: prod.id,
         name: prod.name,
         price: prod.price || 0,
+        currency: prod.currency || 'USD',
+        displayPrice: prod.displayPrice ?? undefined,
+        displayCurrency: prod.displayCurrency ?? undefined,
         image_url: prod.image_url,
         description: prod.description || '',
         productType: raw.productType,
@@ -309,6 +315,9 @@ export default function CheckoutPublic() {
                         id: prod.id,
                         name: prod.name,
                         price: prod.price || 0,
+                        currency: prod.currency || 'USD',
+                        displayPrice: prod.displayPrice ?? undefined,
+                        displayCurrency: prod.displayCurrency ?? undefined,
                         image_url: prod.image_url,
                         description: prod.description || '',
                         productType: rpcResult.productType,
@@ -1050,7 +1059,8 @@ export default function CheckoutPublic() {
             <CheckoutDigital
                 productId={product.id}
                 productName={product.name}
-                productPrice={checkout.custom_price || product.price}
+                productPrice={product.displayPrice ?? checkout.custom_price ?? product.price}
+                productCurrency={product.displayCurrency || product.currency || 'USD'}
                 productImage={product.image_url}
                 productDescription={product.description}
                 selectedPaymentMethods={(() => {
