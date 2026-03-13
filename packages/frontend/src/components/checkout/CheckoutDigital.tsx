@@ -526,6 +526,36 @@ function CheckoutDigitalForm(props: CheckoutDigitalProps) {
                 return { success: true, purchaseId: mollieResult.purchaseId, thankyouToken: mollieResult.thankyouToken }
             }
 
+            // Processar métodos Stripe redirect (iDEAL, Bancontact, etc.)
+            if (paymentMethod.startsWith('stripe_')) {
+                const stripeMethod = paymentMethod.replace('stripe_', '')
+                const stripeResponse = await fetch('https://api.clicknich.com/api/process-stripe-payment', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        productId: props.productId,
+                        productType: props.productType,
+                        applicationId: props.applicationId,
+                        checkoutId: props.checkoutId,
+                        customerEmail: formData.email,
+                        customerName: formData.name,
+                        customerPhone: formData.phone,
+                        stripeMethod,
+                        totalAmount: paymentData.totalAmount,
+                        selectedOrderBumps: paymentData.selectedOrderBumps,
+                        sessionId: props.sessionId || undefined,
+                        trackingParameters: props.trackingParameters || undefined,
+                    }),
+                })
+                const stripeResult = await stripeResponse.json()
+                if (stripeResult.redirectUrl) {
+                    window.location.href = stripeResult.redirectUrl
+                    return { success: false }
+                }
+                if (!stripeResult.success) throw new Error(stripeResult.error || 'Stripe payment failed')
+                return { success: true, purchaseId: stripeResult.purchaseId, thankyouToken: stripeResult.thankyouToken }
+            }
+
             // Processar apenas se for cartão de crédito
             if (paymentMethod === 'credit_card') {
                 console.log('🔍 Processing credit card payment...')
