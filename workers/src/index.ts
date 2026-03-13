@@ -289,8 +289,8 @@ async function handleApiRoute(
         }
 
         const STRIPE_ICONS: Record<string, string> = {
-            ideal: 'https://upload.wikimedia.org/wikipedia/commons/thumb/b/b0/Ideal-logo.svg/200px-Ideal-logo.svg.png',
-            bancontact: 'https://checkoutshopper-live.adyen.com/checkoutshopper/images/logos/bancontact.svg',
+            ideal: 'https://checkoutshopper-live.adyen.com/checkoutshopper/images/logos/ideal.svg',
+            bancontact: 'https://checkoutshopper-live.adyen.com/checkoutshopper/images/logos/bcmc.svg',
             sofort: 'https://checkoutshopper-live.adyen.com/checkoutshopper/images/logos/directEbanking.svg',
             giropay: 'https://checkoutshopper-live.adyen.com/checkoutshopper/images/logos/giropay.svg',
             eps: 'https://checkoutshopper-live.adyen.com/checkoutshopper/images/logos/eps.svg',
@@ -298,8 +298,15 @@ async function handleApiRoute(
             alipay: 'https://checkoutshopper-live.adyen.com/checkoutshopper/images/logos/alipay.svg',
             klarna: 'https://cdn.klarna.com/1.0/shared/image/generic/logo/en_us/basic/logo_black.png',
             sepa_debit: 'https://checkoutshopper-live.adyen.com/checkoutshopper/images/logos/sepadirectdebit.svg',
-            link: 'https://js.stripe.com/v3/fingerprinted/img/link.svg',
+            link: 'https://b.stripecdn.com/docs-statics-srv/assets/link.svg',
             amazon_pay: 'https://checkoutshopper-live.adyen.com/checkoutshopper/images/logos/amazonpay.svg',
+            wechat_pay: 'https://checkoutshopper-live.adyen.com/checkoutshopper/images/logos/wechatpay.svg',
+            multibanco: 'https://checkoutshopper-live.adyen.com/checkoutshopper/images/logos/multibanco.svg',
+            afterpay_clearpay: 'https://checkoutshopper-live.adyen.com/checkoutshopper/images/logos/afterpay.svg',
+            revolut_pay: 'https://checkoutshopper-live.adyen.com/checkoutshopper/images/logos/revolut.svg',
+            mobilepay: 'https://checkoutshopper-live.adyen.com/checkoutshopper/images/logos/mobilepay.svg',
+            twint: 'https://checkoutshopper-live.adyen.com/checkoutshopper/images/logos/twint.svg',
+            affirm: 'https://cdn.affirm.com/img/buttons/logo-white.svg',
         }
 
         const methods = enabledMethods.map(id => ({
