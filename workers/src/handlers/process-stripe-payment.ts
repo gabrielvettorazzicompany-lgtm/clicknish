@@ -227,8 +227,12 @@ export async function handleProcessStripePayment(
         // ID interno para rastrear o pagamento
         const internalPaymentId = crypto.randomUUID()
 
-        // URL de retorno após redirect
-        const returnUrl = `${frontendUrl}/checkout/${checkoutId || productId}?stripe_return=1&paymentId=${internalPaymentId}`
+        // URL de retorno após redirect — usa rota completa /checkout/:entityId/:checkoutId
+        // para não confundir o frontend com UUID no lugar do shortId
+        const entityId = applicationId || productId
+        const returnUrl = checkoutId && entityId
+            ? `${frontendUrl}/checkout/${entityId}/${checkoutId}?stripe_return=1&paymentId=${internalPaymentId}`
+            : `${frontendUrl}/checkout/${checkoutId || productId}?stripe_return=1&paymentId=${internalPaymentId}`
 
         // Criar ou buscar customer Stripe
         const customersResult = await stripe.customers.list({ email: customerEmail, limit: 1 })
