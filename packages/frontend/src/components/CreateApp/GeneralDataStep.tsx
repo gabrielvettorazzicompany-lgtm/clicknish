@@ -117,6 +117,7 @@ export function GeneralDataStep() {
               <option value="es">Español</option>
               <option value="fr">Français</option>
               <option value="de">Deutsch</option>
+              <option value="nl">Nederlands</option>
             </select>
             <div className="text-xs text-gray-500 mt-1">
               {t('apps.create.set_default_language')}
@@ -136,6 +137,9 @@ export function GeneralDataStep() {
               <option value="pt-BR">Português</option>
               <option value="en-US">English</option>
               <option value="es-ES">Español</option>
+              <option value="fr-FR">Français</option>
+              <option value="de-DE">Deutsch</option>
+              <option value="nl-NL">Nederlands</option>
             </select>
           </div>
 

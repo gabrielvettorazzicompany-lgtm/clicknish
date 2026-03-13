@@ -248,6 +248,7 @@ export default function AppGeneralTab({
                     <option value="es">Español</option>
                     <option value="fr">Français</option>
                     <option value="de">Deutsch</option>
+                    <option value="nl">Nederlands</option>
                 </select>
                 <p className="text-xs text-gray-500 mt-1.5">
                     {t('apps.builder.language_display_description')}

@@ -1,6 +1,6 @@
 import type { Env } from '../index'
 
-type Lang = 'pt' | 'en' | 'es' | 'fr' | 'de'
+type Lang = 'pt' | 'en' | 'es' | 'fr' | 'de' | 'nl'
 
 const confirmationI18n: Record<Lang, {
   subject: string
@@ -62,6 +62,16 @@ const confirmationI18n: Record<Lang, {
     ignore: 'Wenn Sie kein ClickNich-Konto erstellt haben, können Sie diese E-Mail ignorieren.',
     rights: 'Alle Rechte vorbehalten.',
   },
+  nl: {
+    subject: 'Bevestig uw ClickNich-account',
+    welcome: 'Welkom bij ClickNich!',
+    greeting: 'Hallo',
+    body: 'Bedankt voor uw registratie! Bevestig uw e-mailadres om aan de slag te gaan met ClickNich.',
+    button: 'E-mailadres bevestigen',
+    orCopy: 'Of kopieer en plak deze link in uw browser:',
+    ignore: 'Als u geen ClickNich-account heeft aangemaakt, kunt u deze e-mail veilig negeren.',
+    rights: 'Alle rechten voorbehouden.',
+  },
 }
 
 interface SendConfirmationEmailRequest {
@@ -87,7 +97,7 @@ export async function handleSendConfirmationEmail(request: Request, env: Env): P
       )
     }
 
-    const lang: Lang = (['pt', 'en', 'es', 'fr', 'de'].includes(language ?? '') ? language as Lang : 'en')
+    const lang: Lang = (['pt', 'en', 'es', 'fr', 'de', 'nl'].includes(language ?? '') ? language as Lang : 'en')
     const i18n = confirmationI18n[lang]
 
     // Enviar email usando Resend

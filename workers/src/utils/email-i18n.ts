@@ -3,7 +3,7 @@
  * Suporta: português (pt/pt-br), inglês (en), espanhol (es), francês (fr), alemão (de).
  */
 
-type EmailLang = 'pt' | 'en' | 'es' | 'fr' | 'de'
+type EmailLang = 'pt' | 'en' | 'es' | 'fr' | 'de' | 'nl'
 
 interface AccessEmailI18n {
     subject: (productName: string) => string
@@ -79,6 +79,18 @@ const accessEmailI18n: Record<EmailLang, AccessEmailI18n> = {
         instructionStep3: 'Wenn erster Zugang, erstellen Sie Ihr Passwort',
         refundText: 'Rückerstattung anfordern',
     },
+    nl: {
+        subject: (p) => `Uw toegang tot ${p} is klaar`,
+        title: 'Toegang verleend',
+        greeting: 'Hallo',
+        body: 'Goed nieuws! U heeft nu toegang tot:',
+        buttonText: 'Nu toegang',
+        instructionsTitle: 'Toegangsinstructies:',
+        instructionStep1: 'Klik op de knop hierboven',
+        instructionStep2: (e) => `E-mail: <strong>${e}</strong>`,
+        instructionStep3: 'Als dit uw eerste toegang is, maak dan uw wachtwoord aan',
+        refundText: 'Terugbetaling aanvragen',
+    },
 }
 
 /**
@@ -92,6 +104,7 @@ export function appLangToEmailLang(appLang: string | null | undefined): EmailLan
     if (normalized.startsWith('es')) return 'es'
     if (normalized.startsWith('fr')) return 'fr'
     if (normalized.startsWith('de')) return 'de'
+    if (normalized.startsWith('nl')) return 'nl'
     return 'en'
 }
 
