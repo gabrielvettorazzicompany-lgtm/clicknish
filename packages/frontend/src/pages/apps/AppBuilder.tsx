@@ -110,6 +110,7 @@ export default function AppBuilder() {
                         id: appId || '',
                         name: appData.name,
                         price: appData.price,
+                        currency: appData.currency,
                         image_url: appData.logo || undefined,
                         review_status: appData.review_status,
                       }}

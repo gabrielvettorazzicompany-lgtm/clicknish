@@ -24,5 +24,5 @@ export interface AppData {
     secondaryColor: string
     review_status?: 'pending_review' | 'approved' | 'rejected'
     price: number
-    currency: 'BRL' | 'USD' | 'CHF'
+    currency: 'BRL' | 'USD' | 'CHF' | 'EUR'
 }

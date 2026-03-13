@@ -95,7 +95,7 @@ export function useAppBuilder() {
                     secondaryColor: data.secondary_color || '#ec4899',
                     review_status: data.review_status,
                     price: 0,
-                    currency: 'BRL',
+                    currency: data.currency || 'USD',
                 })
 
                 // Carregar métodos de pagamento salvos

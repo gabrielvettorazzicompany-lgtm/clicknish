@@ -9,6 +9,7 @@ interface Product {
     id: string
     name: string
     price: number
+    currency?: string
     image_url?: string
     review_status?: 'pending_review' | 'approved' | 'rejected'
 }
@@ -264,9 +265,12 @@ export default function CheckoutManager({
     }
 
     const formatCurrency = (value: number) => {
-        return new Intl.NumberFormat('en-US', {
+        const cur = (product.currency || 'USD').toUpperCase()
+        const localeMap: Record<string, string> = { USD: 'en-US', EUR: 'de-DE', CHF: 'de-CH', BRL: 'pt-BR' }
+        const locale = localeMap[cur] || 'en-US'
+        return new Intl.NumberFormat(locale, {
             style: 'currency',
-            currency: 'USD'
+            currency: cur
         }).format(value)
     }
 
