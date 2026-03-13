@@ -177,7 +177,7 @@ export async function handleCheckoutData(
                                 id: prod.id,
                                 name: prod.name,
                                 price: isApp ? 0 : (prod as any).price || 0,
-                                currency: isApp ? 'USD' : ((prod as any).currency || 'USD').toUpperCase(),
+                                currency: ((prod as any).currency || 'USD').toUpperCase(),
                                 image_url: isApp ? (prod as any).logo_url : (prod as any).image_url,
                                 description: prod.description || '',
                                 payment_methods: (prod as any).payment_methods || ['credit_card'],
