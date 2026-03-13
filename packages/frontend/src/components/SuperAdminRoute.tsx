@@ -1,4 +1,4 @@
-import { useEffect, useState, Suspense } from 'react'
+import { Suspense } from 'react'
 import { Navigate } from 'react-router-dom'
 import { useAuthStore } from '@/stores/authStore'
 
@@ -24,32 +24,14 @@ const SuperAdminLoader = () => (
 
 export default function SuperAdminRoute({ children }: SuperAdminRouteProps) {
     const { user, loading } = useAuthStore()
-    const [isAuthorized, setIsAuthorized] = useState<boolean | null>(null)
 
-    useEffect(() => {
-        const checkSuperAdmin = async () => {
-            if (!user) {
-                setIsAuthorized(false)
-                return
-            }
-
-            // Verificar se o email do usuário está na lista de super admins
-            const isSuperAdmin = SUPER_ADMINS.includes(user.email || '')
-            setIsAuthorized(isSuperAdmin)
-        }
-
-        if (!loading) {
-            checkSuperAdmin()
-        }
-    }, [user, loading])
-
-    // Ainda carregando
-    if (loading || isAuthorized === null) {
+    // Ainda carregando sessão — aguarda sem tomar decisão de redirect
+    if (loading) {
         return <SuperAdminLoader />
     }
 
     // Não está logado ou não é super admin - redirecionar para login do super admin
-    if (!user || !isAuthorized) {
+    if (!user || !SUPER_ADMINS.includes(user.email || '')) {
         return <Navigate to="/super-login" replace />
     }
 
