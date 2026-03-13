@@ -719,7 +719,11 @@
         "cannot_add_main": "You cannot add the main product as an order bump",
         "no_bumps_added": "No order bumps added",
         "confirm_remove_bump": "Remove this order bump?",
-        "drag_to_reorder": "Drag cards to reorder"
+        "drag_to_reorder": "Drag cards to reorder",
+        "upsell_downsell_page_warning": "Attention: First add the page link below. Only then will you be able to generate the button scripts to install on your pages.",
+        "upsell_downsell_modal_warning": "Attention: First add the page links in all funnel steps. Only then will you be able to generate the button scripts to install on your pages.",
+        "upsell_downsell_save_no_url": "Attention: first add all funnel page links. Then come back and generate the scripts for each step.",
+        "save_to_generate_script": "Save the settings to generate the script"
     },
     "taxes": {
         "title": "Taxes",

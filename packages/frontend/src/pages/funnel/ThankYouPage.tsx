@@ -32,8 +32,8 @@ export default function ThankYouPage() {
             .finally(() => setLoading(false))
     }, [pageId])
 
-    const title = settings?.title || 'Obrigado pela sua compra!'
-    const description = settings?.description || 'Seu pedido foi processado com sucesso. Em breve você receberá as instruções de acesso por e-mail.'
+    const title = settings?.title ?? null
+    const description = settings?.description ?? null
     const showCta = settings?.show_cta_button !== false
     const ctaText = settings?.cta_text || 'Acessar meu produto'
     const ctaUrl = settings?.cta_url || (purchaseId ? `/?purchase_id=${purchaseId}&token=${token}` : '/')
@@ -83,8 +83,8 @@ export default function ThankYouPage() {
 
                 {/* Título */}
                 <div className="space-y-3">
-                    <h1 className="text-2xl font-bold text-white leading-tight">{title}</h1>
-                    <p className="text-gray-400 leading-relaxed">{description}</p>
+                    {title && <h1 className="text-2xl font-bold text-white leading-tight">{title}</h1>}
+                    {description && <p className="text-gray-400 leading-relaxed">{description}</p>}
                 </div>
 
                 {/* CTA */}

@@ -3,6 +3,7 @@ import { useAuthStore } from './stores/authStore'
 import { useEffect, useState, lazy, Suspense } from 'react'
 import { supabase } from './services/supabase'
 import { useTheme } from './contexts/ThemeContext'
+import { useI18n } from './i18n'
 
 // Componente de loading para Suspense
 const PageLoader = () => (
@@ -95,10 +96,23 @@ interface CustomDomainApp {
 }
 
 export default function App() {
-  const { setUser, setLoading } = useAuthStore()
+  const { setUser, setLoading, user } = useAuthStore()
   const { theme } = useTheme()
+  const { setLanguage } = useI18n()
   const [isCustomDomain, setIsCustomDomain] = useState(false)
   const [customDomainApp, setCustomDomainApp] = useState<CustomDomainApp | null>(null)
+
+  // Carregar idioma salvo do usuário quando autenticado
+  useEffect(() => {
+    if (user?.id) {
+      try {
+        const userLang = localStorage.getItem(`huskyapp_language_${user.id}`)
+        if (userLang && ['pt', 'en', 'es', 'fr', 'de'].includes(userLang)) {
+          setLanguage(userLang as 'pt' | 'en' | 'es' | 'fr' | 'de')
+        }
+      } catch { /* ignore */ }
+    }
+  }, [user?.id])
 
   // Aplicar tema ao body
   useEffect(() => {

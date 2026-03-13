@@ -719,7 +719,11 @@
         "cannot_add_main": "Você não pode adicionar o produto principal como order bump",
         "no_bumps_added": "Nenhum order bump adicionado",
         "confirm_remove_bump": "Remover este order bump?",
-        "drag_to_reorder": "Arraste os cards para reordenar"
+        "drag_to_reorder": "Arraste os cards para reordenar",
+        "upsell_downsell_page_warning": "Atenção: Primeiro adicione o link da página abaixo. Só depois poderá gerar os scripts dos botões para instalar nas suas páginas.",
+        "upsell_downsell_modal_warning": "Atenção: Primeiro adicione os links das páginas em todas as etapas do funil. Só depois poderá gerar os scripts dos botões para instalar nas suas páginas.",
+        "upsell_downsell_save_no_url": "Atenção: primeiro adicione todos os links das páginas do funil. Depois volte e gere os scripts em cada etapa.",
+        "save_to_generate_script": "Salve as configurações para gerar o script"
     },
     "taxes": {
         "title": "Taxas",

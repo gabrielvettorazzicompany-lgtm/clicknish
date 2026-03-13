@@ -719,7 +719,11 @@
         "cannot_add_main": "Du kannst das Hauptprodukt nicht als Order Bump hinzufügen",
         "no_bumps_added": "Keine Order Bumps hinzugefügt",
         "confirm_remove_bump": "Diesen Order Bump entfernen?",
-        "drag_to_reorder": "Karten ziehen zum Neuordnen"
+        "drag_to_reorder": "Karten ziehen zum Neuordnen",
+        "upsell_downsell_page_warning": "Achtung: Fügen Sie zuerst den Seitenlink unten hinzu. Erst dann können Sie die Button-Skripte zum Installieren auf Ihren Seiten generieren.",
+        "upsell_downsell_modal_warning": "Achtung: Fügen Sie zuerst die Seitenlinks in allen Funnel-Schritten hinzu. Erst dann können Sie die Button-Skripte zum Installieren auf Ihren Seiten generieren.",
+        "upsell_downsell_save_no_url": "Achtung: Fügen Sie zuerst alle Seitenlinks des Funnels hinzu. Kommen Sie dann zurück und generieren Sie die Skripte für jeden Schritt.",
+        "save_to_generate_script": "Speichern Sie die Einstellungen, um das Skript zu generieren"
     },
     "taxes": {
         "title": "Gebühren",

@@ -719,7 +719,11 @@
         "cannot_add_main": "No puede agregar el producto principal como order bump",
         "no_bumps_added": "No hay order bumps agregados",
         "confirm_remove_bump": "¿Eliminar este order bump?",
-        "drag_to_reorder": "Arrastre las tarjetas para reordenar"
+        "drag_to_reorder": "Arrastre las tarjetas para reordenar",
+        "upsell_downsell_page_warning": "Atención: Primero agregue el enlace de la página abajo. Solo entonces podrá generar los scripts de los botones para instalar en sus páginas.",
+        "upsell_downsell_modal_warning": "Atención: Primero agregue los enlaces de las páginas en todos los pasos del embudo. Solo entonces podrá generar los scripts de los botones para instalar en sus páginas.",
+        "upsell_downsell_save_no_url": "Atención: primero agregue todos los enlaces de las páginas del embudo. Luego vuelva y genere los scripts en cada etapa.",
+        "save_to_generate_script": "Guarde la configuración para generar el script"
     },
     "taxes": {
         "title": "Impuestos",

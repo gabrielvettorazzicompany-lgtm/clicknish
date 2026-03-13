@@ -3,6 +3,7 @@ import { Menu } from 'lucide-react'
 import UserProfileDropdown from '@/components/UserProfileDropdown'
 import ThemeToggle from '@/components/ThemeToggle'
 import { useI18n } from '@/i18n'
+import { useAuthStore } from '@/stores/authStore'
 
 interface HeaderProps {
   onMenuClick: () => void
@@ -10,6 +11,15 @@ interface HeaderProps {
 
 const Header = memo(function Header({ onMenuClick }: HeaderProps) {
   const { language, setLanguage } = useI18n()
+  const { user } = useAuthStore()
+
+  const handleLanguageChange = (lang: 'pt' | 'es' | 'en' | 'fr' | 'de') => {
+    setLanguage(lang)
+    if (user?.id) {
+      try { localStorage.setItem(`huskyapp_language_${user.id}`, lang) } catch { /* ignore */ }
+    }
+  }
+
   return (
     <header className="fixed top-0 left-0 right-0 z-[70] h-12 bg-white dark:bg-[#080b14]/80 dark:backdrop-blur-xl border-b border-gray-200 dark:border-white/10 flex items-center justify-between pr-3 lg:pr-4 pointer-events-none transition-colors duration-200">
       {/* Left Section */}
@@ -36,7 +46,7 @@ const Header = memo(function Header({ onMenuClick }: HeaderProps) {
         <ThemeToggle />
         <select
           value={language}
-          onChange={e => setLanguage(e.target.value as 'pt' | 'es' | 'en' | 'fr' | 'de')}
+          onChange={e => handleLanguageChange(e.target.value as 'pt' | 'es' | 'en' | 'fr' | 'de')}
           className="h-8 px-1.5 sm:px-2 bg-white dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded text-xs text-gray-600 dark:text-gray-300 focus:outline-none focus:ring-1 focus:ring-blue-400 cursor-pointer"
           title="Idioma"
         >

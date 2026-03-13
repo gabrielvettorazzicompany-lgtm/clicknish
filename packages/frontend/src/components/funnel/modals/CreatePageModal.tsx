@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { X } from 'lucide-react'
+import { X, AlertTriangle } from 'lucide-react'
 import { useI18n } from '@/i18n'
 
 interface CreatePageModalProps {
@@ -105,6 +105,14 @@ export default function CreatePageModal({
                             </div>
                         </div>
 
+                        {(formData.pageType === 'upsell' || formData.pageType === 'downsell') && (
+                            <div className="mt-3 flex gap-2.5 p-3 bg-amber-500/10 border border-amber-500/30 rounded-lg">
+                                <AlertTriangle size={16} className="text-amber-400 flex-shrink-0 mt-0.5" />
+                                <p className="text-xs text-amber-300 leading-relaxed">
+                                    {t('funnel_components.upsell_downsell_modal_warning')}
+                                </p>
+                            </div>
+                        )}
 
                     </div>
 

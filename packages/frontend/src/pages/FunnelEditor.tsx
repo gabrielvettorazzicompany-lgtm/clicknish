@@ -402,46 +402,46 @@ export default function FunnelEditor() {
                     <div className="bg-white/80 dark:bg-white/[0.02] backdrop-blur-xl border-b border-gray-200 dark:border-white/[0.06] px-4 py-2.5">
                         <div className="max-w-[1920px] mx-auto">
                             <div className="flex items-center justify-between">
-                                <div className="flex items-center gap-3">
+                                <div className="flex items-center">
                                     <button
                                         onClick={() => navigate('/funnels')}
                                         className="text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors p-1 hover:bg-gray-100 dark:hover:bg-white/5 rounded-lg"
                                     >
                                         <ArrowLeft size={17} />
                                     </button>
-                                    <div>
-                                        {isEditingName ? (
-                                            <input
-                                                type="text"
-                                                value={editingName}
-                                                onChange={(e) => setEditingName(e.target.value)}
-                                                onBlur={handleSaveFunnelName}
-                                                onKeyDown={(e) => {
-                                                    if (e.key === 'Enter') handleSaveFunnelName()
-                                                    if (e.key === 'Escape') {
-                                                        setIsEditingName(false)
-                                                        setEditingName(funnel.name)
-                                                    }
-                                                }}
-                                                autoFocus
-                                                className="text-sm font-semibold text-gray-900 dark:text-white leading-tight bg-transparent border-b border-blue-500 outline-none px-0 py-0"
-                                            />
-                                        ) : (
-                                            <h1
-                                                className="text-sm font-semibold text-gray-900 dark:text-white leading-tight flex items-center gap-2 cursor-pointer group"
-                                                onClick={() => {
+                                </div>
+                                <div className="flex flex-col items-center">
+                                    {isEditingName ? (
+                                        <input
+                                            type="text"
+                                            value={editingName}
+                                            onChange={(e) => setEditingName(e.target.value)}
+                                            onBlur={handleSaveFunnelName}
+                                            onKeyDown={(e) => {
+                                                if (e.key === 'Enter') handleSaveFunnelName()
+                                                if (e.key === 'Escape') {
+                                                    setIsEditingName(false)
                                                     setEditingName(funnel.name)
-                                                    setIsEditingName(true)
-                                                }}
-                                            >
-                                                {funnel.name}
-                                                <Pencil size={12} className="opacity-0 group-hover:opacity-50 transition-opacity" />
-                                            </h1>
-                                        )}
-                                        <p className="text-xs text-gray-500 dark:text-gray-500 mt-0.5">
-                                            {product?.name || 'Sem produto'} · {funnel.currency}
-                                        </p>
-                                    </div>
+                                                }
+                                            }}
+                                            autoFocus
+                                            className="text-sm font-semibold text-gray-900 dark:text-white leading-tight bg-transparent border-b border-blue-500 outline-none px-0 py-0 text-center"
+                                        />
+                                    ) : (
+                                        <h1
+                                            className="text-sm font-semibold text-gray-900 dark:text-white leading-tight flex items-center gap-2 cursor-pointer group"
+                                            onClick={() => {
+                                                setEditingName(funnel.name)
+                                                setIsEditingName(true)
+                                            }}
+                                        >
+                                            {funnel.name}
+                                            <Pencil size={12} className="opacity-0 group-hover:opacity-50 transition-opacity" />
+                                        </h1>
+                                    )}
+                                    <p className="text-xs text-gray-500 dark:text-gray-500 mt-0.5">
+                                        {product?.name || 'Sem produto'} · {funnel.currency}
+                                    </p>
                                 </div>
                                 <div className="flex items-center gap-3">
                                     {/* Status Badge */}

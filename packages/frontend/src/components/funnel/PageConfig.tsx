@@ -11,7 +11,7 @@ import CheckoutRedirectConfig from './CheckoutRedirectConfig'
 import ImageUploader from '@/components/ImageUploader'
 import { useState, useRef, useEffect } from 'react'
 import { supabase } from '@/services/supabase'
-import { Save, Check } from 'lucide-react'
+import { Save, Check, AlertTriangle } from 'lucide-react'
 import { useI18n } from '@/i18n'
 
 interface PageConfigProps {
@@ -86,9 +86,12 @@ export default function PageConfig({ page, funnelId, onUpdate }: PageConfigProps
     const latestOfferRedirectSettings = useRef<Record<string, any>>({})
     const offerConfigRef = useRef<OfferPageConfigHandle>(null)
 
+    const [externalUrlValue, setExternalUrlValue] = useState(page.external_url || '')
+
     // Reset refs ao mudar de página
     useEffect(() => {
         latestExternalUrl.current = page.external_url || ''
+        setExternalUrlValue(page.external_url || '')
         latestOfferRedirectSettings.current = {}
         setScriptVisible(false)
     }, [page.id])
@@ -96,6 +99,7 @@ export default function PageConfig({ page, funnelId, onUpdate }: PageConfigProps
     const [saved, setSaved] = useState(false)
     const [savingOffer, setSavingOffer] = useState(false)
     const [savedOffer, setSavedOffer] = useState(false)
+    const [saveWarningMsg, setSaveWarningMsg] = useState<string | null>(null)
 
     const handleSaveCheckoutSettings = async () => {
         try {
@@ -143,6 +147,11 @@ export default function PageConfig({ page, funnelId, onUpdate }: PageConfigProps
     }
 
     const handleSaveOfferSettings = async () => {
+        if (!latestExternalUrl.current) {
+            setSaveWarningMsg(t('funnel_components.upsell_downsell_save_no_url'))
+            setTimeout(() => setSaveWarningMsg(null), 4000)
+            return
+        }
         try {
             setSavingOffer(true)
             await offerConfigRef.current?.save()
@@ -202,13 +211,22 @@ export default function PageConfig({ page, funnelId, onUpdate }: PageConfigProps
             {/* External URL + Offer + Redirect + Script — Único card para upsell/downsell */}
             {needsScript && (
                 <div className="rounded-lg border border-gray-200 dark:border-zinc-800 divide-y divide-gray-200 dark:divide-zinc-800">
+                    {/* Aviso: adicionar URL antes de gerar scripts */}
+                    {!externalUrlValue && (
+                        <div className="flex gap-2.5 p-3 bg-amber-500/10 border-b border-amber-500/20 rounded-t-lg">
+                            <AlertTriangle size={15} className="text-amber-400 flex-shrink-0 mt-0.5" />
+                            <p className="text-xs text-amber-300 leading-relaxed">
+                                {t('funnel_components.upsell_downsell_page_warning')}
+                            </p>
+                        </div>
+                    )}
                     {/* URL Externa */}
                     <div className="p-4">
                         <ExternalUrlConfig
                             pageId={page.id}
                             initialUrl={page.external_url || ''}
                             onUpdate={onUpdate}
-                            onUrlChange={(url) => { latestExternalUrl.current = url }}
+                            onUrlChange={(url) => { latestExternalUrl.current = url; setExternalUrlValue(url) }}
                         />
                     </div>
 
@@ -248,7 +266,12 @@ export default function PageConfig({ page, funnelId, onUpdate }: PageConfigProps
 
                     {/* Script Generator */}
                     <div className="p-4">
-                        {scriptVisible ? (
+                        {savingOffer ? (
+                            <div className="py-6 flex items-center justify-center gap-2">
+                                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-zinc-500"></div>
+                                <span className="text-xs text-zinc-500">{t('funnel_components.loading_script')}</span>
+                            </div>
+                        ) : scriptVisible ? (
                             <ScriptGenerator
                                 key={scriptKey}
                                 funnelId={funnelId}
@@ -265,10 +288,18 @@ export default function PageConfig({ page, funnelId, onUpdate }: PageConfigProps
                             />
                         ) : (
                             <div className="py-4 text-center">
-                                <p className="text-xs text-zinc-500">{t('funnel_components.save_to_generate_script') || 'Salve as configurações para gerar o script'}</p>
+                                <p className="text-xs text-zinc-500">{t('funnel_components.save_to_generate_script')}</p>
                             </div>
                         )}
                     </div>
+
+                    {/* Aviso de validação ao tentar salvar sem URL */}
+                    {saveWarningMsg && (
+                        <div className="mx-4 flex gap-2 p-3 bg-red-500/10 border border-red-500/30 rounded-lg">
+                            <AlertTriangle size={14} className="text-red-400 flex-shrink-0 mt-0.5" />
+                            <p className="text-xs text-red-300 leading-relaxed">{saveWarningMsg}</p>
+                        </div>
+                    )}
 
                     {/* Botão salvar unificado */}
                     <div className="p-4 flex justify-end">
