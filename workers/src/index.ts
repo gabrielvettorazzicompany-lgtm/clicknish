@@ -262,7 +262,9 @@ async function handleApiRoute(
             .order('is_global_default', { ascending: false })
             .limit(1)
             .maybeSingle()
-        const enabledMethods: string[] = (prov?.enabled_methods || []).filter((m: string) => m !== 'card')
+        const enabledMethods: string[] = (prov?.enabled_methods || []).filter(
+            (m: string) => !['card', 'apple_pay', 'google_pay'].includes(m)
+        )
 
         // Mapa de labels para métodos Stripe
         const STRIPE_METHOD_LABELS: Record<string, string> = {
@@ -274,11 +276,16 @@ async function handleApiRoute(
             p24: 'Przelewy24',
             alipay: 'Alipay',
             wechat_pay: 'WeChat Pay',
-            sepa_debit: 'SEPA Debit',
+            sepa_debit: 'SEPA Direct Debit',
             klarna: 'Klarna',
-            afterpay_clearpay: 'Afterpay',
+            afterpay_clearpay: 'Afterpay / Clearpay',
             affirm: 'Affirm',
             multibanco: 'Multibanco',
+            link: 'Link',
+            amazon_pay: 'Amazon Pay',
+            revolut_pay: 'Revolut Pay',
+            mobilepay: 'MobilePay',
+            twint: 'TWINT',
         }
 
         const STRIPE_ICONS: Record<string, string> = {
@@ -289,6 +296,8 @@ async function handleApiRoute(
             eps: 'https://js.stripe.com/v3/fingerprinted/img/eps-91acf2b6a57c93e38de8e5cbee226b9c.svg',
             p24: 'https://js.stripe.com/v3/fingerprinted/img/p24-be2d0b8af5a82f2ef4b888e4c7bde0ba.svg',
             alipay: 'https://js.stripe.com/v3/fingerprinted/img/alipay-b45c41ff2fb931cd1cf3606a68462f5f.svg',
+            klarna: 'https://js.stripe.com/v3/fingerprinted/img/klarna-c78b83e7e0c2b3dce3c8a2f93b1e3e3a.svg',
+            sepa_debit: 'https://js.stripe.com/v3/fingerprinted/img/sepa_debit-fb2b07a1f89b59aca0a9b3d7d6c2f1c4.svg',
         }
 
         const methods = enabledMethods.map(id => ({

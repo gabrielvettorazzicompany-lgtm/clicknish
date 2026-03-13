@@ -59,6 +59,7 @@ export default function AppSettingsTab({
     const [localSelected, setLocalSelected] = useState<string[]>(selectedPaymentMethods)
     const [localDynamic, setLocalDynamic] = useState(dynamicCheckout)
     const [mollieMethods, setMollieMethods] = useState<MethodOption[]>([])
+    const [stripeMethods, setStripeMethods] = useState<MethodOption[]>([])
     const [stripeActive, setStripeActive] = useState(false)
     const [saving, setSaving] = useState(false)
     const [hasChanges, setHasChanges] = useState(false)
@@ -69,7 +70,7 @@ export default function AppSettingsTab({
         setHasChanges(false)
     }, [selectedPaymentMethods, dynamicCheckout])
 
-    // Verificar se há provedor Stripe ativo
+    // Verificar se há provedor Stripe ativo e buscar métodos habilitados
     useEffect(() => {
         supabase
             .from('payment_providers')
@@ -78,7 +79,24 @@ export default function AppSettingsTab({
             .eq('is_active', true)
             .limit(1)
             .maybeSingle()
-            .then(({ data }) => setStripeActive(!!data))
+            .then(({ data }) => {
+                setStripeActive(!!data)
+                if (data) {
+                    fetch('https://api.clicknich.com/api/stripe/methods')
+                        .then(r => r.json())
+                        .then((d: any) => {
+                            const methods: MethodOption[] = (d.methods || []).map((m: any) => ({
+                                id: `stripe_${m.id}`,
+                                label: m.label || m.id,
+                                iconUrl: m.icon_url || undefined,
+                            }))
+                            setStripeMethods(methods)
+                        })
+                        .catch(() => {})
+                } else {
+                    setStripeMethods([])
+                }
+            })
             .catch(() => {})
     }, [])
 
@@ -101,6 +119,7 @@ export default function AppSettingsTab({
     const allMethods = [
         ...(stripeActive ? [CREDIT_CARD_METHOD] : []),
         PAYPAL_METHOD,
+        ...stripeMethods,
         ...mollieMethods,
     ]
 
