@@ -312,6 +312,10 @@ async function handleApiRoute(
             .order('is_global_default', { ascending: false })
             .limit(1)
             .maybeSingle()
+        // Se não há provedor Mollie ativo, retornar lista vazia imediatamente
+        if (!prov) {
+            return jsonResponse({ methods: [], country: null })
+        }
         const enabledMethods: string[] = prov?.enabled_methods || []
         const reqUrl = new URL(request.url)
         // ?all=1  → modo admin (AppSettingsTab do owner): sem filtro de país, sem limite
