@@ -151,6 +151,7 @@ export async function handleOrders(
                     orderNumber: `#${String(idx + 1).padStart(4, '0')}`,
                     date: sale.sale_date,
                     total: parseFloat(sale.amount || 0),
+                    currency: sale.currency || 'BRL',
                     customer: {
                         name: email ? email.split('@')[0] : 'Cliente',
                         email: email
