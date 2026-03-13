@@ -98,11 +98,11 @@ export const MOLLIE_EUR_ONLY_METHODS = new Set([
     'przelewy24',
 ])
 
-/** Métodos Mollie que suportam sequenceType: 'first' para mandatos recorrentes */
+/** Métodos Mollie que suportam sequenceType: 'first' para mandatos recorrentes.
+ *  Requer produto "Recurring" ativado na conta Mollie.
+ *  iDEAL e bancontact suportam tecnicamente mas exigem aprovação especial — usar só creditcard por ora. */
 export const MOLLIE_RECURRING_METHODS = new Set([
     'creditcard',
-    'ideal',
-    'bancontact',
     'directdebit',
 ])
 
