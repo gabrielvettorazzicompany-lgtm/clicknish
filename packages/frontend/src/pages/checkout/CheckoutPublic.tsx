@@ -841,10 +841,9 @@ export default function CheckoutPublic() {
 
     useEffect(() => {
         // Não carregar dados do checkout durante verificação de redirect Stripe/Mollie
-        // (o verify handler redireciona para a página de obrigado após confirmar)
+        // Mantém loading=true para não exibir "Checkout not found" enquanto o verify redireciona
         const urlP = new URLSearchParams(window.location.search)
         if (urlP.get('stripe_return') === '1' || urlP.get('mollie_return') === '1') {
-            setLoading(false)
             return
         }
 
