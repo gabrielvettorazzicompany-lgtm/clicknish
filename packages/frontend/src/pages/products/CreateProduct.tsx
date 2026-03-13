@@ -72,7 +72,7 @@ function CreateProduct() {
         name: '',
         description: '',
         price: '',
-        currency: 'USD' as 'USD' | 'CHF',
+        currency: 'USD' as 'USD' | 'EUR' | 'CHF',
         commission: '',
         image: null as File | null
     })
@@ -716,11 +716,12 @@ function CreateProduct() {
                                             <div className="flex gap-2">
                                                 <select
                                                     value={formData.currency}
-                                                    onChange={(e) => setFormData(prev => ({ ...prev, currency: e.target.value as 'USD' | 'CHF' }))}
+                                                    onChange={(e) => setFormData(prev => ({ ...prev, currency: e.target.value as 'USD' | 'EUR' | 'CHF' }))}
                                                     className="w-28 py-3 px-3 bg-[#1a1d2e] text-gray-200 border border-[#252941] rounded-xl focus:ring-2 focus:ring-blue-400/50 focus:border-transparent"
                                                 >
-                                                    <option value="USD">$ USD</option>
-                                                    <option value="CHF">Fr CHF</option>
+                                                    <option value="USD">🇺🇸 USD</option>
+                                                    <option value="EUR">🇪🇺 EUR</option>
+                                                    <option value="CHF">🇨🇭 CHF</option>
                                                 </select>
                                                 <input
                                                     type="text"

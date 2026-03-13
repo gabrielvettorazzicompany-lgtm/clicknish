@@ -2,24 +2,29 @@
  * FX (Foreign Exchange) Utilities
  *
  * - Mapeamento país ISO → moeda
- * - Conversão apenas para moedas europeias (EUR, CHF, GBP)
+ * - Conversão para moedas europeias e latinas (EUR, CHF, GBP, CAD, MXN, COP, CLP, PEN)
  * - Necessário para compatibilidade com métodos Mollie (iDEAL, Bancontact = EUR obrigatório)
  * - Cache de rates no KV por 1 hora
- * - Spread de +1.7% nas moedas convertidas
+ * - Spread de +1.7% sobre a moeda diferente da moeda base do produto
  *
- * Países fora da Europa → mantém USD (sem conversão)
+ * Países não detectados por IP → USD (fallback)
  */
 
-// Apenas moedas europeias — os métodos Mollie exigem EUR
-export const SPREAD_CURRENCIES = new Set(['EUR', 'CHF', 'GBP'])
+// Moedas que recebem spread de +1.7% quando diferem da moeda base do produto
+export const SPREAD_CURRENCIES = new Set(['EUR', 'CHF', 'GBP', 'CAD', 'MXN', 'COP', 'CLP', 'PEN'])
 
 const FX_SPREAD = 0.017 // 1.7%
 const FX_CACHE_TTL = 3600 // 1 hora
 
-// Moedas a buscar nas taxas
-const TARGET_CURRENCIES = ['EUR', 'CHF', 'GBP']
+// Moedas suportadas pela frankfurter.app (ECB)
+const FRANKFURTER_CURRENCIES = ['EUR', 'CHF', 'GBP', 'CAD', 'MXN']
+// Moedas latinas não suportadas pelo ECB → buscadas via open.er-api.com (gratuito, sem chave)
+const OPENERATE_CURRENCIES = ['COP', 'CLP', 'PEN']
+// Total de moedas alvo
+const TARGET_CURRENCIES = [...FRANKFURTER_CURRENCIES, ...OPENERATE_CURRENCIES]
 
-// Mapeamento país ISO → moeda (apenas Europa)
+// Mapeamento país ISO → moeda
+// Países não listados → USD via fallback
 const COUNTRY_TO_CURRENCY: Record<string, string> = {
     // Zona Euro
     'AT': 'EUR', 'BE': 'EUR', 'CY': 'EUR', 'DE': 'EUR', 'EE': 'EUR',
@@ -29,7 +34,14 @@ const COUNTRY_TO_CURRENCY: Record<string, string> = {
     // Europa não-euro
     'GB': 'GBP',
     'CH': 'CHF',
-    // Todos os outros países (BR, MX, US, CA, etc.) → USD via fallback
+    // América do Norte
+    'CA': 'CAD',
+    // América Latina
+    'MX': 'MXN',
+    'CO': 'COP',
+    'CL': 'CLP',
+    'PE': 'PEN',
+    // Todos os outros países → USD via fallback
 }
 
 /**
@@ -41,20 +53,75 @@ export function countryToCurrency(country: string | null | undefined): string {
 }
 
 /**
- * Busca taxas de câmbio da frankfurter.app (dados do ECB, sem auth)
- * Retorna mapa { EUR: 0.92, BRL: 5.1, ... } com base na moeda fornecida
+ * Busca taxas via frankfurter.app (ECB) para EUR, CHF, GBP, CAD, MXN.
  */
-async function fetchFxRatesFromApi(baseCurrency: string): Promise<Record<string, number>> {
-    const to = TARGET_CURRENCIES.filter(c => c !== baseCurrency).join(',')
+async function fetchFrankfurterRates(baseCurrency: string): Promise<Record<string, number>> {
+    const to = FRANKFURTER_CURRENCIES.filter(c => c !== baseCurrency).join(',')
+    if (!to) return {}
     const url = `https://api.frankfurter.app/latest?from=${baseCurrency}&to=${to}`
     const resp = await fetch(url, {
         headers: { 'Accept': 'application/json' },
         // @ts-ignore — AbortSignal.timeout disponível no CF Workers runtime
         signal: AbortSignal.timeout(4000),
     })
-    if (!resp.ok) throw new Error(`FX API error ${resp.status}`)
+    if (!resp.ok) throw new Error(`Frankfurter API error ${resp.status}`)
     const data = await resp.json() as { rates: Record<string, number> }
     return data.rates
+}
+
+/**
+ * Busca taxas via open.er-api.com (gratuito, sem auth) para COP, CLP, PEN.
+ * Resposta base sempre em USD → converte para baseCurrency se necessário.
+ */
+async function fetchOpenErRates(baseCurrency: string): Promise<Record<string, number>> {
+    const url = `https://open.er-api.com/v6/latest/USD`
+    const resp = await fetch(url, {
+        headers: { 'Accept': 'application/json' },
+        // @ts-ignore
+        signal: AbortSignal.timeout(4000),
+    })
+    if (!resp.ok) throw new Error(`OpenER API error ${resp.status}`)
+    const data = await resp.json() as { result: string; rates: Record<string, number> }
+    if (data.result !== 'success') throw new Error('OpenER API returned non-success')
+
+    const usdRates = data.rates
+    const baseToUsd = usdRates[baseCurrency] ?? 1
+
+    // Converte taxas de USD para baseCurrency
+    const result: Record<string, number> = {}
+    for (const cur of OPENERATE_CURRENCIES) {
+        if (usdRates[cur]) {
+            result[cur] = usdRates[cur] / baseToUsd
+        }
+    }
+    return result
+}
+
+/**
+ * Busca todas as taxas de câmbio necessárias combinando frankfurter + open.er-api.
+ */
+async function fetchFxRatesFromApi(baseCurrency: string): Promise<Record<string, number>> {
+    const [frankfurterRates, openErRates] = await Promise.allSettled([
+        fetchFrankfurterRates(baseCurrency),
+        fetchOpenErRates(baseCurrency),
+    ])
+
+    const rates: Record<string, number> = {}
+
+    if (frankfurterRates.status === 'fulfilled') {
+        Object.assign(rates, frankfurterRates.value)
+    } else {
+        console.warn('[fx] Frankfurter failed:', frankfurterRates.reason)
+    }
+
+    if (openErRates.status === 'fulfilled') {
+        Object.assign(rates, openErRates.value)
+    } else {
+        console.warn('[fx] OpenER failed:', openErRates.reason)
+    }
+
+    if (Object.keys(rates).length === 0) throw new Error('All FX APIs failed')
+    return rates
 }
 
 /**
@@ -156,6 +223,7 @@ export async function applyFxConversion(
  * Moedas sem decimais (CLP, COP) → arredonda para inteiro.
  */
 export function roundForCurrency(price: number, currency: string): number {
+    // Moedas sem casas decimais
     if (currency === 'CLP' || currency === 'COP') {
         return Math.round(price)
     }

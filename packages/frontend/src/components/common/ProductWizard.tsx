@@ -6,7 +6,7 @@ interface FormData {
     name: string
     description: string
     price: number
-    currency: 'USD' | 'CHF' | 'BRL'
+    currency: 'USD' | 'EUR' | 'CHF' | 'BRL'
     category: string
     status: 'active' | 'inactive' | 'draft'
     image_url: string
@@ -89,6 +89,26 @@ export default function ProductWizard({
 }: ProductWizardProps) {
     const { t } = useI18n()
     const [priceDisplay, setPriceDisplay] = useState<string>('')
+
+    // Função para formatar preço com símbolo correto
+    const formatPriceWithCurrency = (value: number, currency: string) => {
+        const currencyMap: { [key: string]: string } = {
+            'USD': 'en-US',
+            'EUR': 'de-DE',
+            'CHF': 'de-CH',
+            'BRL': 'pt-BR',
+            'CAD': 'en-CA',
+            'MXN': 'es-MX',
+            'COP': 'es-CO',
+            'CLP': 'es-CL',
+            'PEN': 'es-PE'
+        }
+        const locale = currencyMap[currency] || 'en-US'
+        return new Intl.NumberFormat(locale, {
+            style: 'currency',
+            currency: currency
+        }).format(value)
+    }
     const [triedToAdvance, setTriedToAdvance] = useState(false)
     const [showCountryDropdown, setShowCountryDropdown] = useState(false)
     const [selectedCountry, setSelectedCountry] = useState({ flag: '🇧🇷', code: '+55', name: 'Brasil' })
@@ -544,23 +564,20 @@ export default function ProductWizard({
                                 <div className="flex">
                                     <input
                                         type="text"
-                                        value={priceDisplay || (formData.price > 0 ? `${formData.price.toFixed(2).replace('.', ',')}` : '')}
+                                        value={priceDisplay || (formData.price > 0 ? formatPriceWithCurrency(formData.price, formData.currency) : '')}
                                         onChange={(e) => handlePriceInput(e.target.value)}
                                         className="flex-1 px-3 py-2.5 text-xs bg-[#111522] text-white border border-r-0 border-[#1e2433] rounded-l-xl focus:outline-none focus:border-blue-500/60 placeholder-gray-700 tabular-nums transition-colors"
-                                        placeholder={
-                                            formData.currency === 'BRL' ? 'R$ 0,00' :
-                                                formData.currency === 'USD' ? '$ 0.00' :
-                                                    'CHF 0.00'
-                                        }
+                                        placeholder={formatPriceWithCurrency(0, formData.currency)}
                                     />
                                     <select
                                         value={formData.currency}
-                                        onChange={(e) => setFormData({ ...formData, currency: e.target.value as 'USD' | 'CHF' | 'BRL' })}
+                                        onChange={(e) => setFormData({ ...formData, currency: e.target.value as 'USD' | 'EUR' | 'CHF' | 'BRL' })}
                                         className="px-3 py-2.5 text-xs bg-[#111522] text-white border border-[#1e2433] rounded-r-xl focus:outline-none focus:border-blue-500/60 appearance-none transition-colors"
                                     >
-                                        <option value="BRL">BRL</option>
-                                        <option value="USD">USD</option>
-                                        <option value="CHF">CHF</option>
+                                        <option value="USD">🇺🇸 USD</option>
+                                        <option value="EUR">🇪🇺 EUR</option>
+                                        <option value="CHF">🇨🇭 CHF</option>
+                                        <option value="BRL">🇧🇷 BRL</option>
                                     </select>
                                 </div>
                             </div>

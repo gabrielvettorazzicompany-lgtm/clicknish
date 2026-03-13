@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
+import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
-import { ShoppingBag, Search } from 'lucide-react'
+import { ShoppingBag, Search, MoreHorizontal } from 'lucide-react'
 import { supabase } from '@/services/supabase'
 import { useAuthStore } from '@/stores/authStore'
 import { useI18n } from '@/i18n'
@@ -23,6 +24,8 @@ interface Application {
     app_type?: string
     language?: string
     theme?: string
+    category?: string
+    review_status?: 'draft' | 'pending_review' | 'approved' | 'rejected'
 }
 
 interface Product {
@@ -58,6 +61,9 @@ export default function ProductsManagement({ embedded = false }: { embedded?: bo
     const [showAppsGrid, setShowAppsGrid] = useState(true)
     const [showSearchDropdown, setShowSearchDropdown] = useState(false)
     const searchDropdownRef = useRef<HTMLDivElement>(null)
+    const [openActionMenu, setOpenActionMenu] = useState<string | null>(null)
+    const [actionMenuPos, setActionMenuPos] = useState<{ top: number; right: number } | null>(null)
+    const actionMenuRef = useRef<HTMLDivElement>(null)
 
     // Wizard states
     const [currentStep, setCurrentStep] = useState(1)
@@ -68,7 +74,7 @@ export default function ProductsManagement({ embedded = false }: { embedded?: bo
         name: '',
         description: '',
         price: 0,
-        currency: 'BRL' as 'USD' | 'CHF' | 'BRL',
+        currency: 'USD' as 'USD' | 'EUR' | 'CHF' | 'BRL',
         category: '',
         status: 'draft' as 'active' | 'inactive' | 'draft',
         image_url: '',
@@ -85,11 +91,13 @@ export default function ProductsManagement({ embedded = false }: { embedded?: bo
 
     // Currency formatting functions
     const formatCurrency = (value: number, currency?: string): string => {
-        if (currency === 'CHF') {
-            return new Intl.NumberFormat('de-CH', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(value)
+        const localeMap: Record<string, string> = {
+            'USD': 'en-US', 'EUR': 'de-DE', 'CHF': 'de-CH',
+            'BRL': 'pt-BR', 'CAD': 'en-CA', 'MXN': 'es-MX',
+            'COP': 'es-CO', 'CLP': 'es-CL', 'PEN': 'es-PE'
         }
-        // USD default
-        return new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(value)
+        const locale = localeMap[currency || 'USD'] || 'en-US'
+        return new Intl.NumberFormat(locale, { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(value)
     }
 
     const parseCurrency = (value: string): number => {
@@ -157,6 +165,23 @@ export default function ProductsManagement({ embedded = false }: { embedded?: bo
         }
     }, [showSearchDropdown])
 
+    // Close action menu when clicking outside
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (actionMenuRef.current && !actionMenuRef.current.contains(event.target as Node)) {
+                setOpenActionMenu(null)
+            }
+        }
+
+        if (openActionMenu) {
+            document.addEventListener('mousedown', handleClickOutside)
+        }
+
+        return () => {
+            document.removeEventListener('mousedown', handleClickOutside)
+        }
+    }, [openActionMenu])
+
     const fetchApps = async () => {
         try {
             const session = await getValidSession()
@@ -210,7 +235,7 @@ export default function ProductsManagement({ embedded = false }: { embedded?: bo
             name: '',
             description: '',
             price: 0,
-            currency: 'BRL' as 'USD' | 'CHF' | 'BRL',
+            currency: 'USD' as 'USD' | 'EUR' | 'CHF' | 'BRL',
             category: '',
             status: 'draft' as 'active' | 'inactive' | 'draft',
             image_url: '',
@@ -648,16 +673,14 @@ export default function ProductsManagement({ embedded = false }: { embedded?: bo
 
                 {/* Action Bar */}
                 {!showWizard && (
-                    <div className={`sticky ${embedded ? 'top-0' : 'top-12 mt-12'} bg-white dark:bg-[#080b14]/80 dark:backdrop-blur-sm border-b border-gray-200 dark:border-white/10 z-[60]`}>
-                        <div className="px-6 py-2 flex items-center justify-end">
-                            <button
-                                onClick={handleCreateProduct}
-                                className="inline-flex items-center justify-center gap-1.5 px-4 py-2 hover:bg-gray-100 dark:hover:bg-white/10 text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white rounded-lg font-medium transition-all whitespace-nowrap text-xs"
-                            >
-                                <ShoppingBag className="w-3 h-3" />
-                                {t('create_product.title')}
-                            </button>
-                        </div>
+                    <div className={`px-6 py-3 flex items-center justify-end ${!embedded ? 'mt-12' : ''}`}>
+                        <button
+                            onClick={handleCreateProduct}
+                            className="inline-flex items-center justify-center gap-1.5 px-4 py-2 bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 text-white rounded-lg font-medium transition-all whitespace-nowrap text-xs shadow-sm shadow-blue-500/30"
+                        >
+                            <ShoppingBag className="w-3 h-3" />
+                            {t('create_product.title')}
+                        </button>
                     </div>
                 )}
 
@@ -693,19 +716,123 @@ export default function ProductsManagement({ embedded = false }: { embedded?: bo
                                 {/* Apps Section */}
                                 {filteredApps.length > 0 && (
                                     <div>
-                                        <h2 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-3">Apps</h2>
-                                        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 2xl:grid-cols-5 gap-4">
-                                            {filteredApps.map((app) => (
-                                                <div key={app.id} className="max-w-xs">
-                                                    <AppCard
-                                                        app={app}
-                                                        onEdit={(id) => navigate(`/app-builder/${id}`)}
-                                                        onDelete={handleDeleteApp}
-                                                        onOpenAccess={openClientAccess}
-                                                        onSubmitReview={handleSubmitAppForReview}
-                                                    />
-                                                </div>
-                                            ))}
+                                        <div className="overflow-x-auto">
+                                            <table className="min-w-full bg-white dark:bg-[#080b14] rounded-lg">
+                                                <thead>
+                                                    <tr className="border-b border-gray-200 dark:border-white/10">
+                                                        <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">App</th>
+                                                        <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">{t('common.type')}</th>
+                                                        <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">{t('common.status')}</th>
+                                                        <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">{t('funnels.table.created_at')}</th>
+                                                        <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">{t('common.actions')}</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    {filteredApps.map((app) => {
+                                                        const isPending = app.review_status === 'pending_review'
+                                                        const isDraft = app.review_status === 'draft' || !app.review_status
+                                                        return (
+                                                            <tr key={app.id} className="border-b border-gray-100 dark:border-white/5 hover:bg-gray-50 dark:hover:bg-white/[0.02] transition-colors">
+                                                                <td className="px-4 py-3">
+                                                                    <div className="flex items-center gap-3">
+                                                                        {app.logo_url ? (
+                                                                            <img src={app.logo_url} alt={app.name} className="w-8 h-8 rounded-lg object-cover" />
+                                                                        ) : (
+                                                                            <div className="w-8 h-8 bg-gray-200 dark:bg-white/10 rounded-lg flex items-center justify-center text-xs font-bold text-gray-500 dark:text-gray-400">
+                                                                                {app.name.charAt(0).toUpperCase()}
+                                                                            </div>
+                                                                        )}
+                                                                        <span className="text-sm font-medium text-gray-900 dark:text-gray-100">{app.name}</span>
+                                                                    </div>
+                                                                </td>
+                                                                <td className="px-4 py-3">
+                                                                    <div>
+                                                                        <p className="text-sm text-gray-700 dark:text-gray-300">
+                                                                            {app.app_type === 'community' ? t('common.members_area')
+                                                                                : t('integrations.product_type_app')}
+                                                                        </p>
+                                                                        {app.category && <p className="text-xs text-gray-400">{app.category}</p>}
+                                                                    </div>
+                                                                </td>
+                                                                <td className="px-4 py-3">
+                                                                    {isDraft && (
+                                                                        <span className="px-2 py-1 rounded text-xs font-medium bg-gray-100 dark:bg-white/10 text-gray-500 dark:text-gray-400">{t('components.app_card.draft')}</span>
+                                                                    )}
+                                                                    {isPending && (
+                                                                        <span className="px-2 py-1 rounded text-xs font-medium bg-yellow-100 dark:bg-yellow-500/10 text-yellow-600 dark:text-yellow-400">{t('components.app_card.in_review')}</span>
+                                                                    )}
+                                                                    {app.review_status === 'approved' && (
+                                                                        <span className="px-2 py-1 rounded text-xs font-medium bg-[#252941] text-gray-200">{t('common.active')}</span>
+                                                                    )}
+                                                                    {!app.review_status && (
+                                                                        <span className="px-2 py-1 rounded text-xs font-medium bg-gray-100 dark:bg-white/10 text-gray-500 dark:text-gray-400">{t('components.app_card.draft')}</span>
+                                                                    )}
+                                                                </td>
+                                                                <td className="px-4 py-3 text-xs text-gray-500 dark:text-gray-400">
+                                                                    {new Date(app.created_at).toLocaleDateString('pt-BR')}
+                                                                </td>
+                                                                <td className="px-4 py-3">
+                                                                    <div className="flex items-center justify-end">
+                                                                        <div className="relative">
+                                                                            <button
+                                                                                onClick={(e) => {
+                                                                                    if (openActionMenu === app.id) {
+                                                                                        setOpenActionMenu(null)
+                                                                                        setActionMenuPos(null)
+                                                                                    } else {
+                                                                                        const rect = (e.currentTarget as HTMLButtonElement).getBoundingClientRect()
+                                                                                        setActionMenuPos({ top: rect.bottom + 4, right: window.innerWidth - rect.right })
+                                                                                        setOpenActionMenu(app.id ?? null)
+                                                                                    }
+                                                                                }}
+                                                                                className="p-1.5 text-gray-400 hover:text-gray-200 hover:bg-white/10 rounded-lg transition-colors"
+                                                                            >
+                                                                                <MoreHorizontal className="w-4 h-4" />
+                                                                            </button>
+                                                                            {openActionMenu === app.id && actionMenuPos && createPortal(
+                                                                                <div ref={actionMenuRef} style={{ position: 'fixed', top: actionMenuPos.top, right: actionMenuPos.right, zIndex: 9999 }} className="w-48 bg-[#0f1225] border border-white/10 rounded-lg shadow-xl py-1">
+                                                                                    <button
+                                                                                        onClick={() => { openClientAccess(app.slug); setOpenActionMenu(null) }}
+                                                                                        className="w-full flex items-center gap-2.5 px-3 py-2 text-xs text-gray-300 hover:text-white hover:bg-white/5 transition-colors"
+                                                                                    >
+                                                                                        <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" /></svg>
+                                                                                        {t('common.link')}
+                                                                                    </button>
+                                                                                    {isDraft && app.id && (
+                                                                                        <button
+                                                                                            onClick={() => { handleSubmitAppForReview(app.id!); setOpenActionMenu(null) }}
+                                                                                            className="w-full flex items-center gap-2.5 px-3 py-2 text-xs text-gray-300 hover:text-white hover:bg-white/5 transition-colors"
+                                                                                        >
+                                                                                            <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5 text-yellow-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                                                                                            {t('components.app_card.submit_verification')}
+                                                                                        </button>
+                                                                                    )}
+                                                                                    <button
+                                                                                        onClick={() => { if (!isPending && app.id) { navigate(`/app-builder/${app.id}`); setOpenActionMenu(null) } }}
+                                                                                        disabled={isPending}
+                                                                                        className={`w-full flex items-center gap-2.5 px-3 py-2 text-xs transition-colors ${isPending ? 'text-gray-600 cursor-not-allowed' : 'text-gray-300 hover:text-white hover:bg-white/5'}`}
+                                                                                    >
+                                                                                        <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+                                                                                        {t('common.edit')}
+                                                                                    </button>
+                                                                                    <div className="border-t border-white/10 my-1" />
+                                                                                    <button
+                                                                                        onClick={() => { if (app.id) { handleDeleteApp(app.id); setOpenActionMenu(null) } }}
+                                                                                        className="w-full flex items-center gap-2.5 px-3 py-2 text-xs text-red-400 hover:text-red-300 hover:bg-red-500/10 transition-colors"
+                                                                                    >
+                                                                                        <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                                                                                        {t('common.delete')}
+                                                                                    </button>
+                                                                                </div>
+                                                                                , document.body)}
+                                                                        </div>
+                                                                    </div>
+                                                                </td>
+                                                            </tr>
+                                                        )
+                                                    })}
+                                                </tbody>
+                                            </table>
                                         </div>
                                     </div>
                                 )}
