@@ -7,7 +7,7 @@
  */
 
 import { createClient } from '../lib/supabase'
-import { createMollieClient, toMollieAmount, currencyToLocale, MOLLIE_RECURRING_METHODS } from '../lib/mollie'
+import { createMollieClient, toMollieAmount, currencyToLocale, MOLLIE_RECURRING_METHODS, MOLLIE_EUR_ONLY_METHODS } from '../lib/mollie'
 import { applyFxConversion } from '../lib/fx'
 import { createCustomerUser } from './customer-auth'
 import { appLangToEmailLang, buildAccessEmailHtml } from '../utils/email-i18n'
@@ -160,9 +160,16 @@ export async function handleProcessMolliePayment(
         // ══════════════════════════════════════════════════════════════
         const clientCountryForFx = request.headers.get('cf-ipcountry')
         const fxResult = await applyFxConversion(finalPrice, currency, clientCountryForFx, env)
-        const chargeAmount = fxResult.displayPrice
-        const chargeCurrency = fxResult.displayCurrency
-        if (chargeCurrency !== fxResult.baseCurrency) {
+        let chargeAmount = fxResult.displayPrice
+        let chargeCurrency = fxResult.displayCurrency
+
+        // Métodos como iDEAL e Bancontact só aceitam EUR — forçar independente do IP do cliente
+        if (MOLLIE_EUR_ONLY_METHODS.has(mollieMethod) && chargeCurrency !== 'EUR') {
+            const eurRates = await applyFxConversion(finalPrice, currency, 'NL', env)
+            chargeAmount = eurRates.displayPrice
+            chargeCurrency = 'EUR'
+            console.log(`[fx] Mollie EUR-only (${mollieMethod}): ${finalPrice} ${currency} → ${chargeAmount} EUR`)
+        } else if (chargeCurrency !== fxResult.baseCurrency) {
             console.log(`[fx] Mollie: ${finalPrice} ${currency} → ${chargeAmount} ${chargeCurrency} (country: ${clientCountryForFx})`)
         }
 

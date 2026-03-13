@@ -87,6 +87,17 @@ export interface MollieMandate {
     _links: Record<string, any>
 }
 
+/** Métodos Mollie que só aceitam EUR (independente do país do cliente) */
+export const MOLLIE_EUR_ONLY_METHODS = new Set([
+    'ideal',
+    'bancontact',
+    'wero',
+    'eps',
+    'kbc',
+    'belfius',
+    'przelewy24',
+])
+
 /** Métodos Mollie que suportam sequenceType: 'first' para mandatos recorrentes */
 export const MOLLIE_RECURRING_METHODS = new Set([
     'creditcard',
