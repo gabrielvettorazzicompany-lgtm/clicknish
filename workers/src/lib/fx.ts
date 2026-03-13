@@ -2,24 +2,24 @@
  * FX (Foreign Exchange) Utilities
  *
  * - Mapeamento país ISO → moeda
- * - Busca taxas de câmbio via frankfurter.app (ECB data, gratuito, sem auth)
+ * - Conversão apenas para moedas europeias (EUR, CHF, GBP)
+ * - Necessário para compatibilidade com métodos Mollie (iDEAL, Bancontact = EUR obrigatório)
  * - Cache de rates no KV por 1 hora
- * - Spread de +1.7% em moedas diferentes da base do produto
+ * - Spread de +1.7% nas moedas convertidas
  *
- * Moedas suportadas com spread: EUR, CHF, GBP, CAD, MXN, BRL, COP, CLP, PEN
- * Padrão para países não mapeados: USD (sem spread)
+ * Países fora da Europa → mantém USD (sem conversão)
  */
 
-// Moedas que recebem spread quando diferentes da moeda base do produto
-export const SPREAD_CURRENCIES = new Set(['EUR', 'CHF', 'GBP', 'CAD', 'MXN', 'BRL', 'COP', 'CLP', 'PEN'])
+// Apenas moedas europeias — os métodos Mollie exigem EUR
+export const SPREAD_CURRENCIES = new Set(['EUR', 'CHF', 'GBP'])
 
 const FX_SPREAD = 0.017 // 1.7%
 const FX_CACHE_TTL = 3600 // 1 hora
 
-// Moedas a buscar nas taxas (excluindo USD — é a base mais comum)
-const TARGET_CURRENCIES = ['EUR', 'CHF', 'GBP', 'CAD', 'MXN', 'BRL', 'COP', 'CLP', 'PEN']
+// Moedas a buscar nas taxas
+const TARGET_CURRENCIES = ['EUR', 'CHF', 'GBP']
 
-// Mapeamento país ISO → moeda de exibição
+// Mapeamento país ISO → moeda (apenas Europa)
 const COUNTRY_TO_CURRENCY: Record<string, string> = {
     // Zona Euro
     'AT': 'EUR', 'BE': 'EUR', 'CY': 'EUR', 'DE': 'EUR', 'EE': 'EUR',
@@ -29,13 +29,7 @@ const COUNTRY_TO_CURRENCY: Record<string, string> = {
     // Europa não-euro
     'GB': 'GBP',
     'CH': 'CHF',
-    // Américas
-    'BR': 'BRL',
-    'MX': 'MXN',
-    'CO': 'COP',
-    'CL': 'CLP',
-    'PE': 'PEN',
-    'CA': 'CAD',
+    // Todos os outros países (BR, MX, US, CA, etc.) → USD via fallback
 }
 
 /**
