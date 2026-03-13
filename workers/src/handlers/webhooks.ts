@@ -1,5 +1,6 @@
 import { createClient } from '../lib/supabase'
 import { createMollieClient } from '../lib/mollie'
+import { processStripeRedirectWebhook } from './process-stripe-payment'
 
 const corsHeaders = {
     'Access-Control-Allow-Origin': '*',
@@ -338,6 +339,20 @@ export async function handleStripeWebhook(
     console.log(`Stripe webhook received: ${event.type}`)
 
     try {
+        if (event.type === 'payment_intent.succeeded') {
+            // Pagamentos Stripe via redirect (iDEAL, Bancontact, etc.)
+            const paymentIntent = event.data.object
+            const frontendUrl = (env as any).FRONTEND_URL || 'https://app.clicknich.com'
+            try {
+                await processStripeRedirectWebhook(paymentIntent.id, paymentIntent, env, supabase, frontendUrl)
+            } catch (e: any) {
+                console.warn('[stripe-webhook] Stripe redirect processing error:', e.message)
+            }
+            return new Response(JSON.stringify({ ok: true }), {
+                headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+            })
+        }
+
         if (event.type === 'charge.refunded') {
             const charge = event.data.object
             const paymentIntentId = charge.payment_intent

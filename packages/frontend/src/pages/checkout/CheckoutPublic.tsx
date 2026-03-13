@@ -170,6 +170,8 @@ export default function CheckoutPublic() {
     const [checkoutSessionId, setCheckoutSessionId] = useState<string | null>(null)
     const [mollieEnabledMethods, setMollieEnabledMethods] = useState<Array<{ id: string; label: string; description?: string; icon_url?: string }>>([])
     const [mollieVerifying, setMollieVerifying] = useState(false)
+    const [stripeEnabledMethods, setStripeEnabledMethods] = useState<Array<{ id: string; label: string; icon_url?: string | null }>>([])
+    const [stripeVerifying, setStripeVerifying] = useState(false)
 
     // Capture UTM params once from the URL when the checkout opens
     // Persiste por 30 dias no localStorage (igual Hotmart/PerfectPay)
@@ -256,6 +258,34 @@ export default function CheckoutPublic() {
             .catch(() => setMollieVerifying(false))
     }, [])
 
+    // Verificar retorno do Stripe redirect (iDEAL, Bancontact, etc.)
+    useEffect(() => {
+        const p = new URLSearchParams(window.location.search)
+        const stripeReturn = p.get('stripe_return')
+        const stripePaymentId = p.get('paymentId')
+        if (stripeReturn !== '1' || !stripePaymentId) return
+
+        setStripeVerifying(true)
+        fetch('https://api.clicknich.com/api/process-stripe-payment', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'verify', paymentId: stripePaymentId }),
+        })
+            .then(r => r.json())
+            .then((result: any) => {
+                if (result.success) {
+                    const cleanUrl = window.location.pathname
+                    window.history.replaceState({}, '', cleanUrl)
+                    if (result.redirectUrl) {
+                        window.location.href = result.redirectUrl
+                    }
+                } else {
+                    setStripeVerifying(false)
+                }
+            })
+            .catch(() => setStripeVerifying(false))
+    }, [])
+
     // Buscar métodos Mollie habilitados — filtros dependem do modo
     useEffect(() => {
         const isDynamic = product?.dynamic_checkout ?? false
@@ -272,6 +302,14 @@ export default function CheckoutPublic() {
             .then((d: any) => { if (d.methods?.length > 0) setMollieEnabledMethods(d.methods) })
             .catch(() => { })
     }, [product?.dynamic_checkout])
+
+    // Buscar métodos Stripe habilitados
+    useEffect(() => {
+        fetch('https://api.clicknich.com/api/stripe/methods')
+            .then(r => r.json())
+            .then((d: any) => { if (d.methods?.length > 0) setStripeEnabledMethods(d.methods) })
+            .catch(() => { })
+    }, [])
 
     const fetchData = useCallback(async () => {
         try {
@@ -995,6 +1033,36 @@ export default function CheckoutPublic() {
                 return { success: true, purchaseId: result.purchaseId, thankyouToken: result.thankyouToken, redirectUrl: result.redirectUrl }
             }
 
+            // ── Stripe redirect flow (iDEAL, Bancontact, SEPA, etc.) ──────────────
+            if (paymentMethod.startsWith('stripe_')) {
+                const stripeMethod = paymentMethod.replace('stripe_', '')
+                const response = await fetch('https://api.clicknich.com/api/process-stripe-payment', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        productId: product!.id,
+                        productType: product!.productType,
+                        applicationId: product!.applicationId,
+                        checkoutId: checkout!.id,
+                        customerEmail: paymentData.formData.email,
+                        customerName: paymentData.formData.name,
+                        customerPhone: paymentData.formData.phone,
+                        stripeMethod,
+                        totalAmount: paymentData.totalAmount,
+                        selectedOrderBumps: paymentData.selectedOrderBumps,
+                        sessionId: checkoutSessionId || undefined,
+                        trackingParameters: utmParams.current,
+                    }),
+                })
+                const result = await response.json()
+                if (result.redirectUrl) {
+                    window.location.href = result.redirectUrl
+                    return { success: false }
+                }
+                if (!result.success) throw new Error(result.error || 'Stripe payment failed')
+                return { success: true, purchaseId: result.purchaseId, thankyouToken: result.thankyouToken }
+            }
+
             // ── Stripe / PayPal flow ─────────────────────────────────────────────
             const paymentProvider = paymentMethod === 'paypal' ? 'paypal' : 'stripe'
 
@@ -1055,113 +1123,124 @@ export default function CheckoutPublic() {
     return (
         // Suspense necessário pelo lazy(). Na prática o bundle já foi baixado
         // durante o loading dos dados, então este fallback raramente aparece.
-        <Suspense fallback={null}>
-            <CheckoutDigital
-                productId={product.id}
-                productName={product.name}
-                productPrice={product.displayPrice ?? checkout.custom_price ?? product.price}
-                productCurrency={product.displayCurrency || product.currency || 'USD'}
-                productImage={product.image_url}
-                productDescription={product.description}
-                selectedPaymentMethods={(() => {
-                    if (product.dynamic_checkout && mollieEnabledMethods.length > 0) {
-                        // Modo dinâmico: credit_card sempre + top 2 métodos Mollie do país
-                        const top2 = mollieEnabledMethods.slice(0, 2).map(m => `mollie_${m.id}`)
-                        return ['credit_card', ...top2]
-                    }
-                    return product.payment_methods || ['credit_card']
-                })()}
-                defaultPaymentMethod={product.default_payment_method || 'credit_card'}
-                productType={product.productType}
-                applicationId={product.applicationId}
-                checkoutId={checkout.id}
-                sessionId={checkoutSessionId || undefined}
-                trackingParameters={utmParams.current}
-                language={checkout.language}
-                initialOrderBumps={initialOrderBumps}
-                initialAppProducts={initialAppProducts}
-                customBanner={{
-                    image: checkout.banner_image,
-                    title: checkout.banner_title,
-                    customHeight: checkout.custom_height,
-                    customWidth: checkout.custom_width
-                }}
-                timerConfig={timerConfig}
-                isPreview={false}
-                buttonColor={buttonColor}
-                buttonText={buttonText || undefined}
-                securitySealsEnabled={securitySealsEnabled}
-                testimonials={testimonials}
-                testimonialsCarouselMode={testimonialsCarouselMode}
-                testimonialsHorizontalMode={testimonialsHorizontalMode}
-                imageBlocks={imageBlocks}
-                onProcessPayment={handleProcessPayment}
-                mollieEnabledMethods={(() => {
-                    if (product.dynamic_checkout) {
-                        // Modo dinâmico: passar todos os métodos geo-filtrados sem restrição adicional
-                        return mollieEnabledMethods.length > 0 ? mollieEnabledMethods : undefined
-                    }
-                    // Modo manual: filtrar pelos métodos que o owner selecionou
-                    const selected = product.payment_methods || []
-                    const mollieSelected = selected
-                        .filter(m => m.startsWith('mollie_'))
-                        .map(m => m.slice(7))
-                    if (mollieSelected.length === 0 || mollieEnabledMethods.length === 0) return mollieEnabledMethods.length > 0 ? mollieEnabledMethods : undefined
-                    const filtered = mollieEnabledMethods.filter(m => mollieSelected.includes(m.id))
-                    return filtered.length > 0 ? filtered : mollieEnabledMethods
-                })()}
-                checkoutShortId={shortId}
-                onLeadCapture={(data) => {
-                    leadDataRef.current = data
-                    abandonedFiredRef.current = false
-                }}
-                onPaymentSuccess={async (paymentResult) => {
-                    // Pagamento confirmado — cancelar envio de abandono
-                    abandonedFiredRef.current = true
-                    // Track conversion event
-                    if (finalCheckoutId) {
-                        try {
-                            await trackCheckoutEvent(finalCheckoutId, 'conversion', {
-                                purchase_id: paymentResult?.purchaseId || paymentResultRef.current?.purchaseId,
-                                thankyou_token: paymentResult?.thankyouToken || paymentResultRef.current?.thankyouToken,
-                                timestamp: new Date().toISOString()
-                            })
-                        } catch (error) {
-                            console.warn('Failed to track conversion:', error)
+        <>
+            {(mollieVerifying || stripeVerifying) && (
+                <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center">
+                    <div className="bg-white rounded-2xl p-8 flex flex-col items-center gap-4 shadow-xl">
+                        <div className="w-10 h-10 border-4 border-blue-500/30 border-t-blue-500 rounded-full animate-spin" />
+                        <p className="text-sm font-medium text-gray-700">Verificando pagamento...</p>
+                    </div>
+                </div>
+            )}
+            <Suspense fallback={null}>
+                <CheckoutDigital
+                    productId={product.id}
+                    productName={product.name}
+                    productPrice={product.displayPrice ?? checkout.custom_price ?? product.price}
+                    productCurrency={product.displayCurrency || product.currency || 'USD'}
+                    productImage={product.image_url}
+                    productDescription={product.description}
+                    selectedPaymentMethods={(() => {
+                        if (product.dynamic_checkout && mollieEnabledMethods.length > 0) {
+                            // Modo dinâmico: credit_card sempre + top 2 métodos Mollie do país
+                            const top2 = mollieEnabledMethods.slice(0, 2).map(m => `mollie_${m.id}`)
+                            return ['credit_card', ...top2]
                         }
-                    }
+                        return product.payment_methods || ['credit_card']
+                    })()}
+                    defaultPaymentMethod={product.default_payment_method || 'credit_card'}
+                    productType={product.productType}
+                    applicationId={product.applicationId}
+                    checkoutId={checkout.id}
+                    sessionId={checkoutSessionId || undefined}
+                    trackingParameters={utmParams.current}
+                    language={checkout.language}
+                    initialOrderBumps={initialOrderBumps}
+                    initialAppProducts={initialAppProducts}
+                    customBanner={{
+                        image: checkout.banner_image,
+                        title: checkout.banner_title,
+                        customHeight: checkout.custom_height,
+                        customWidth: checkout.custom_width
+                    }}
+                    timerConfig={timerConfig}
+                    isPreview={false}
+                    buttonColor={buttonColor}
+                    buttonText={buttonText || undefined}
+                    securitySealsEnabled={securitySealsEnabled}
+                    testimonials={testimonials}
+                    testimonialsCarouselMode={testimonialsCarouselMode}
+                    testimonialsHorizontalMode={testimonialsHorizontalMode}
+                    imageBlocks={imageBlocks}
+                    onProcessPayment={handleProcessPayment}
+                    mollieEnabledMethods={(() => {
+                        if (product.dynamic_checkout) {
+                            // Modo dinâmico: passar todos os métodos geo-filtrados sem restrição adicional
+                            return mollieEnabledMethods.length > 0 ? mollieEnabledMethods : undefined
+                        }
+                        // Modo manual: filtrar pelos métodos que o owner selecionou
+                        const selected = product.payment_methods || []
+                        const mollieSelected = selected
+                            .filter(m => m.startsWith('mollie_'))
+                            .map(m => m.slice(7))
+                        if (mollieSelected.length === 0 || mollieEnabledMethods.length === 0) return mollieEnabledMethods.length > 0 ? mollieEnabledMethods : undefined
+                        const filtered = mollieEnabledMethods.filter(m => mollieSelected.includes(m.id))
+                        return filtered.length > 0 ? filtered : mollieEnabledMethods
+                    })()}
+                    stripeEnabledMethods={stripeEnabledMethods.length > 0 ? stripeEnabledMethods : undefined}
+                    checkoutShortId={shortId}
+                    onLeadCapture={(data) => {
+                        leadDataRef.current = data
+                        abandonedFiredRef.current = false
+                    }}
+                    onPaymentSuccess={async (paymentResult) => {
+                        // Pagamento confirmado — cancelar envio de abandono
+                        abandonedFiredRef.current = true
+                        // Track conversion event
+                        if (finalCheckoutId) {
+                            try {
+                                await trackCheckoutEvent(finalCheckoutId, 'conversion', {
+                                    purchase_id: paymentResult?.purchaseId || paymentResultRef.current?.purchaseId,
+                                    thankyou_token: paymentResult?.thankyouToken || paymentResultRef.current?.thankyouToken,
+                                    timestamp: new Date().toISOString()
+                                })
+                            } catch (error) {
+                                console.warn('Failed to track conversion:', error)
+                            }
+                        }
 
-                    const result = paymentResult || paymentResultRef.current
-                    if (!result) return
+                        const result = paymentResult || paymentResultRef.current
+                        if (!result) return
 
-                    const urlParams = new URLSearchParams(window.location.search)
-                    const postPurchaseRedirect = urlParams.get('redirect')
+                        const urlParams = new URLSearchParams(window.location.search)
+                        const postPurchaseRedirect = urlParams.get('redirect')
 
-                    // Redirect explícito via query param
-                    if (postPurchaseRedirect) {
-                        setTimeout(() => { window.location.href = postPurchaseRedirect }, 150)
-                        return
-                    }
+                        // Redirect explícito via query param
+                        if (postPurchaseRedirect) {
+                            setTimeout(() => { window.location.href = postPurchaseRedirect }, 150)
+                            return
+                        }
 
-                    // Usar config pré-carregada enquanto o usuário preenchia o formulário
-                    if (preloadedRedirect?.url) {
-                        const baseUrl = preloadedRedirect.url
-                        const finalUrl = baseUrl.includes('?')
-                            ? `${baseUrl}&purchase_id=${result.purchaseId}&token=${result.thankyouToken}`
-                            : `${baseUrl}?purchase_id=${result.purchaseId}&token=${result.thankyouToken}`
-                        setTimeout(() => { window.location.href = finalUrl }, 150)
-                        return
-                    }
+                        // Usar config pré-carregada enquanto o usuário preenchia o formulário
+                        if (preloadedRedirect?.url) {
+                            const baseUrl = preloadedRedirect.url
+                            const finalUrl = baseUrl.includes('?')
+                                ? `${baseUrl}&purchase_id=${result.purchaseId}&token=${result.thankyouToken}`
+                                : `${baseUrl}?purchase_id=${result.purchaseId}&token=${result.thankyouToken}`
+                            setTimeout(() => { window.location.href = finalUrl }, 150)
+                            return
+                        }
 
-                    // Usar redirectUrl do backend (upsell ou login)
-                    if (result.redirectUrl) {
-                        const url = result.redirectUrl
-                        setTimeout(() => { window.location.href = url }, 150)
-                        return
-                    }
+                        // Usar redirectUrl do backend (upsell ou login)
+                        if (result.redirectUrl) {
+                            const url = result.redirectUrl
+                            setTimeout(() => { window.location.href = url }, 150)
+                            return
+                        }
 
-                }}
-            />
-        </Suspense>
+                    }}
+                />
+            </Suspense>
+        </>
     )
 }

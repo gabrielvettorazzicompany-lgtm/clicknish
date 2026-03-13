@@ -818,7 +818,7 @@ export async function handleSuperadmin(request: Request, env: any, pathSegments:
         }
 
         // GET /api/superadmin/providers/:id/stripe-methods
-        // Busca métodos disponíveis na conta Stripe deste provedor via payment_method_configurations
+        // Busca métodos disponíveis via /v1/account (capabilities) — requer apenas "Account → Read"
         if (request.method === 'GET' && pathSegments.length === 3 && pathSegments[0] === 'providers' && pathSegments[2] === 'stripe-methods') {
             const providerId = pathSegments[1]
             const { data: prov } = await supabase
@@ -833,62 +833,64 @@ export async function handleSuperadmin(request: Request, env: any, pathSegments:
             if (!secretKey) {
                 return new Response(JSON.stringify({ error: 'Secret Key Stripe não configurada neste provedor' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
             }
+
+            // Mapeamento: capability → { id, label }
+            const CAPABILITY_MAP: Record<string, { id: string; label: string }> = {
+                card_payments: { id: 'card', label: 'Card (Visa, Mastercard, etc.)' },
+                ideal_payments: { id: 'ideal', label: 'iDEAL' },
+                sepa_debit_payments: { id: 'sepa_debit', label: 'SEPA Direct Debit' },
+                bancontact_payments: { id: 'bancontact', label: 'Bancontact' },
+                giropay_payments: { id: 'giropay', label: 'Giropay' },
+                sofort_payments: { id: 'sofort', label: 'Sofort' },
+                klarna_payments: { id: 'klarna', label: 'Klarna' },
+                afterpay_clearpay_payments: { id: 'afterpay_clearpay', label: 'Afterpay / Clearpay' },
+                affirm_payments: { id: 'affirm', label: 'Affirm' },
+                p24_payments: { id: 'p24', label: 'Przelewy24' },
+                eps_payments: { id: 'eps', label: 'EPS' },
+                bacs_debit_payments: { id: 'bacs_debit', label: 'Bacs Direct Debit' },
+                au_becs_debit_payments: { id: 'au_becs_debit', label: 'BECS Direct Debit' },
+                boleto_payments: { id: 'boleto', label: 'Boleto' },
+                oxxo_payments: { id: 'oxxo', label: 'OXXO' },
+                konbini_payments: { id: 'konbini', label: 'Konbini' },
+                paynow_payments: { id: 'paynow', label: 'PayNow' },
+                promptpay_payments: { id: 'promptpay', label: 'PromptPay' },
+                wechat_payments: { id: 'wechat_pay', label: 'WeChat Pay' },
+                alipay_payments: { id: 'alipay', label: 'Alipay' },
+                cashapp_payments: { id: 'cashapp', label: 'Cash App Pay' },
+                amazon_pay_payments: { id: 'amazon_pay', label: 'Amazon Pay' },
+                revolut_pay_payments: { id: 'revolut_pay', label: 'Revolut Pay' },
+                mobilepay_payments: { id: 'mobilepay', label: 'MobilePay' },
+                twint_payments: { id: 'twint', label: 'TWINT' },
+                multibanco_payments: { id: 'multibanco', label: 'Multibanco' },
+                link_payments: { id: 'link', label: 'Link' },
+                paypal_payments: { id: 'paypal', label: 'PayPal' },
+            }
+
             try {
-                const stripeRes = await fetch('https://api.stripe.com/v1/payment_method_configurations', {
+                const accountRes = await fetch('https://api.stripe.com/v1/account', {
                     headers: { 'Authorization': `Bearer ${secretKey}` }
                 })
-                if (!stripeRes.ok) {
-                    const err = await stripeRes.json().catch(() => ({})) as any
-                    throw new Error(err?.error?.message || stripeRes.statusText)
+                if (!accountRes.ok) {
+                    const err = await accountRes.json().catch(() => ({})) as any
+                    throw new Error(err?.error?.message || accountRes.statusText)
                 }
-                const stripeData = await stripeRes.json() as any
-                const config = stripeData.data?.[0] || {}
+                const account = await accountRes.json() as any
+                const capabilities: Record<string, string> = account.capabilities || {}
 
-                const STRIPE_METHOD_LABELS: Record<string, string> = {
-                    card: 'Card (Visa, Mastercard, etc.)',
-                    ideal: 'iDEAL',
-                    sepa_debit: 'SEPA Direct Debit',
-                    bancontact: 'Bancontact',
-                    giropay: 'Giropay',
-                    sofort: 'Sofort',
-                    klarna: 'Klarna',
-                    afterpay_clearpay: 'Afterpay / Clearpay',
-                    affirm: 'Affirm',
-                    p24: 'Przelewy24',
-                    eps: 'EPS',
-                    bacs_debit: 'Bacs Direct Debit',
-                    au_becs_debit: 'BECS Direct Debit',
-                    boleto: 'Boleto',
-                    oxxo: 'OXXO',
-                    konbini: 'Konbini',
-                    paynow: 'PayNow',
-                    promptpay: 'PromptPay',
-                    wechat_pay: 'WeChat Pay',
-                    alipay: 'Alipay',
-                    cashapp: 'Cash App Pay',
-                    amazon_pay: 'Amazon Pay',
-                    revolut_pay: 'Revolut Pay',
-                    mobilepay: 'MobilePay',
-                    twint: 'TWINT',
-                    multibanco: 'Multibanco',
-                    link: 'Link',
-                    paypal: 'PayPal',
-                }
-
-                const skipFields = new Set(['id', 'object', 'application', 'is_default', 'livemode', 'name', 'parent', 'metadata'])
                 const available: Array<{ id: string; label: string; active: boolean }> = []
-                for (const [key, val] of Object.entries(config)) {
-                    if (skipFields.has(key)) continue
-                    if (typeof val !== 'object' || val === null) continue
-                    const method = val as any
-                    if ('available' in method) {
-                        const isOn = method.display_preference?.value === 'on'
-                        available.push({
-                            id: key,
-                            label: STRIPE_METHOD_LABELS[key] || key,
-                            active: isOn,
-                        })
-                    }
+                for (const [capKey, status] of Object.entries(capabilities)) {
+                    const mapping = CAPABILITY_MAP[capKey]
+                    if (!mapping) continue
+                    available.push({
+                        id: mapping.id,
+                        label: mapping.label,
+                        active: status === 'active',
+                    })
+                }
+
+                // Garantir que "card" aparece sempre (pode não estar em capabilities)
+                if (!available.find(m => m.id === 'card')) {
+                    available.unshift({ id: 'card', label: 'Card (Visa, Mastercard, etc.)', active: true })
                 }
 
                 return new Response(JSON.stringify({

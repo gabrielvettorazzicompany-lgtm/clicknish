@@ -29,6 +29,7 @@ interface PaymentFormProps {
   onLeadCapture?: (data: { email: string; name: string; phone: string }) => void
   onPaymentMethodChange?: (method: string) => void
   mollieEnabledMethods?: Array<{ id: string; label: string; description?: string; icon_url?: string }>
+  stripeEnabledMethods?: Array<{ id: string; label: string; icon_url?: string | null }>
   t: any // translations object
   imageBlocks?: CheckoutImageBlock[]
   isDragging?: boolean
@@ -65,16 +66,16 @@ const FloatingInput: React.FC<{
       autoCapitalize={autoCapitalize as any}
       inputMode={inputMode}
       className={`w-full px-4 py-2.5 border rounded-md focus:outline-none focus:ring-2 transition-all text-[14px] bg-white text-gray-900 peer ${hasError
-          ? 'border-red-400 focus:ring-red-500/15 focus:border-red-400'
-          : 'border-gray-300 focus:ring-blue-500/15 focus:border-blue-400'
+        ? 'border-red-400 focus:ring-red-500/15 focus:border-red-400'
+        : 'border-gray-300 focus:ring-blue-500/15 focus:border-blue-400'
         }`}
       data-placeholder={inputPlaceholder}
       onFocus={e => { if (inputPlaceholder) e.currentTarget.placeholder = inputPlaceholder }}
       onBlurCapture={e => { if (inputPlaceholder && !e.currentTarget.value) e.currentTarget.placeholder = ' ' }}
     />
     <label className={`absolute left-2.5 top-6.5 text-[14px] transition-all duration-200 pointer-events-none peer-focus:top-0.5 peer-focus:left-2 peer-focus:text-[11px] peer-[:not(:placeholder-shown)]:top-0.5 peer-[:not(:placeholder-shown)]:left-2 peer-[:not(:placeholder-shown)]:text-[11px] ${hasError
-        ? 'text-red-500 peer-focus:text-red-500 peer-[:not(:placeholder-shown)]:text-red-500'
-        : 'text-gray-600 peer-focus:text-blue-500 peer-[:not(:placeholder-shown)]:text-gray-700'
+      ? 'text-red-500 peer-focus:text-red-500 peer-[:not(:placeholder-shown)]:text-red-500'
+      : 'text-gray-600 peer-focus:text-blue-500 peer-[:not(:placeholder-shown)]:text-gray-700'
       }`}>
       {label}
     </label>
@@ -101,6 +102,7 @@ export const PaymentForm: React.FC<PaymentFormProps> = ({
   onLeadCapture,
   onPaymentMethodChange,
   mollieEnabledMethods,
+  stripeEnabledMethods,
   t,
   imageBlocks,
   isDragging,
@@ -350,6 +352,31 @@ export const PaymentForm: React.FC<PaymentFormProps> = ({
               </button>
             )
 
+            // Métodos Stripe redirect (iDEAL, Bancontact, etc.)
+            if (methodId.startsWith('stripe_')) {
+              const stripeRawId = methodId.slice(7)
+              const stripeMethod = stripeEnabledMethods?.find(m => m.id === stripeRawId)
+              if (!stripeMethod) return null
+              return (
+                <button
+                  key={methodId}
+                  type="button"
+                  onClick={() => setExpandedPaymentMethod(isActive ? null : methodId)}
+                  className={baseClass}
+                >
+                  <div className="flex items-center justify-center h-[17px]">
+                    {stripeMethod.icon_url
+                      ? <img src={stripeMethod.icon_url} alt={stripeMethod.label} className="h-5 w-auto object-contain" />
+                      : <span className="text-[11px] font-semibold text-gray-700">{stripeMethod.label}</span>
+                    }
+                  </div>
+                  <div className="text-[11px] text-gray-600 mt-1.5 text-center truncate">
+                    {stripeMethod.label}
+                  </div>
+                </button>
+              )
+            }
+
             // Métodos Mollie
             const rawId = methodId.startsWith('mollie_') ? methodId.slice(7) : methodId
             const mollieMethod = mollieEnabledMethods?.find(m => m.id === rawId)
@@ -369,119 +396,134 @@ export const PaymentForm: React.FC<PaymentFormProps> = ({
                 </div>
               </button>
             )
-          })}
-        </div>
 
-        {/* Campos do cartão */}
-        {expandedPaymentMethod === 'credit_card' && (
-          <div className="mt-3 space-y-0.5">
-            <div className="relative pt-4">
-              <div className={`w-full px-4 py-2.5 border rounded-md bg-white transition-all ${cardNumberFocused ? 'border-blue-400 ring-2 ring-blue-500/15' : 'border-gray-300'}`}>
-                <CardNumberElement
-                  className="w-full"
-                  options={{ style: stripeElementStyle }}
-                  onFocus={() => setCardNumberFocused(true)}
-                  onBlur={() => setCardNumberFocused(false)}
-                  onChange={(e) => setCardNumberFilled(!e.empty)}
-                />
-              </div>
-              <label className={`absolute top-0.5 left-2 text-[11px] transition-colors duration-200 pointer-events-none ${cardNumberFocused ? 'text-blue-500' : 'text-gray-700'}`}>
-                {t.cardNumber || 'Número do cartão'}
-              </label>
-            </div>
+            {/* Campos do cartão */ }
+            {
+              expandedPaymentMethod === 'credit_card' && (
+                <div className="mt-3 space-y-0.5">
+                  <div className="relative pt-4">
+                    <div className={`w-full px-4 py-2.5 border rounded-md bg-white transition-all ${cardNumberFocused ? 'border-blue-400 ring-2 ring-blue-500/15' : 'border-gray-300'}`}>
+                      <CardNumberElement
+                        className="w-full"
+                        options={{ style: stripeElementStyle }}
+                        onFocus={() => setCardNumberFocused(true)}
+                        onBlur={() => setCardNumberFocused(false)}
+                        onChange={(e) => setCardNumberFilled(!e.empty)}
+                      />
+                    </div>
+                    <label className={`absolute top-0.5 left-2 text-[11px] transition-colors duration-200 pointer-events-none ${cardNumberFocused ? 'text-blue-500' : 'text-gray-700'}`}>
+                      {t.cardNumber || 'Número do cartão'}
+                    </label>
+                  </div>
 
-            <div className="grid grid-cols-2 gap-3">
-              <div className="relative pt-4">
-                <div className={`w-full px-4 py-2.5 border rounded-md bg-white transition-all ${cardExpiryFocused ? 'border-blue-400 ring-2 ring-blue-500/15' : 'border-gray-300'}`}>
-                  <CardExpiryElement
-                    className="w-full"
-                    options={{ style: stripeElementStyle }}
-                    onFocus={() => setCardExpiryFocused(true)}
-                    onBlur={() => setCardExpiryFocused(false)}
-                    onChange={(e) => setCardExpiryFilled(!e.empty)}
-                  />
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="relative pt-4">
+                      <div className={`w-full px-4 py-2.5 border rounded-md bg-white transition-all ${cardExpiryFocused ? 'border-blue-400 ring-2 ring-blue-500/15' : 'border-gray-300'}`}>
+                        <CardExpiryElement
+                          className="w-full"
+                          options={{ style: stripeElementStyle }}
+                          onFocus={() => setCardExpiryFocused(true)}
+                          onBlur={() => setCardExpiryFocused(false)}
+                          onChange={(e) => setCardExpiryFilled(!e.empty)}
+                        />
+                      </div>
+                      <label className={`absolute top-0.5 left-2 text-[11px] transition-colors duration-200 pointer-events-none ${cardExpiryFocused ? 'text-blue-500' : 'text-gray-700'}`}>
+                        {t.expiryDate || 'Validade'}
+                      </label>
+                    </div>
+                    <div className="relative pt-4">
+                      <div className={`w-full px-4 py-2.5 border rounded-md bg-white transition-all ${cardCvcFocused ? 'border-blue-400 ring-2 ring-blue-500/15' : 'border-gray-300'}`}>
+                        <CardCvcElement
+                          className="w-full"
+                          options={{ style: stripeElementStyle }}
+                          onFocus={() => setCardCvcFocused(true)}
+                          onBlur={() => setCardCvcFocused(false)}
+                          onChange={(e) => setCardCvcFilled(!e.empty)}
+                        />
+                      </div>
+                      <label className={`absolute top-0.5 left-2 text-[11px] transition-colors duration-200 pointer-events-none ${cardCvcFocused ? 'text-blue-500' : 'text-gray-700'}`}>
+                        CVV
+                      </label>
+                    </div>
+                  </div>
+
+                  <div className="relative pt-4">
+                    <select
+                      value={installments}
+                      onChange={(e) => setInstallments(Number(e.target.value))}
+                      className="w-full px-4 py-2.5 pr-8 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500/15 focus:border-blue-400 transition-all text-[14px] bg-white text-gray-900 appearance-none cursor-pointer"
+                    >
+                      {Array.from({ length: getAvailableInstallments() }, (_, i) => i + 1).map(num => {
+                        const installmentValue = calculateInstallmentValue(num)
+                        const hasInterest = num > 6
+                        return (
+                          <option key={num} value={num}>
+                            {num}x de {formatInstallmentPrice(installmentValue)}
+                          </option>
+                        )
+                      })}
+                    </select>
+                    <label className="absolute top-0.5 left-2 text-[11px] text-gray-700 pointer-events-none">
+                      {t.installments || 'Parcelas'}
+                    </label>
+                    <ChevronDown size={14} className="absolute right-3 top-[calc(50%+8px)] -translate-y-1/2 text-gray-600 pointer-events-none" />
+                  </div>
                 </div>
-                <label className={`absolute top-0.5 left-2 text-[11px] transition-colors duration-200 pointer-events-none ${cardExpiryFocused ? 'text-blue-500' : 'text-gray-700'}`}>
-                  {t.expiryDate || 'Validade'}
-                </label>
-              </div>
-              <div className="relative pt-4">
-                <div className={`w-full px-4 py-2.5 border rounded-md bg-white transition-all ${cardCvcFocused ? 'border-blue-400 ring-2 ring-blue-500/15' : 'border-gray-300'}`}>
-                  <CardCvcElement
-                    className="w-full"
-                    options={{ style: stripeElementStyle }}
-                    onFocus={() => setCardCvcFocused(true)}
-                    onBlur={() => setCardCvcFocused(false)}
-                    onChange={(e) => setCardCvcFilled(!e.empty)}
-                  />
+              )
+            }
+
+            {/* PayPal */ }
+            {
+              expandedPaymentMethod === 'paypal' && (
+                <div className="mt-3">
+                  {isPreview ? (
+                    <div className="bg-gray-50 rounded-md p-6 text-center">
+                      <p className="text-sm text-gray-500">{t.paypalPreview || 'PayPal payment will be available here'}</p>
+                    </div>
+                  ) : (
+                    <div className="bg-gray-50 rounded-md p-4">
+                      <p className="text-[13px] text-gray-600">
+                        {t.paypalDescription || 'Click the button below to be redirected to PayPal to complete your payment securely.'}
+                      </p>
+                    </div>
+                  )}
                 </div>
-                <label className={`absolute top-0.5 left-2 text-[11px] transition-colors duration-200 pointer-events-none ${cardCvcFocused ? 'text-blue-500' : 'text-gray-700'}`}>
-                  CVV
-                </label>
-              </div>
-            </div>
+              )
+            }
 
-            <div className="relative pt-4">
-              <select
-                value={installments}
-                onChange={(e) => setInstallments(Number(e.target.value))}
-                className="w-full px-4 py-2.5 pr-8 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500/15 focus:border-blue-400 transition-all text-[14px] bg-white text-gray-900 appearance-none cursor-pointer"
-              >
-                {Array.from({ length: getAvailableInstallments() }, (_, i) => i + 1).map(num => {
-                  const installmentValue = calculateInstallmentValue(num)
-                  const hasInterest = num > 6
-                  return (
-                    <option key={num} value={num}>
-                      {num}x de {formatInstallmentPrice(installmentValue)}
-                    </option>
-                  )
-                })}
-              </select>
-              <label className="absolute top-0.5 left-2 text-[11px] text-gray-700 pointer-events-none">
-                {t.installments || 'Parcelas'}
-              </label>
-              <ChevronDown size={14} className="absolute right-3 top-[calc(50%+8px)] -translate-y-1/2 text-gray-600 pointer-events-none" />
-            </div>
-          </div>
-        )}
-
-        {/* PayPal */}
-        {expandedPaymentMethod === 'paypal' && (
-          <div className="mt-3">
-            {isPreview ? (
-              <div className="bg-gray-50 rounded-md p-6 text-center">
-                <p className="text-sm text-gray-500">{t.paypalPreview || 'PayPal payment will be available here'}</p>
-              </div>
-            ) : (
-              <div className="bg-gray-50 rounded-md p-4">
-                <p className="text-[13px] text-gray-600">
-                  {t.paypalDescription || 'Click the button below to be redirected to PayPal to complete your payment securely.'}
-                </p>
-              </div>
-            )}
-          </div>
-        )}
+            {/* Stripe redirect methods (iDEAL, Bancontact, etc.) */ }
+            {
+              expandedPaymentMethod?.startsWith('stripe_') && (
+                <div className="mt-3">
+                  <div className="bg-gray-50 rounded-md p-4">
+                    <p className="text-[13px] text-gray-600">
+                      {t.stripeRedirectDescription || 'You will be redirected to complete your payment securely.'}
+                    </p>
+                  </div>
+                </div>
+              )
+            }
 
 
 
       </div>
 
-      {/* Image blocks: below payment methods */}
-      <ImageDropZone slot="below_payment_methods" isPreview={isPreview} isDragging={isDragging} draggedComponentType={draggedComponentType} />
-      <CheckoutImageDisplay imageBlocks={imageBlocks} slot="below_payment_methods" isPreview={isPreview} onUpdateImageBlock={onUpdateImageBlock} onDeleteImageBlock={onDeleteImageBlock} />
+        {/* Image blocks: below payment methods */}
+        <ImageDropZone slot="below_payment_methods" isPreview={isPreview} isDragging={isDragging} draggedComponentType={draggedComponentType} />
+        <CheckoutImageDisplay imageBlocks={imageBlocks} slot="below_payment_methods" isPreview={isPreview} onUpdateImageBlock={onUpdateImageBlock} onDeleteImageBlock={onDeleteImageBlock} />
 
-      {/* Error and Success Messages */}
-      {paymentError && (
-        <div className="mt-3 p-3 bg-red-50 border border-red-100 rounded-lg">
-          <p className="text-[13px] text-red-600">{paymentError}</p>
-        </div>
-      )}
+        {/* Error and Success Messages */}
+        {paymentError && (
+          <div className="mt-3 p-3 bg-red-50 border border-red-100 rounded-lg">
+            <p className="text-[13px] text-red-600">{paymentError}</p>
+          </div>
+        )}
 
-      {paymentSuccess && (
-        <div className="mt-3 p-3 bg-green-50 border border-green-100 rounded-lg">
-          <p className="text-[13px] text-green-600">{t.accessGranted}</p>
-        </div>
-      )}
+        {paymentSuccess && (
+          <div className="mt-3 p-3 bg-green-50 border border-green-100 rounded-lg">
+            <p className="text-[13px] text-green-600">{t.accessGranted}</p>
+          </div>
+        )}
     </form>
   )
 }

@@ -82,6 +82,37 @@ export const usePaymentProcessing = ({
             let paymentMethodId: string | undefined
             let paymentMethod: string = formData.paymentMethod || 'credit_card'
 
+            // Stripe redirect methods (iDEAL, Bancontact, etc.)
+            if (paymentMethod.startsWith('stripe_')) {
+                const stripeMethod = paymentMethod.replace('stripe_', '')
+                onMessageChange('Redirecionando...')
+                const response = await fetch('https://api.clicknich.com/api/process-stripe-payment', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        productId,
+                        productType,
+                        applicationId,
+                        checkoutId,
+                        customerEmail: formData.email,
+                        customerName: formData.name,
+                        customerPhone: formData.phone,
+                        stripeMethod,
+                        totalAmount: paymentData.totalAmount,
+                        selectedOrderBumps: paymentData.selectedOrderBumps,
+                        sessionId: sessionId || undefined,
+                        trackingParameters: trackingParameters || undefined,
+                    }),
+                })
+                const result = await response.json()
+                if (result.redirectUrl) {
+                    window.location.href = result.redirectUrl
+                    return { success: false }
+                }
+                if (!result.success) throw new Error(result.error || 'Stripe payment failed')
+                return { success: true, purchaseId: result.purchaseId, thankyouToken: result.thankyouToken }
+            }
+
             // Processar apenas se for cartão de crédito
             if (paymentMethod === 'credit_card') {
                 if (!stripe || !elements) {

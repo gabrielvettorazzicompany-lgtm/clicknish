@@ -122,26 +122,17 @@ export class StripeClient {
                 body: params,
             })
         },
+
+        create: async (params: Record<string, any>) => {
+            return this.request('/payment_methods', { method: 'POST', body: params })
+        },
     }
 
     /**
      * Payment Intents
      */
     paymentIntents = {
-        create: async (params: {
-            amount: number
-            currency: string
-            customer?: string
-            payment_method?: string
-            confirm?: boolean
-            off_session?: boolean
-            automatic_payment_methods?: {
-                enabled: boolean
-                allow_redirects?: string
-            }
-            metadata?: Record<string, string>
-            description?: string
-        }, options?: { idempotencyKey?: string }) => {
+        create: async (params: Record<string, any>, options?: { idempotencyKey?: string }) => {
             return this.request('/payment_intents', { method: 'POST', body: params, idempotencyKey: options?.idempotencyKey })
         },
 

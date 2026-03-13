@@ -137,8 +137,9 @@ export interface CheckoutDigitalProps {
     onUpdateImageBlock?: (id: string, updates: Partial<CheckoutImageBlock>) => void
     onDeleteImageBlock?: (id: string) => void
     mollieEnabledMethods?: Array<{ id: string; label: string; description?: string; icon_url?: string }>
+    stripeEnabledMethods?: Array<{ id: string; label: string; icon_url?: string | null }>
     checkoutShortId?: string
 }
 
 export type PaymentMethod = 'credit'
-export type CheckoutLanguage = 'en' | 'pt' | 'es'
+export type CheckoutLanguage = 'en' | 'pt' | 'es' | 'nl' | 'fr' | 'de'

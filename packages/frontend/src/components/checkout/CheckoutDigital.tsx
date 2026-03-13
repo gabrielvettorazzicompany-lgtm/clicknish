@@ -82,6 +82,7 @@ function CheckoutDigital({
     onUpdateImageBlock,
     onDeleteImageBlock,
     mollieEnabledMethods,
+    stripeEnabledMethods,
 }: CheckoutDigitalProps) {
     const [showPrivacyPolicy, setShowPrivacyPolicy] = useState(false)
     const [activePaymentMethod, setActivePaymentMethod] = useState<string>(defaultPaymentMethod as string)
@@ -291,6 +292,7 @@ function CheckoutDigital({
                             onLeadCapture={onLeadCapture}
                             onPaymentMethodChange={setActivePaymentMethod}
                             mollieEnabledMethods={mollieEnabledMethods}
+                            stripeEnabledMethods={stripeEnabledMethods}
                             t={t}
                             imageBlocks={imageBlocks}
                             isDragging={isDragging}
@@ -604,7 +606,6 @@ function CheckoutDigitalForm(props: CheckoutDigitalProps) {
             paymentResultRef.current = {
                 purchaseId: result.purchaseId,
                 thankyouToken: result.thankyouToken,
-                redirectUrl: result.redirectUrl || undefined
             }
 
             return {

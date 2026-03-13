@@ -38,6 +38,7 @@ import { handleCachePreloader } from './handlers/preloader'
 import { handleCachePurge } from './handlers/purge'
 import { handleSendConfirmationEmail } from './handlers/send-confirmation-email'
 import { handleProcessMolliePayment } from './handlers/process-mollie-payment'
+import { handleProcessStripePayment } from './handlers/process-stripe-payment'
 import { handleCustomerAuth } from './handlers/customer-auth'
 
 import { handleWeeklyReserve } from './handlers/weekly-reserve'
@@ -239,9 +240,64 @@ async function handleApiRoute(
         return handleProcessMolliePayment(request, env, ctx)
     }
 
+    // POST /api/process-stripe-payment (redirect flow: iDEAL, Bancontact, etc.)
+    if (pathname === '/api/process-stripe-payment' && request.method === 'POST') {
+        return handleProcessStripePayment(request, env, ctx)
+    }
+
     // POST /api/process-upsell
     if (pathname === '/api/process-upsell' && request.method === 'POST') {
         return handleProcessUpsell(request, env, ctx)
+    }
+
+    // GET /api/stripe/methods — métodos Stripe habilitados no provedor ativo
+    if (pathname === '/api/stripe/methods' && request.method === 'GET') {
+        const { createClient } = await import('./lib/supabase')
+        const supabase = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY)
+        const { data: prov } = await supabase
+            .from('payment_providers')
+            .select('enabled_methods')
+            .in('type', ['stripe', 'stripe_connect'])
+            .eq('is_active', true)
+            .order('is_global_default', { ascending: false })
+            .limit(1)
+            .maybeSingle()
+        const enabledMethods: string[] = (prov?.enabled_methods || []).filter((m: string) => m !== 'card')
+
+        // Mapa de labels para métodos Stripe
+        const STRIPE_METHOD_LABELS: Record<string, string> = {
+            ideal: 'iDEAL',
+            bancontact: 'Bancontact',
+            sofort: 'SOFORT',
+            giropay: 'Giropay',
+            eps: 'EPS',
+            p24: 'Przelewy24',
+            alipay: 'Alipay',
+            wechat_pay: 'WeChat Pay',
+            sepa_debit: 'SEPA Debit',
+            klarna: 'Klarna',
+            afterpay_clearpay: 'Afterpay',
+            affirm: 'Affirm',
+            multibanco: 'Multibanco',
+        }
+
+        const STRIPE_ICONS: Record<string, string> = {
+            ideal: 'https://js.stripe.com/v3/fingerprinted/img/ideal-c5bfeec4a7cd2e5879dd91c6e32e8b32.svg',
+            bancontact: 'https://js.stripe.com/v3/fingerprinted/img/bancontact-c8e77f2bb9a86de2df96d27dfca1eb14.svg',
+            sofort: 'https://js.stripe.com/v3/fingerprinted/img/sofort-fa2fdbba8e1041db5e3060c4d53acab0.svg',
+            giropay: 'https://js.stripe.com/v3/fingerprinted/img/giropay-9a06a5fc20abb8bfa0e7e3de6b96e3cc.svg',
+            eps: 'https://js.stripe.com/v3/fingerprinted/img/eps-91acf2b6a57c93e38de8e5cbee226b9c.svg',
+            p24: 'https://js.stripe.com/v3/fingerprinted/img/p24-be2d0b8af5a82f2ef4b888e4c7bde0ba.svg',
+            alipay: 'https://js.stripe.com/v3/fingerprinted/img/alipay-b45c41ff2fb931cd1cf3606a68462f5f.svg',
+        }
+
+        const methods = enabledMethods.map(id => ({
+            id,
+            label: STRIPE_METHOD_LABELS[id] || id,
+            icon_url: STRIPE_ICONS[id] || null,
+        }))
+
+        return jsonResponse({ methods })
     }
 
     // GET /api/mollie/methods — métodos Mollie habilitados, filtrados por país do visitante

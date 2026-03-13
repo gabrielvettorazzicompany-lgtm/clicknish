@@ -435,9 +435,86 @@ async function capturePayPalOrder(
 
     // Retornar sucesso imediato enquanto o acesso é liberado em background
     const frontendUrl = env.FRONTEND_URL || 'https://app.clicknich.com'
-    let redirectUrl = productType === 'app'
-        ? `/access/${productId}`
-        : `/members-login/${productId}`
+
+    // ═══════════════════════════════════════════════════════════════════
+    // DETERMINAR REDIRECT URL (funil de upsell ou login padrão)
+    // Replica a mesma lógica do Stripe em process-payment.ts
+    // ═══════════════════════════════════════════════════════════════════
+    let redirectUrl: string | null = null
+
+    if (checkoutId) {
+        // 1. Verificar se há funnel_page vinculada diretamente ao checkout
+        const { data: checkoutFunnelPage } = await supabase
+            .from('funnel_pages')
+            .select('id, settings')
+            .eq('checkout_id', checkoutId)
+            .eq('page_type', 'checkout')
+            .maybeSingle() as any
+
+        let pageSettings = checkoutFunnelPage?.settings
+
+        // 2. Fallback via produto → funil → funnel_pages
+        if (!pageSettings?.post_purchase_page_id && !pageSettings?.post_purchase_redirect_url) {
+            const productOwnerId = applicationId || productId
+            if (productOwnerId) {
+                const { data: funnel } = await supabase
+                    .from('funnels')
+                    .select('id')
+                    .eq('product_id', productOwnerId)
+                    .limit(1)
+                    .maybeSingle() as any
+
+                if (funnel?.id) {
+                    const { data: allFunnelPages } = await supabase
+                        .from('funnel_pages')
+                        .select('id, settings, page_type, checkout_id')
+                        .eq('funnel_id', funnel.id) as any
+
+                    const funnelCheckoutPage = (allFunnelPages as any[])?.find((p: any) =>
+                        p.page_type === 'checkout' ||
+                        p.checkout_id === checkoutId ||
+                        p.settings?.post_purchase_page_id ||
+                        p.settings?.post_purchase_redirect_url
+                    )
+
+                    if (funnelCheckoutPage?.settings) {
+                        pageSettings = funnelCheckoutPage.settings
+                    }
+                }
+            }
+        }
+
+        if (pageSettings) {
+            const s = pageSettings
+
+            if (s.post_purchase_page_id) {
+                const { data: targetPage } = await supabase
+                    .from('funnel_pages')
+                    .select('external_url, page_type')
+                    .eq('id', s.post_purchase_page_id)
+                    .maybeSingle() as any
+
+                if (targetPage?.external_url) {
+                    const sep = targetPage.external_url.includes('?') ? '&' : '?'
+                    redirectUrl = `${targetPage.external_url}${sep}purchase_id=${purchaseId}&token=${thankyouToken}`
+                } else if (targetPage?.page_type === 'thankyou') {
+                    redirectUrl = `${frontendUrl}/thankyou/${s.post_purchase_page_id}?purchase_id=${purchaseId}&token=${thankyouToken}`
+                }
+            } else if (s.post_purchase_redirect_url) {
+                const url = s.post_purchase_redirect_url as string
+                const sep = url.includes('?') ? '&' : '?'
+                redirectUrl = `${url}${sep}purchase_id=${purchaseId}&token=${thankyouToken}`
+            }
+        }
+    }
+
+    // Fallback padrão se nada configurado no funil
+    if (!redirectUrl) {
+        // productSlug é resolvido no ctx.waitUntil, usar productId como fallback seguro
+        redirectUrl = productType === 'app'
+            ? `/access/${productId}`
+            : `/members-login/${productId}`
+    }
 
     return new Response(
         JSON.stringify({
