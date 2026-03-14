@@ -222,11 +222,12 @@ export default function AppDashboard() {
   }
 
   const getAccessTypeLabel = (type: string) => {
+    const lang = app?.language || 'pt'
     switch (type) {
-      case 'email-only': return t('apps.free_access')
-      case 'email-password': return t('apps.login_required')
-      case 'purchase-code': return t('apps.purchase_code_required')
-      default: return t('apps.access_available')
+      case 'email-only': return tForLang(lang, 'apps.free_access')
+      case 'email-password': return tForLang(lang, 'apps.login_required')
+      case 'purchase-code': return tForLang(lang, 'apps.purchase_code_required')
+      default: return tForLang(lang, 'apps.access_available')
     }
   }
 
@@ -342,13 +343,13 @@ export default function AppDashboard() {
 
     // Validar tipo
     if (!file.type.startsWith('image/')) {
-      alert(t('apps.image_invalid'))
+      alert(tForLang(app?.language || 'pt', 'apps.image_invalid'))
       return
     }
 
     // Validar tamanho (2MB)
     if (file.size > 2 * 1024 * 1024) {
-      alert(t('apps.image_too_large'))
+      alert(tForLang(app?.language || 'pt', 'apps.image_too_large'))
       return
     }
 
@@ -393,7 +394,7 @@ export default function AppDashboard() {
       reader.readAsDataURL(file)
     } catch (error) {
       console.error('Error uploading avatar:', error)
-      alert(t('apps.error_uploading_photo'))
+      alert(tForLang(app?.language || 'pt', 'apps.error_uploading_photo'))
       setUploadingAvatar(false)
     }
   }
@@ -423,7 +424,7 @@ export default function AppDashboard() {
         const data = await response.json()
 
         setUserProfile(data)
-        alert(t('apps.profile_saved'))
+        alert(tForLang(app?.language || 'pt', 'apps.profile_saved'))
       } else {
         let errorMessage = 'Unknown error'
         try {
@@ -435,7 +436,7 @@ export default function AppDashboard() {
           console.error('Error response (text):', textResponse)
           errorMessage = textResponse || errorMessage
         }
-        alert(`${t('apps.error_saving_profile')}: ${errorMessage}`)
+        alert(`${tForLang(app?.language || 'pt', 'apps.error_saving_profile')}: ${errorMessage}`)
       }
     } catch (error) {
       console.error('Error saving profile:', error)
@@ -446,7 +447,7 @@ export default function AppDashboard() {
           stack: error.stack
         })
       }
-      alert(t('apps.error_saving_profile'))
+      alert(tForLang(app?.language || 'pt', 'apps.error_saving_profile'))
     } finally {
       setSavingProfile(false)
     }
@@ -660,8 +661,8 @@ export default function AppDashboard() {
           products.length === 0 ? (
             <div className={`text-center ${app?.theme === 'dark' ? 'text-gray-400' : 'text-gray-600'}`}>
               <Users className="w-16 h-16 mx-auto mb-4 opacity-50" />
-              <h2 className="text-xl font-semibold mb-2">{t('apps.no_products_available')}</h2>
-              <p className={`${app?.theme === 'dark' ? 'text-gray-500' : 'text-gray-500'}`}>{t('apps.contact_for_info')}</p>
+              <h2 className="text-xl font-semibold mb-2">{tForLang(app?.language || 'pt', 'apps.no_products_available')}</h2>
+              <p className={`${app?.theme === 'dark' ? 'text-gray-500' : 'text-gray-500'}`}>{tForLang(app?.language || 'pt', 'apps.contact_for_info')}</p>
             </div>
           ) : (
             <div className="grid gap-3 sm:gap-4 grid-cols-2 sm:grid-cols-3 lg:grid-cols-4">
@@ -674,7 +675,7 @@ export default function AppDashboard() {
                     onClick={(e) => {
                       if (isLocked) {
                         e.preventDefault()
-                        alert(t('apps.product_not_available'))
+                        alert(tForLang(app?.language || 'pt', 'apps.product_not_available'))
                       }
                     }}
                     className={`group relative ${app?.theme === 'dark' ? 'bg-gray-800/90 border-gray-700/50' : 'bg-[#1a1d2e]/90 border-[#1e2139]/50'} rounded-xl overflow-hidden ${isLocked ? 'opacity-60 cursor-not-allowed' : 'hover:shadow-xl hover:shadow-blue-500/20'} transition-all duration-300 border backdrop-blur-sm`}
@@ -723,7 +724,7 @@ export default function AppDashboard() {
                         <div className="mt-2">
                           <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-red-500/20 text-red-400 text-xs rounded-full">
                             <Lock className="w-3 h-3" />
-                            {t('common.locked')}
+                            {tForLang(app?.language || 'pt', 'common.locked')}
                           </span>
                         </div>
                       )}
@@ -745,13 +746,13 @@ export default function AppDashboard() {
             {loadingFeed ? (
               <div className="text-center py-12">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
-                <p className="text-gray-600">{t('common.loading')}</p>
+                <p className="text-gray-600">{tForLang(app?.language || 'pt', 'common.loading')}</p>
               </div>
             ) : feedPosts.length === 0 ? (
               <div className={`text-center ${app?.theme === 'dark' ? 'text-gray-400' : 'text-gray-600'} py-12`}>
                 <MessageSquare className="w-16 h-16 mx-auto mb-4 opacity-50" />
-                <h2 className="text-xl font-semibold mb-2">{t('common.feed')}</h2>
-                <p className={`${app?.theme === 'dark' ? 'text-gray-500' : 'text-gray-500'}`}>{t('apps.news_and_updates')}</p>
+                <h2 className="text-xl font-semibold mb-2">{tForLang(app?.language || 'pt', 'common.feed')}</h2>
+                <p className={`${app?.theme === 'dark' ? 'text-gray-500' : 'text-gray-500'}`}>{tForLang(app?.language || 'pt', 'apps.news_and_updates')}</p>
               </div>
             ) : (
               <div className="space-y-4">
@@ -820,8 +821,8 @@ export default function AppDashboard() {
             {/* Community Header */}
             <div className="flex items-center justify-between mb-8">
               <div>
-                <h2 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">{t('common.community')}</h2>
-                <p className="text-gray-600 dark:text-gray-400 mt-1">{t('apps.connect_share')}</p>
+                <h2 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">{tForLang(app?.language || 'pt', 'common.community')}</h2>
+                <p className="text-gray-600 dark:text-gray-400 mt-1">{tForLang(app?.language || 'pt', 'apps.connect_share')}</p>
               </div>
               <button
                 onClick={() => setShowCreatePost(true)}
@@ -836,14 +837,14 @@ export default function AppDashboard() {
               <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
                 <div className="bg-white dark:bg-gray-900 rounded-xl w-full max-w-lg shadow-2xl border border-gray-200 dark:border-gray-700">
                   <div className="p-6 border-b border-gray-200 dark:border-gray-700">
-                    <h3 className="font-semibold text-xl text-gray-900 dark:text-white">{t('apps.create_post')}</h3>
-                    <p className="text-gray-500 dark:text-gray-400 text-sm mt-1">{t('apps.share_community')}</p>
+                    <h3 className="font-semibold text-xl text-gray-900 dark:text-white">{tForLang(app?.language || 'pt', 'apps.create_post')}</h3>
+                    <p className="text-gray-500 dark:text-gray-400 text-sm mt-1">{tForLang(app?.language || 'pt', 'apps.share_community')}</p>
                   </div>
                   <div className="p-6">
                     <textarea
                       value={newPostContent}
                       onChange={(e) => setNewPostContent(e.target.value)}
-                      placeholder={t('apps.what_share')}
+                      placeholder={tForLang(app?.language || 'pt', 'apps.what_share')}
                       className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-xl p-4 min-h-[120px] text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
                     />
                   </div>
@@ -855,14 +856,14 @@ export default function AppDashboard() {
                       }}
                       className="px-6 py-2.5 text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg font-medium transition-colors"
                     >
-                      {t('common.cancel')}
+                      {tForLang(app?.language || 'pt', 'common.cancel')}
                     </button>
                     <button
                       onClick={handleCreatePost}
                       disabled={!newPostContent.trim()}
                       className="px-6 py-2.5 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white rounded-lg font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:from-blue-600 disabled:hover:to-blue-700 shadow-lg shadow-blue-500/25"
                     >
-                      {t('apps.post_action')}
+                      {tForLang(app?.language || 'pt', 'apps.post_action')}
                     </button>
                   </div>
                 </div>
@@ -873,21 +874,21 @@ export default function AppDashboard() {
             {loadingPosts ? (
               <div className="text-center py-16">
                 <div className="animate-spin rounded-full h-10 w-10 border-3 border-blue-600 border-t-transparent mx-auto mb-6"></div>
-                <p className="text-gray-600 dark:text-gray-400 font-medium">{t('apps.loading_posts')}</p>
+                <p className="text-gray-600 dark:text-gray-400 font-medium">{tForLang(app?.language || 'pt', 'apps.loading_posts')}</p>
               </div>
             ) : posts.length === 0 ? (
               <div className="text-center py-16 bg-gray-50 dark:bg-gray-800/50 rounded-2xl border border-gray-200 dark:border-gray-700">
                 <div className="w-20 h-20 bg-gradient-to-br from-blue-100 to-purple-100 dark:from-blue-900/50 dark:to-purple-900/50 rounded-full flex items-center justify-center mx-auto mb-6">
                   <Users className="w-10 h-10 text-blue-600 dark:text-blue-400" />
                 </div>
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">{t('apps.no_posts')}</h3>
-                <p className="text-gray-600 dark:text-gray-400 mb-4">{t('apps.be_first_post')}</p>
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">{tForLang(app?.language || 'pt', 'apps.no_posts')}</h3>
+                <p className="text-gray-600 dark:text-gray-400 mb-4">{tForLang(app?.language || 'pt', 'apps.be_first_post')}</p>
                 <button
                   onClick={() => setShowCreatePost(true)}
                   className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white rounded-lg font-medium transition-all shadow-lg shadow-blue-500/25"
                 >
                   <Plus className="w-4 h-4" />
-                  {t('apps.create_first_post')}
+                  {tForLang(app?.language || 'pt', 'apps.create_first_post')}
                 </button>
               </div>
             ) : (
@@ -908,7 +909,7 @@ export default function AppDashboard() {
                           </h4>
                           {post.is_pinned && (
                             <span className="bg-gradient-to-r from-blue-100 to-blue-200 dark:from-blue-800 dark:to-blue-900 text-blue-800 dark:text-blue-200 px-2 py-1 rounded-full text-xs font-medium">
-                              {t('apps.pinned')}
+                              {tForLang(app?.language || 'pt', 'apps.pinned')}
                             </span>
                           )}
                         </div>
@@ -996,7 +997,7 @@ export default function AppDashboard() {
               <div className="p-6 space-y-6">
                 <div>
                   <label className={`block text-sm font-semibold ${app?.theme === 'dark' ? 'text-gray-300' : 'text-gray-300'} mb-2`}>
-                    {t('common.email')}
+                    {tForLang(app?.language || 'pt', 'common.email')}
                   </label>
                   <div className="relative">
                     <input
@@ -1006,19 +1007,19 @@ export default function AppDashboard() {
                       className={`w-full px-4 py-3 ${app?.theme === 'dark' ? 'bg-gray-700 border-gray-600 text-gray-400' : 'bg-[#0f1117] border-[#1e2139] text-gray-600'} border rounded-xl cursor-not-allowed`}
                     />
                   </div>
-                  <p className={`text-xs ${app?.theme === 'dark' ? 'text-gray-500' : 'text-gray-500'} mt-1`}>{t('apps.email_cannot_change')}</p>
+                  <p className={`text-xs ${app?.theme === 'dark' ? 'text-gray-500' : 'text-gray-500'} mt-1`}>{tForLang(app?.language || 'pt', 'apps.email_cannot_change')}</p>
                 </div>
 
                 <div>
                   <label className={`block text-sm font-semibold ${app?.theme === 'dark' ? 'text-gray-300' : 'text-gray-300'} mb-2`}>
-                    {t('common.name')}
+                    {tForLang(app?.language || 'pt', 'common.name')}
                   </label>
                   <div className="relative">
                     <input
                       type="text"
                       value={userName}
                       onChange={(e) => setUserName(e.target.value)}
-                      placeholder={t('apps.enter_name')}
+                      placeholder={tForLang(app?.language || 'pt', 'apps.enter_name')}
                       className={`w-full px-4 py-3 ${app?.theme === 'dark' ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400 focus:ring-blue-400 focus:border-blue-400' : 'bg-[#1a1d2e] border-[#1e2139] focus:ring-blue-400/50 focus:border-blue-500'} border rounded-xl focus:outline-none focus:ring-2`}
                     />
                   </div>
@@ -1030,7 +1031,7 @@ export default function AppDashboard() {
                   className="w-full bg-blue-500 hover:bg-blue-600 disabled:bg-blue-400 text-white font-semibold py-3 px-6 rounded-xl transition-colors flex items-center justify-center gap-2"
                 >
                   <User className="w-5 h-5" />
-                  {savingProfile ? t('apps.saving') : t('apps.save_changes')}
+                  {savingProfile ? tForLang(app?.language || 'pt', 'apps.saving') : tForLang(app?.language || 'pt', 'apps.save_changes')}
                 </button>
               </div>
             </div>
@@ -1052,7 +1053,7 @@ export default function AppDashboard() {
               }`}
           >
             <Home className="w-5 h-5 mb-1" />
-            <span className="text-xs font-medium">{t('common.home')}</span>
+            <span className="text-xs font-medium">{tForLang(app?.language || 'pt', 'common.home')}</span>
           </button>
 
           <button
@@ -1063,7 +1064,7 @@ export default function AppDashboard() {
               }`}
           >
             <MessageSquare className="w-5 h-5 mb-1" />
-            <span className="text-xs font-medium">{t('common.feed')}</span>
+            <span className="text-xs font-medium">{tForLang(app?.language || 'pt', 'common.feed')}</span>
           </button>
 
           {app?.highlight_community !== false && (
@@ -1075,7 +1076,7 @@ export default function AppDashboard() {
                 }`}
             >
               <Users className="w-5 h-5 mb-1" />
-              <span className="text-xs font-medium">{t('common.community')}</span>
+              <span className="text-xs font-medium">{tForLang(app?.language || 'pt', 'common.community')}</span>
             </button>
           )}
 
@@ -1087,7 +1088,7 @@ export default function AppDashboard() {
               }`}
           >
             <User className="w-5 h-5 mb-1" />
-            <span className="text-xs font-medium">{t('common.profile')}</span>
+            <span className="text-xs font-medium">{tForLang(app?.language || 'pt', 'common.profile')}</span>
           </button>
         </div>
       </div>
@@ -1265,7 +1266,7 @@ export default function AppDashboard() {
           <div className={`${app?.theme === 'dark' ? 'bg-gray-800' : 'bg-[#1a1d2e]'} rounded-xl w-full max-w-md max-h-[80vh] overflow-hidden flex flex-col`}>
             {/* Header do Modal */}
             <div className={`p-4 border-b ${app?.theme === 'dark' ? 'border-gray-700' : 'border-[#1e2139]'} flex items-center justify-between`}>
-              <h2 className={`text-xl font-bold ${app?.theme === 'dark' ? 'text-white' : 'text-gray-100'}`}>{t('apps.notifications')}</h2>
+              <h2 className={`text-xl font-bold ${app?.theme === 'dark' ? 'text-white' : 'text-gray-100'}`}>{tForLang(app?.language || 'pt', 'apps.notifications')}</h2>
               <button
                 onClick={() => setShowNotifications(false)}
                 className={`p-2 ${app?.theme === 'dark' ? 'hover:bg-gray-700' : 'hover:bg-[#252941]'} rounded-lg transition-colors`}
@@ -1279,7 +1280,7 @@ export default function AppDashboard() {
               {notifications.length === 0 ? (
                 <div className="text-center py-12">
                   <Bell className={`w-16 h-16 mx-auto mb-4 ${app?.theme === 'dark' ? 'text-gray-500' : 'text-gray-300'}`} />
-                  <p className={`${app?.theme === 'dark' ? 'text-gray-400' : 'text-gray-500'}`}>{t('apps.no_notifications')}</p>
+                  <p className={`${app?.theme === 'dark' ? 'text-gray-400' : 'text-gray-500'}`}>{tForLang(app?.language || 'pt', 'apps.no_notifications')}</p>
                 </div>
               ) : (
                 <div className="space-y-3">
