@@ -495,7 +495,7 @@ export function useCustomers() {
                     try {
                         const ar = await fetch(
                             `${SUPABASE_URL}/rest/v1/applications?id=eq.${selectedApp}&select=android_url,ios_url,support_email`,
-                            { headers: { 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'apikey': SUPABASE_ANON_KEY } }
+                            { headers: { 'Authorization': `Bearer ${tkn}`, 'apikey': SUPABASE_ANON_KEY } }
                         )
                         if (ar.ok) { const d = await ar.json(); if (d?.[0]) { downloadLink = d[0].android_url || d[0].ios_url || ''; supportEmail = d[0].support_email || '' } }
                     } catch { /* ignore */ }
