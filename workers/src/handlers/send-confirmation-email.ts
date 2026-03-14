@@ -103,7 +103,7 @@ export async function handleSendConfirmationEmail(request: Request, env: Env): P
     // Enviar email usando Resend
     const confirmationUrl = `${env.FRONTEND_URL}/auth/confirm?token=${token}`
 
-    const fromAddress = env.RESEND_FROM || 'noreply@clicknich.com'
+    const fromAddress = env.RESEND_FROM || 'ClickNich <noreply@clicknich.com>'
 
     const resendResponse = await fetch('https://api.resend.com/emails', {
       method: 'POST',

@@ -8,7 +8,7 @@ workers_dev = false
 [vars]
 SUPABASE_URL = "https://cgeqtodbisgwvhkaahiy.supabase.co"
 FRONTEND_URL = "https://app.clicknich.com"
-RESEND_FROM = "noreply@clicknich.com"
+RESEND_FROM = "ClickNich <noreply@clicknich.com>"
 PAYPAL_ENVIRONMENT = "live"
 PAYPAL_CLIENT_ID = "AfQTcFmV-UG1MuWm65V975D2T2rrfekENPPoSj-8-VvzbbYsMD2mXzVL2NlCsW-zeZ2_rzAfNqNuEQOr"
 

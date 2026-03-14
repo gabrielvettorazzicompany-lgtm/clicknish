@@ -35,7 +35,7 @@ export async function handleSendEmail(request: Request, env: any): Promise<Respo
             )
         }
 
-        const fromAddress = env.RESEND_FROM || 'noreply@clicknich.com'
+        const fromAddress = env.RESEND_FROM || 'ClickNich <noreply@clicknich.com>'
 
         // Enviar email com Resend
         const response = await fetch('https://api.resend.com/emails', {
