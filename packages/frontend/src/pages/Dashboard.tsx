@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { X } from 'lucide-react'
 import { DateRange } from 'react-day-picker'
 import Sidebar from '@/components/Sidebar'
 import Header from '@/components/Header'
@@ -30,8 +31,25 @@ function Dashboard() {
   const [selectedApp, setSelectedApp] = useState<string>('')
   const [selectedMarketplace, setSelectedMarketplace] = useState<string>('')
   const [combinedItems, setCombinedItems] = useState<CombinedItem[]>([])
+  const [userNotifications, setUserNotifications] = useState<{ id: string; title: string; message: string; type: string }[]>([])
 
-  // Buscar aplicações e produtos do marketplace
+  const dismissNotification = async (id: string) => {
+    setUserNotifications(prev => prev.filter(n => n.id !== id))
+    await supabase.from('user_notifications').update({ read: true }).eq('id', id)
+  }
+
+  // Buscar notificações não lidas do sistema/superadmin
+  useEffect(() => {
+    if (!user?.id) return
+    supabase
+      .from('user_notifications')
+      .select('id, title, message, type')
+      .eq('user_id', user.id)
+      .eq('read', false)
+      .order('created_at', { ascending: false })
+      .limit(5)
+      .then(({ data }) => { if (data) setUserNotifications(data) })
+  }, [user?.id])
   useEffect(() => {
     const fetchAppsAndMarketplace = async () => {
       if (!user?.id) return
@@ -105,8 +123,33 @@ function Dashboard() {
 
         <main className="flex-1 overflow-y-auto pt-14 px-4 lg:px-8 pb-8 relative z-10">
           <div className="max-w-7xl mx-auto mt-2 space-y-6">
-            {/* Saudação personalizada */}
-
+            {/* Notificações do sistema */}
+            {userNotifications.length > 0 && (
+              <div className="space-y-2">
+                {userNotifications.map(n => {
+                  const colors: Record<string, string> = {
+                    success: 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400',
+                    error: 'bg-red-500/10 border-red-500/30 text-red-400',
+                    warning: 'bg-amber-500/10 border-amber-500/30 text-amber-400',
+                    info: 'bg-blue-500/10 border-blue-500/30 text-blue-400',
+                    admin_broadcast: 'bg-blue-500/10 border-blue-500/30 text-blue-400',
+                    maintenance: 'bg-orange-500/10 border-orange-500/30 text-orange-400',
+                  }
+                  const cls = colors[n.type] || colors.info
+                  return (
+                    <div key={n.id} className={`flex items-start gap-3 px-4 py-3 border rounded-lg ${cls}`}>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-semibold leading-none mb-1">{n.title}</p>
+                        <p className="text-xs opacity-80">{n.message}</p>
+                      </div>
+                      <button onClick={() => dismissNotification(n.id)} className="flex-shrink-0 opacity-60 hover:opacity-100 transition-opacity mt-0.5">
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
 
             {/* Filtros */}
             <div className="flex flex-col sm:flex-row sm:justify-end">
