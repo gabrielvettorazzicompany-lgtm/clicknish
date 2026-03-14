@@ -37,7 +37,7 @@
         "chargeback": "Chargeback",
         "refunds": "Refunds",
         "payment_methods": "Payment Methods",
-        "conversion": "conversion",
+        "conversion": "van de omzet",
         "daily_sales": "Daily Sales",
         "no_sales_data": "No sales data",
         "days_of_data": "{count} days of data",

@@ -450,13 +450,13 @@ export async function handleDashboardStats(
             methodGroups[key].count += 1
         })
 
-        // Calcular taxa de conversão por método: (Aprovados ÷ Tentativas) × 100, máx 100%
+        // Calcular participação por método: (Vendas com esse método ÷ Total de vendas) × 100
         const paymentMethods = Object.keys(methodGroups).length > 0
             ? Object.entries(methodGroups).map(([icon, data]) => ({
                 name: METHOD_DISPLAY_NAMES[icon] || icon,
                 icon,
-                conversion: attemptsByMethod[icon] > 0
-                    ? Math.min(Math.round((data.count / attemptsByMethod[icon]) * 10000) / 100, 100)
+                conversion: salesCount > 0
+                    ? Math.round((data.count / salesCount) * 10000) / 100
                     : 0,
                 value: data.value,
             }))
