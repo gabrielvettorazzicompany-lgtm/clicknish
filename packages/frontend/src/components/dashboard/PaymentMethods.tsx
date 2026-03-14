@@ -22,6 +22,24 @@ const METHOD_NAME_KEYS: Record<string, string> = {
     paypal: 'orders.payment_method.paypal',
 }
 
+const METHOD_DISPLAY_NAMES: Record<string, string> = {
+    card: 'Cartão de Crédito',
+    paypal: 'PayPal',
+    pix: 'Pix',
+    boleto: 'Boleto',
+    bank_transfer: 'Transferência Bancária',
+    ideal: 'iDEAL',
+    bancontact: 'Bancontact',
+    sofort: 'SOFORT',
+    klarna: 'Klarna',
+    giropay: 'Giropay',
+    applepay: 'Apple Pay',
+    googlepay: 'Google Pay',
+    eps: 'EPS',
+    przelewy24: 'Przelewy24',
+    sepa: 'SEPA Débito',
+}
+
 const METHOD_CONFIG: Record<string, { icon: JSX.Element; bar: string }> = {
     paypal: {
         icon: (
@@ -39,9 +57,53 @@ const METHOD_CONFIG: Record<string, { icon: JSX.Element; bar: string }> = {
         icon: <QrCode size={14} className="text-blue-400" />,
         bar: 'bg-blue-500',
     },
+    pix: {
+        icon: <QrCode size={14} className="text-emerald-400" />,
+        bar: 'bg-emerald-500',
+    },
     bank_transfer: {
         icon: <Landmark size={14} className="text-blue-400" />,
         bar: 'bg-blue-500',
+    },
+    ideal: {
+        icon: <Landmark size={14} className="text-pink-400" />,
+        bar: 'bg-pink-500',
+    },
+    bancontact: {
+        icon: <CreditCard size={14} className="text-orange-400" />,
+        bar: 'bg-orange-500',
+    },
+    sofort: {
+        icon: <Landmark size={14} className="text-purple-400" />,
+        bar: 'bg-purple-500',
+    },
+    klarna: {
+        icon: <Wallet size={14} className="text-pink-400" />,
+        bar: 'bg-pink-500',
+    },
+    giropay: {
+        icon: <Landmark size={14} className="text-blue-400" />,
+        bar: 'bg-blue-500',
+    },
+    applepay: {
+        icon: <Smartphone size={14} className="text-gray-300" />,
+        bar: 'bg-gray-400',
+    },
+    googlepay: {
+        icon: <Smartphone size={14} className="text-blue-400" />,
+        bar: 'bg-blue-500',
+    },
+    eps: {
+        icon: <Landmark size={14} className="text-red-400" />,
+        bar: 'bg-red-500',
+    },
+    przelewy24: {
+        icon: <CreditCard size={14} className="text-red-400" />,
+        bar: 'bg-red-500',
+    },
+    sepa: {
+        icon: <Landmark size={14} className="text-indigo-400" />,
+        bar: 'bg-indigo-500',
     },
     wallet: {
         icon: <Wallet size={14} className="text-blue-400" />,
@@ -60,7 +122,7 @@ export default function PaymentMethods({ methods, loading, hideValues }: Payment
     const getMethodName = (icon: string, fallback: string) => {
         const key = METHOD_NAME_KEYS[icon]
         if (key) return t(key as any)
-        return fallback
+        return METHOD_DISPLAY_NAMES[icon] || fallback
     }
 
     return (

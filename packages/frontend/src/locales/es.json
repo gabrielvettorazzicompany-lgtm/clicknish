@@ -547,7 +547,7 @@
             "discount": "Descuento",
             "fixed": "Fijo",
             "button_text": "Texto del Botón",
-        "button_url": "URL del botón",
+            "button_url": "URL del botón",
             "button_text_placeholder": "Ej: Aceptar Oferta",
             "default_button_text": "Aceptar Oferta",
             "offer_preview": "Vista Previa de la Oferta",
@@ -720,7 +720,7 @@
         "no_bumps_added": "No hay order bumps agregados",
         "confirm_remove_bump": "¿Eliminar este order bump?",
         "drag_to_reorder": "Arrastre las tarjetas para reordenar",
-        "upsell_downsell_page_warning": "Atención: Primero agregue el enlace de la página abajo. Solo entonces podrá generar los scripts de los botones para instalar en sus páginas.",
+        "upsell_downsell_page_warning": "Atención: Primero, agregue los enlaces de las páginas en todos los pasos del embudo. Solo entonces podrá generar los scripts de los botones para instalar en sus páginas.",
         "upsell_downsell_modal_warning": "Atención: Primero agregue los enlaces de las páginas en todos los pasos del embudo. Solo entonces podrá generar los scripts de los botones para instalar en sus páginas.",
         "upsell_downsell_save_no_url": "Atención: primero agregue todos los enlaces de las páginas del embudo. Luego vuelva y genere los scripts en cada etapa.",
         "save_to_generate_script": "Guarde la configuración para generar el script"
@@ -1629,7 +1629,7 @@
     "funnel_editor": {
         "add_step": "Agregar Etapa",
         "publish": "Publicar",
-        "add_page": "+ Agregar página",
+        "add_page": "Agregar página",
         "needs_checkout": "El embudo necesita tener una página de checkout",
         "configure_checkout": "Configure un checkout en la página de checkout antes de publicar el embudo",
         "publish_confirm": "¿Publicar el embudo? Esto lo hará activo y accesible.",

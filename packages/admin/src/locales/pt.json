@@ -547,7 +547,7 @@
             "discount": "Desconto",
             "fixed": "Fixo",
             "button_text": "Texto do Botão",
-        "button_url": "URL do botão",
+            "button_url": "URL do botão",
             "button_text_placeholder": "Ex: Aceitar Oferta",
             "default_button_text": "Aceitar Oferta",
             "offer_preview": "Pré-visualização da Oferta",
@@ -720,7 +720,7 @@
         "no_bumps_added": "Nenhum order bump adicionado",
         "confirm_remove_bump": "Remover este order bump?",
         "drag_to_reorder": "Arraste os cards para reordenar",
-        "upsell_downsell_page_warning": "Atenção: Primeiro adicione o link da página abaixo. Só depois poderá gerar os scripts dos botões para instalar nas suas páginas.",
+        "upsell_downsell_page_warning": "Atenção: Primeiro, adicione os links das páginas em todas as etapas do funil. Só então você poderá gerar os scripts dos botões para instalar em suas páginas.",
         "upsell_downsell_modal_warning": "Atenção: Primeiro adicione os links das páginas em todas as etapas do funil. Só depois poderá gerar os scripts dos botões para instalar nas suas páginas.",
         "upsell_downsell_save_no_url": "Atenção: primeiro adicione todos os links das páginas do funil. Depois volte e gere os scripts em cada etapa.",
         "save_to_generate_script": "Salve as configurações para gerar o script"
@@ -1628,7 +1628,7 @@
     "funnel_editor": {
         "add_step": "Adicionar Etapa",
         "publish": "Publicar",
-        "add_page": "+ Adicionar página",
+        "add_page": "Adicionar página",
         "needs_checkout": "O funil precisa ter uma página de checkout",
         "configure_checkout": "Configure um checkout na página de checkout antes de publicar o funil",
         "publish_confirm": "Publicar o funil? Isso o tornará ativo e acessível.",

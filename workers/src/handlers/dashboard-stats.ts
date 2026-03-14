@@ -402,6 +402,17 @@ export async function handleDashboardStats(
             if (l.includes('paypal')) return 'paypal'
             if (l.includes('pix')) return 'pix'
             if (l.includes('boleto') || l.includes('bank_slip')) return 'boleto'
+            if (l.includes('bank_transfer') || l.includes('bank transfer')) return 'bank_transfer'
+            if (l.includes('ideal')) return 'ideal'
+            if (l.includes('bancontact')) return 'bancontact'
+            if (l.includes('sofort') || l.includes('klarna_pay_now')) return 'sofort'
+            if (l.includes('klarna')) return 'klarna'
+            if (l.includes('giropay')) return 'giropay'
+            if (l.includes('applepay') || l.includes('apple_pay')) return 'applepay'
+            if (l.includes('googlepay') || l.includes('google_pay')) return 'googlepay'
+            if (l.includes('eps')) return 'eps'
+            if (l.includes('przelewy') || l.includes('p24')) return 'przelewy24'
+            if (l.includes('sepa') || l.includes('direct_debit')) return 'sepa'
             if (l.includes('transfer')) return 'bank_transfer'
             return 'card'
         }
@@ -410,7 +421,17 @@ export async function handleDashboardStats(
             paypal: 'PayPal',
             pix: 'Pix',
             boleto: 'Boleto',
-            bank_transfer: 'Transferência',
+            bank_transfer: 'Transferência Bancária',
+            ideal: 'iDEAL',
+            bancontact: 'Bancontact',
+            sofort: 'SOFORT',
+            klarna: 'Klarna',
+            giropay: 'Giropay',
+            applepay: 'Apple Pay',
+            googlepay: 'Google Pay',
+            eps: 'EPS',
+            przelewy24: 'Przelewy24',
+            sepa: 'SEPA Débito',
         }
 
         // Contar tentativas por método
@@ -439,16 +460,9 @@ export async function handleDashboardStats(
                     : 0,
                 value: data.value,
             }))
-            : [
-                { name: 'Cartão de Crédito', icon: 'card', conversion: conversionRate, value: totalSales },
-                { name: 'PayPal', icon: 'paypal', conversion: 0, value: 0 },
-            ]
+            : []
 
-        // Garantir que PayPal sempre apareça na lista
-        const hasPaypal = paymentMethods.some((m: any) => m.icon === 'paypal')
-        if (!hasPaypal) {
-            paymentMethods.push({ name: 'PayPal', icon: 'paypal', conversion: 0, value: 0 })
-        }
+
 
         const stats = {
             totalSales,

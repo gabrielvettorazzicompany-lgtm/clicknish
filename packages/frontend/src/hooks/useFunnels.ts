@@ -114,25 +114,44 @@ export const useFunnels = () => {
 
             if (error) throw error
 
-            // Create default pages (only Checkout - upsells/downsells are added manually)
-            const defaultPages = [
-                {
-                    funnel_id: newFunnel.id,
-                    name: 'Checkout',
-                    slug: 'checkout',
-                    page_type: 'checkout',
-                    position: 1,
-                    is_published: false,
-                    ...(createData.checkout_id && { checkout_id: createData.checkout_id })
-                }
-            ]
-
-            const { error: pagesError } = await supabase
+            // Create default pages: Checkout + Thank You
+            const { data: createdPages, error: pagesError } = await supabase
                 .from('funnel_pages')
-                .insert(defaultPages)
+                .insert([
+                    {
+                        funnel_id: newFunnel.id,
+                        name: 'Checkout',
+                        slug: 'checkout',
+                        page_type: 'checkout',
+                        position: 1,
+                        is_published: false,
+                        ...(createData.checkout_id && { checkout_id: createData.checkout_id })
+                    },
+                    {
+                        funnel_id: newFunnel.id,
+                        name: 'Obrigado',
+                        slug: 'obrigado',
+                        page_type: 'thankyou',
+                        position: 2,
+                        is_published: false
+                    }
+                ])
+                .select()
 
             if (pagesError) {
                 console.error('Error creating default pages:', pagesError)
+            }
+
+            // Link checkout redirect to the thank you page automatically
+            if (createdPages && createdPages.length === 2) {
+                const checkoutPage = createdPages.find(p => p.page_type === 'checkout')
+                const thankyouPage = createdPages.find(p => p.page_type === 'thankyou')
+                if (checkoutPage && thankyouPage) {
+                    await supabase
+                        .from('funnel_pages')
+                        .update({ settings: { post_purchase_page_id: thankyouPage.id } })
+                        .eq('id', checkoutPage.id)
+                }
             }
 
             setFunnels(prev => [newFunnel, ...prev])

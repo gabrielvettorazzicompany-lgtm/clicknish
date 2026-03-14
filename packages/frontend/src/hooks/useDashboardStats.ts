@@ -92,13 +92,7 @@ export function useDashboardStats(
             }
 
             if (data) {
-                // Garantir que PayPal sempre aparece na lista, mesmo sem vendas
-                const methods: typeof data.paymentMethods = data.paymentMethods || []
-                const hasPaypal = methods.some((m: any) => m.icon === 'paypal')
-                if (!hasPaypal) {
-                    methods.push({ name: 'PayPal', icon: 'paypal', conversion: 0, value: 0 })
-                }
-                setRawStats({ ...data, paymentMethods: methods })
+                setRawStats({ ...data, paymentMethods: data.paymentMethods || [] })
             }
         } catch (error) {
             console.error('Error fetching dashboard stats:', error)
