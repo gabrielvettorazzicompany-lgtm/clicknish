@@ -73,7 +73,7 @@ export default function OrderBumpPreview({
                             className="w-16 h-16 object-cover rounded-lg border border-zinc-700 flex-shrink-0"
                         />
                     )}
-                    <div className="flex-1">
+                    <div className="flex-1 min-w-0">
                         <div className={`text-sm font-bold mb-1 ${selectedProduct ? 'text-white' : 'text-black'
                             }`}>
                             {callToAction}
@@ -81,7 +81,7 @@ export default function OrderBumpPreview({
                         <div className={`text-sm font-medium ${selectedProduct ? 'text-zinc-300' : 'text-gray-900'}`}>
                             {productName}
                         </div>
-                        <div className={`text-xs mt-1 ${selectedProduct ? 'text-zinc-400' : 'text-gray-600'}`}>
+                        <div className={`text-xs mt-1 break-words ${selectedProduct ? 'text-zinc-400' : 'text-gray-600'}`}>
                             {productDescription}
                         </div>
                         {selectedProduct && (
