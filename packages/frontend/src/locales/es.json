@@ -238,6 +238,7 @@
             "delete": "Eliminar cliente"
         },
         "filters": {
+            "all": "Todos",
             "app_members": "App / Área de Miembros",
             "registration_date": "Fecha de registro"
         },

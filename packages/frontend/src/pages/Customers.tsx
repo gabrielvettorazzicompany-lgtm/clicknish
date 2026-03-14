@@ -9,7 +9,7 @@ import AddCustomerModal from '@/components/customers/AddCustomerModal'
 import ManageAccessModal from '@/components/customers/ManageAccessModal'
 import EditCustomerModal from '@/components/customers/EditCustomerModal'
 import DeleteCustomerModal from '@/components/customers/DeleteCustomerModal'
-import { useCustomers } from '@/hooks/useCustomers'
+import { useCustomers, ALL_ITEMS_ID } from '@/hooks/useCustomers'
 import { useI18n } from '@/i18n'
 
 export default function Customers() {
@@ -53,6 +53,10 @@ export default function Customers() {
     }, [filteredCustomers, currentPage])
 
     const handleCombinedChange = (value: string) => {
+        if (value === ALL_ITEMS_ID) {
+            setSelectedApp(ALL_ITEMS_ID); setSelectedMarketplace('')
+            return
+        }
         const item = combinedItems.find(i => i.id === value)
         if (item) {
             if (item.type === 'app') { setSelectedApp(value); setSelectedMarketplace('') }

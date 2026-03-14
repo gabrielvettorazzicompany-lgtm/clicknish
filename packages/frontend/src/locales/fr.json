@@ -238,6 +238,7 @@
             "delete": "Supprimer le client"
         },
         "filters": {
+            "all": "Tous",
             "app_members": "App / Espace membres",
             "registration_date": "Date d'inscription"
         },

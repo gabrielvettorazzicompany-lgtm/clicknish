@@ -238,6 +238,7 @@
             "delete": "Kunde löschen"
         },
         "filters": {
+            "all": "Alle",
             "app_members": "App / Mitgliederbereich",
             "registration_date": "Registrierungsdatum"
         },

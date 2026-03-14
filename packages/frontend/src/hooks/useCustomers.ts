@@ -15,6 +15,8 @@ async function getAuthToken(): Promise<string> {
     return data.session?.access_token || SUPABASE_ANON_KEY
 }
 
+export const ALL_ITEMS_ID = '__all__'
+
 export function useCustomers() {
     const { user } = useAuthStore()
     const currentUserId = user?.id || ''
@@ -64,7 +66,10 @@ export function useCustomers() {
     }, [apps, marketplaceProducts])
 
     useEffect(() => {
-        if (selectedApp) {
+        if (selectedApp === ALL_ITEMS_ID) {
+            fetchAllCustomers()
+            setProducts([])
+        } else if (selectedApp) {
             fetchCustomers(selectedApp, 'app')
             fetchProducts(selectedApp)
         } else if (selectedMarketplace) {
@@ -109,6 +114,59 @@ export function useCustomers() {
         return currentUserId || null
     }
 
+    const fetchAllCustomers = async () => {
+        try {
+            setLoading(true)
+            setError(null)
+            const token = await getAuthToken()
+
+            const allResults: Customer[] = []
+
+            // Buscar de todos os apps
+            for (const app of apps) {
+                const res = await fetch(
+                    `${SUPABASE_URL}/rest/v1/app_users?application_id=eq.${app.id}&select=id,user_id,email,application_id,full_name,phone,status,last_login,created_at&order=created_at.desc`,
+                    { headers: { 'Authorization': `Bearer ${token}`, 'apikey': SUPABASE_ANON_KEY } }
+                )
+                const data = await res.json()
+                if (Array.isArray(data)) {
+                    allResults.push(...data.map((c: Customer) => ({
+                        id: c.id, user_id: c.user_id, email: c.email || 'Email not available',
+                        application_id: c.application_id, full_name: c.full_name, phone: c.phone,
+                        status: c.status, last_login: c.last_login, created_at: c.created_at
+                    })))
+                }
+            }
+
+            // Buscar de todos os marketplaces
+            for (const mp of marketplaceProducts) {
+                const res = await fetch(
+                    `${SUPABASE_URL}/rest/v1/member_profiles?product_id=eq.${mp.id}&select=id,email,name,phone,created_at,last_login_at&order=created_at.desc`,
+                    { headers: { 'Authorization': `Bearer ${token}`, 'apikey': SUPABASE_ANON_KEY } }
+                )
+                const data = await res.json()
+                if (Array.isArray(data)) {
+                    allResults.push(...data.map((m: any) => ({
+                        id: m.id, user_id: m.id, email: m.email || 'Email not available',
+                        application_id: mp.id, full_name: m.name, phone: m.phone,
+                        status: 'active', last_login: m.last_login_at, created_at: m.created_at
+                    })))
+                }
+            }
+
+            // Deduplicar por email
+            const seen = new Set<string>()
+            setCustomers(allResults.filter(c => {
+                if (seen.has(c.email)) return false
+                seen.add(c.email)
+                return true
+            }).sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()))
+        } catch {
+            setCustomers([])
+            setError('Erro ao carregar todos os clientes')
+        } finally { setLoading(false) }
+    }
+
     const fetchApps = async () => {
         if (!currentUserId) { setLoading(false); return }
         try {
@@ -125,7 +183,6 @@ export function useCustomers() {
             const data = await res.json()
             if (Array.isArray(data)) {
                 setApps(data)
-                if (data.length > 0) setSelectedApp(data[0].id)
             } else {
                 setApps([])
                 if (data?.error) setError(`Erro ao carregar apps: ${data.error}`)
