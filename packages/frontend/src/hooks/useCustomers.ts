@@ -464,7 +464,7 @@ export function useCustomers() {
         if (!customer.email) { alert('Customer email not found'); return }
         setSaving(true)
         try {
-            let appName = '', appSlug = '', appLanguage = '', marketplaceName = '', downloadLink = '', loginUrl = ''
+            let appName = '', appSlug = '', appLanguage = '', marketplaceName = '', downloadLink = '', loginUrl = '', supportEmail = ''
             const customerProductsList: string[] = []
 
             if (selectedApp && !selectedMarketplace) {
