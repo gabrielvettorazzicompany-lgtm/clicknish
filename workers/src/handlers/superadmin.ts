@@ -1318,7 +1318,7 @@ export async function handleSuperadmin(request: Request, env: any, pathSegments:
             // Log history
             await supabase.from('plan_change_history').insert({
                 user_id: targetId, changed_by: userId, new_plan: plan, notes: notes || null
-            }).then(() => {}) // silent fail if table doesn't exist yet
+            }).then(() => { }) // silent fail if table doesn't exist yet
             const { data: adminData } = await supabase.auth.admin.getUserById(userId)
             await logAudit(supabase, userId, adminData?.user?.email || '', 'update_plan', 'user', targetId, { new_plan: plan, notes })
             return new Response(JSON.stringify({ success: true }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
@@ -1415,11 +1415,11 @@ export async function handleSuperadmin(request: Request, env: any, pathSegments:
                 const notifications = profiles.map((p: any) => ({
                     user_id: p.user_id, type: 'admin_broadcast',
                     title, message, read: false,
-                    metadata: { broadcast_id: data.id, broadcast_type: type || 'info' }
+                    created_at: new Date().toISOString()
                 }))
                 // batch insert in chunks of 100
                 for (let i = 0; i < notifications.length; i += 100) {
-                    await supabase.from('notifications').insert(notifications.slice(i, i + 100)).then(() => {})
+                    await supabase.from('user_notifications').insert(notifications.slice(i, i + 100)).then(() => { })
                 }
             }
 

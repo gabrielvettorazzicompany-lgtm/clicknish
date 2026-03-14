@@ -49,28 +49,6 @@ CREATE TABLE IF NOT EXISTS admin_broadcasts (
 );
 
 -- ─────────────────────────────────────────────
--- Notifications (for broadcasts delivery)
--- ─────────────────────────────────────────────
-CREATE TABLE IF NOT EXISTS notifications (
-    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-    type text NOT NULL DEFAULT 'admin_broadcast',
-    title text NOT NULL,
-    message text NOT NULL,
-    read boolean NOT NULL DEFAULT false,
-    metadata jsonb DEFAULT '{}',
-    created_at timestamptz DEFAULT now()
-);
-CREATE INDEX IF NOT EXISTS idx_notifications_user_id ON notifications(user_id);
-CREATE INDEX IF NOT EXISTS idx_notifications_read ON notifications(user_id, read);
-
--- RLS
-ALTER TABLE notifications ENABLE ROW LEVEL SECURITY;
-DROP POLICY IF EXISTS "notifications_owner" ON notifications;
-CREATE POLICY "notifications_owner" ON notifications
-    FOR ALL USING (auth.uid() = user_id);
-
--- ─────────────────────────────────────────────
 -- Support tickets
 -- ─────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS support_tickets (
