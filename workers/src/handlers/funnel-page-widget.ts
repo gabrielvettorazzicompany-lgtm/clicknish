@@ -277,6 +277,32 @@ function generateWidgetScript(
     console.log('[Clicknish] No purchase context - widget will not display');
     return;
   }
+
+  // Retorno do banco iDEAL após upsell redirect — verificar e redirecionar
+  (function checkIdealUpsellReturn() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const paymentId = urlParams.get('paymentId');
+    if (urlParams.get('stripe_upsell_return') !== '1' || !paymentId) return;
+
+    // Limpar params da URL
+    window.history.replaceState({}, '', window.location.pathname + (PURCHASE_ID ? '?purchase_id=' + PURCHASE_ID : ''));
+
+    fetch('${apiUrl}/process-stripe-payment', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'verify', paymentId: paymentId }),
+    })
+      .then(r => r.json())
+      .then(function(result) {
+        if (result.success && result.redirectUrl) {
+          window.location.href = result.redirectUrl;
+        } else if (result.success && ACCEPT_REDIRECT_URL) {
+          const sep = ACCEPT_REDIRECT_URL.includes('?') ? '&' : '?';
+          window.location.href = ACCEPT_REDIRECT_URL + sep + 'purchase_id=' + (result.purchaseId || PURCHASE_ID);
+        }
+      })
+      .catch(console.error);
+  })();
   
   function formatPrice(price, currency) {
     const symbols = { BRL: 'R$', USD: '$', EUR: '€' };
@@ -439,7 +465,12 @@ function generateWidgetScript(
         const response = await fetch('${apiUrl}/process-upsell', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ purchase_id: PURCHASE_ID, token: PURCHASE_TOKEN || undefined, offer_id: OFFER.id })
+          body: JSON.stringify({
+            purchase_id: PURCHASE_ID,
+            token: PURCHASE_TOKEN || undefined,
+            offer_id: OFFER.id,
+            current_page_url: window.location.href,
+          })
         });
         
         const result = await response.json();
@@ -455,6 +486,9 @@ function generateWidgetScript(
               closeModal();
             }
           }, 1500);
+        } else if (result.requiresRedirect && result.redirectUrl) {
+          // iDEAL Stripe: redirecionar para o banco
+          window.location.href = result.redirectUrl;
         } else {
           throw new Error(result.error || 'Payment failed');
         }

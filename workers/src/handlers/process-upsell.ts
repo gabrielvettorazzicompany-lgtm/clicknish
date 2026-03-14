@@ -73,7 +73,8 @@ export async function handleProcessUpsell(
             purchase_id,   // UUID from payment response (not user_product_access.id)
             token,         // thankyou_token — salvo em user_product_access
             offer_id,      // checkout_offers.id
-        } = await request.json()
+            current_page_url, // URL atual da página de upsell (para return_url do iDEAL)
+        } = await request.json() as any
 
         if ((!purchase_id && !token) || !offer_id) {
             throw new Error('Missing required fields: purchase_id or token, offer_id')
@@ -545,7 +546,102 @@ export async function handleProcessUpsell(
             }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 })
         }
 
-        throw new Error('Payment method not found for this purchase. Cannot process one-click upsell.')
+        // ══════════════════════════════════════════════════════════════════
+        // STRIPE iDEAL REDIRECT PATH — compra original foi iDEAL Stripe
+        // Sem payment_method_id salvo → redirecionar para o banco novamente
+        // ══════════════════════════════════════════════════════════════════
+        {
+            // Buscar compra original pelo payment_id salvo em user_product_access
+            const { data: accessRecord } = await supabase
+                .from('user_product_access')
+                .select('payment_id, user_id')
+                .or(token ? `thankyou_token.eq.${token}` : `id.eq.${purchase_id}`)
+                .maybeSingle()
+
+            const originalPaymentIntentId = accessRecord?.payment_id
+
+            const { data: originalRecord } = originalPaymentIntentId
+                ? await supabase
+                    .from('stripe_redirect_payments')
+                    .select('id, customer_email, customer_name, seller_id, method, checkout_id, product_type, application_id, product_id')
+                    .eq('payment_intent_id', originalPaymentIntentId)
+                    .in('method', ['ideal', 'bancontact', 'sofort', 'eps', 'giropay', 'p24'])
+                    .maybeSingle()
+                : { data: null }
+
+            if (!originalRecord) {
+                throw new Error('Payment method not found for this purchase. Cannot process one-click upsell.')
+            }
+
+            // Buscar return_url: página de upsell atual (enviada pelo widget)
+            const currentPageUrl: string = current_page_url || (env.FRONTEND_URL || 'https://app.clicknich.com')
+
+            const frontendUrl = env.FRONTEND_URL || 'https://app.clicknich.com'
+            const internalPaymentId = crypto.randomUUID()
+            const sep = currentPageUrl.includes('?') ? '&' : '?'
+            const returnUrl = `${currentPageUrl}${sep}stripe_upsell_return=1&paymentId=${internalPaymentId}`
+
+            const stripeKey = await resolveStripeKey(supabase, originalRecord.seller_id || productOwnerId || null)
+            const stripeForIdeal = createStripeClient(stripeKey)
+
+            const chargeAmount = finalPrice
+            const chargeCurrency = (currency || 'EUR').toUpperCase()
+
+            const paymentIntent = await stripeForIdeal.paymentIntents.create({
+                amount: Math.round(chargeAmount * 100),
+                currency: chargeCurrency.toLowerCase(),
+                payment_method_types: ['ideal'],
+                payment_method_data: {
+                    type: 'ideal',
+                    billing_details: {
+                        name: originalRecord.customer_name || originalRecord.customer_email,
+                        email: originalRecord.customer_email,
+                    },
+                },
+                confirm: true,
+                return_url: returnUrl,
+                metadata: {
+                    internal_payment_id: internalPaymentId,
+                    offer_id: offer_id,
+                    original_purchase_id: purchase_id || '',
+                    is_upsell: 'true',
+                    user_id: userId || '',
+                },
+            })
+
+            await supabase.from('stripe_redirect_payments').insert({
+                id: internalPaymentId,
+                payment_intent_id: paymentIntent.id,
+                product_id: product.id,
+                product_type: originalRecord.product_type,
+                application_id: originalRecord.application_id || null,
+                checkout_id: originalRecord.checkout_id || null,
+                customer_email: originalRecord.customer_email,
+                customer_name: originalRecord.customer_name || null,
+                amount: chargeAmount,
+                currency: chargeCurrency.toLowerCase(),
+                method: 'ideal',
+                status: paymentIntent.status ?? 'pending',
+                seller_id: originalRecord.seller_id || null,
+                access_granted: false,
+                is_upsell: true,
+                offer_id: offer_id,
+                original_purchase_id: purchase_id || null,
+            })
+
+            const bankRedirectUrl = paymentIntent.next_action?.redirect_to_url?.url || null
+
+            if (!bankRedirectUrl && paymentIntent.status !== 'succeeded') {
+                throw new Error('Stripe não retornou URL de redirect para iDEAL upsell')
+            }
+
+            return new Response(JSON.stringify({
+                success: false,
+                requiresRedirect: true,
+                redirectUrl: bankRedirectUrl,
+                paymentId: internalPaymentId,
+            }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 })
+        }
 
     } catch (error: any) {
         console.error('Upsell payment error:', error)
@@ -626,5 +722,74 @@ async function grantUpsellAccess(supabase: any, opts: {
                 { onConflict: 'user_id,member_area_id', ignoreDuplicates: false })
             .select('id').single()
         return data
+    }
+}
+
+/**
+ * Exportado para process-stripe-payment.ts usar no verify de upsell iDEAL.
+ * Busca a oferta e o usuário, e libera o acesso ao produto do upsell.
+ */
+export async function grantUpsellAccessForStripeRedirect(
+    supabase: any,
+    env: any,
+    record: {
+        offer_id: string
+        original_purchase_id: string | null
+        customer_email: string
+        amount: number
+    },
+    paymentIntentId: string,
+    purchaseId: string,
+): Promise<void> {
+    try {
+        const { data: offer } = await supabase
+            .from('checkout_offers')
+            .select('id, product_id, product_type, application_id, offer_price, original_price')
+            .eq('id', record.offer_id)
+            .maybeSingle()
+
+        if (!offer) return
+
+        // Resolver userId pelo email do cliente
+        const { data: appUser } = await supabase
+            .from('app_users')
+            .select('user_id')
+            .eq('email', record.customer_email)
+            .limit(1)
+            .maybeSingle()
+
+        const userId = appUser?.user_id
+        if (!userId) return
+
+        let product: any = null
+        let isAppProduct = false
+        let isApplication = false
+        let parentApplicationId: string | null = null
+
+        if (offer.product_type === 'app_product') {
+            const { data: p } = await supabase.from('products').select('id, name, application_id').eq('id', offer.product_id).maybeSingle()
+            if (p) { product = { ...p, price: 0 }; isAppProduct = true; parentApplicationId = p.application_id }
+        } else {
+            const { data: p } = await supabase.from('marketplace_products').select('id, name, price, currency, owner_id').eq('id', offer.product_id).maybeSingle()
+            if (p) { product = p } else {
+                const { data: a } = await supabase.from('applications').select('id, name, owner_id').eq('id', offer.product_id).maybeSingle()
+                if (a) { product = { ...a, price: 0 }; isApplication = true }
+            }
+        }
+
+        if (!product) return
+
+        await grantUpsellAccess(supabase, {
+            userId,
+            product,
+            isAppProduct,
+            isApplication,
+            parentApplicationId,
+            paymentId: paymentIntentId,
+            paymentMethod: 'ideal',
+            finalPrice: Number(record.amount) || offer.offer_price || offer.original_price || 0,
+        })
+    } catch (e: any) {
+        console.error('[grantUpsellAccessForStripeRedirect] Error:', e.message)
     }
 }

@@ -14,6 +14,7 @@ import { createStripeClient } from '../lib/stripe'
 import { applyFxConversion } from '../lib/fx'
 import { createCustomerUser } from './customer-auth'
 import { appLangToEmailLang, buildAccessEmailHtml } from '../utils/email-i18n'
+import { grantUpsellAccessForStripeRedirect } from './process-upsell'
 import type { Env } from '../index'
 
 // Métodos Stripe que só aceitam EUR
@@ -380,6 +381,16 @@ async function verifyStripeRedirectPayment(
     const purchaseId = crypto.randomUUID()
     const thankyouToken = crypto.randomUUID()
 
+    // Upsell iDEAL: liberar acesso ao produto da oferta, não ao produto principal
+    if (record.is_upsell && record.offer_id) {
+        await grantUpsellAccessForStripeRedirect(supabase, env, record, paymentIntent.id, purchaseId)
+        const redirectUrl = await resolveUpsellRedirectUrl(supabase, record.offer_id, purchaseId, record.original_purchase_id, frontendUrl)
+        await supabase.from('stripe_redirect_payments')
+            .update({ access_granted: true, purchase_id: purchaseId, thankyou_token: thankyouToken, updated_at: new Date().toISOString() })
+            .eq('id', internalPaymentId)
+        return json({ success: true, purchaseId, thankyouToken, redirectUrl })
+    }
+
     await grantStripeRedirectAccess(supabase, env, internalPaymentId, paymentIntent, purchaseId, thankyouToken, frontendUrl)
 
     const redirectUrl = await resolveRedirectUrl(supabase, internalPaymentId, purchaseId, thankyouToken, frontendUrl)
@@ -468,6 +479,56 @@ async function resolveRedirectUrl(
 
     const sep = redirectUrl.includes('?') ? '&' : '?'
     return `${redirectUrl}${sep}purchase_id=${purchaseId}&token=${thankyouToken}`
+}
+
+/**
+ * Resolve redirect URL para upsell iDEAL: usa accept_redirect_url da offer page
+ */
+async function resolveUpsellRedirectUrl(
+    supabase: any,
+    offerId: string,
+    purchaseId: string,
+    originalPurchaseId: string | null,
+    frontendUrl: string,
+): Promise<string> {
+    const { data: offer } = await supabase
+        .from('checkout_offers')
+        .select('page_id')
+        .eq('id', offerId)
+        .maybeSingle()
+
+    if (offer?.page_id) {
+        const { data: page } = await supabase
+            .from('funnel_pages')
+            .select('settings')
+            .eq('id', offer.page_id)
+            .maybeSingle()
+
+        const settings = page?.settings as any
+        const refId = purchaseId || originalPurchaseId || ''
+
+        if (settings?.accept_redirect_url) {
+            const url = settings.accept_redirect_url as string
+            const sep = url.includes('?') ? '&' : '?'
+            return `${url}${sep}purchase_id=${refId}`
+        }
+        if (settings?.accept_page_id) {
+            const { data: targetPage } = await supabase
+                .from('funnel_pages')
+                .select('external_url, page_type')
+                .eq('id', settings.accept_page_id)
+                .maybeSingle()
+            if (targetPage?.external_url) {
+                const sep = targetPage.external_url.includes('?') ? '&' : '?'
+                return `${targetPage.external_url}${sep}purchase_id=${refId}`
+            }
+            if (targetPage?.page_type === 'thankyou') {
+                return `${frontendUrl}/thankyou/${settings.accept_page_id}?purchase_id=${refId}`
+            }
+        }
+    }
+
+    return `${frontendUrl}/`
 }
 
 /**
