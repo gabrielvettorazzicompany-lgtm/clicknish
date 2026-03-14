@@ -283,4 +283,5 @@ export const SUPPORTED_LANGUAGES: Array<{ code: Language; name: string; flag: st
     { code: 'es', name: 'Español', flag: '🇪🇸' },
     { code: 'fr', name: 'Français', flag: '🇫🇷' },
     { code: 'de', name: 'Deutsch', flag: '🇩🇪' },
+    { code: 'nl', name: 'Nederlands', flag: '🇳🇱' },
 ]

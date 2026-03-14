@@ -4,8 +4,9 @@ import en from '@/locales/en.json'
 import es from '@/locales/es.json'
 import fr from '@/locales/fr.json'
 import de from '@/locales/de.json'
+import nl from '@/locales/nl.json'
 
-export type Language = 'pt' | 'es' | 'en' | 'fr' | 'de'
+export type Language = 'pt' | 'es' | 'en' | 'fr' | 'de' | 'nl'
 
 interface I18nContextProps {
     language: Language
@@ -13,7 +14,7 @@ interface I18nContextProps {
     t: (key: string, vars?: Record<string, any>) => string
 }
 
-const translations: Record<Language, Record<string, any>> = { pt, en, es, fr, de }
+const translations: Record<Language, Record<string, any>> = { pt, en, es, fr, de, nl }
 
 /**
  * Resolve a dot-notation key (e.g. "orders.tabs.all") from a nested object.
@@ -33,12 +34,13 @@ const STORAGE_KEY = 'huskyapp_language'
 function getInitialLanguage(): Language {
     try {
         const stored = localStorage.getItem(STORAGE_KEY)
-        if (stored === 'pt' || stored === 'en' || stored === 'es' || stored === 'fr' || stored === 'de') return stored
+        if (stored === 'pt' || stored === 'en' || stored === 'es' || stored === 'fr' || stored === 'de' || stored === 'nl') return stored
     } catch { /* ignore */ }
     const nav = navigator.language?.toLowerCase() ?? ''
     if (nav.startsWith('es')) return 'es'
     if (nav.startsWith('fr')) return 'fr'
     if (nav.startsWith('de')) return 'de'
+    if (nav.startsWith('nl')) return 'nl'
     if (nav.startsWith('en')) return 'en'
     return 'pt'
 }

@@ -13,7 +13,7 @@ const Header = memo(function Header({ onMenuClick }: HeaderProps) {
   const { language, setLanguage } = useI18n()
   const { user } = useAuthStore()
 
-  const handleLanguageChange = (lang: 'pt' | 'es' | 'en' | 'fr' | 'de') => {
+  const handleLanguageChange = (lang: 'pt' | 'es' | 'en' | 'fr' | 'de' | 'nl') => {
     setLanguage(lang)
     if (user?.id) {
       try { localStorage.setItem(`huskyapp_language_${user.id}`, lang) } catch { /* ignore */ }
@@ -46,7 +46,7 @@ const Header = memo(function Header({ onMenuClick }: HeaderProps) {
         <ThemeToggle />
         <select
           value={language}
-          onChange={(e) => handleLanguageChange(e.target.value as 'pt' | 'es' | 'en' | 'fr' | 'de')}
+          onChange={(e) => handleLanguageChange(e.target.value as 'pt' | 'es' | 'en' | 'fr' | 'de' | 'nl')}
           className="h-8 px-2 sm:px-2.5 bg-white dark:bg-[#0d1117] border border-gray-200 dark:border-white/10 rounded text-xs font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/10 focus:outline-none focus:ring-1 focus:ring-blue-400 cursor-pointer transition-colors appearance-none"
           title="Idioma"
         >
@@ -55,6 +55,7 @@ const Header = memo(function Header({ onMenuClick }: HeaderProps) {
           <option value="en">EN</option>
           <option value="fr">FR</option>
           <option value="de">DE</option>
+          <option value="nl">NL</option>
         </select>
         <UserProfileDropdown />
       </div>
