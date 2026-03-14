@@ -1130,7 +1130,8 @@ async function sendAccessEmail(
     customerEmail: string,
     customerName: string,
     productName: string,
-    loginUrl: string
+    loginUrl: string,
+    appLanguage?: string | null
 ) {
     try {
         const resendApiKey = env.RESEND_API_KEY
@@ -1139,9 +1140,15 @@ async function sendAccessEmail(
             return
         }
 
-        const fromAddress = env.RESEND_FROM || 'noreply@clicknich.com'
-
-        const html = `<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto"><div style="background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);padding:40px;text-align:center;border-radius:8px 8px 0 0"><h1 style="color:white;margin:0;font-size:28px">Access Granted</h1></div><div style="background:#f9fafb;padding:40px;border-radius:0 0 8px 8px"><p style="color:#333;font-size:16px">Hi <strong>${customerName}</strong>,</p><p style="color:#666;font-size:14px;line-height:1.6">Great news! You now have access to:</p><div style="background:white;padding:20px;border-radius:8px;margin:20px 0;border-left:4px solid #667eea"><p style="color:#333;font-size:14px;margin:0"><strong>${productName}</strong></p></div>${loginUrl ? `<div style="margin:30px 0;text-align:center"><a href="${loginUrl}" style="background:#667eea;color:white;padding:14px 32px;text-decoration:none;border-radius:6px;display:inline-block;font-weight:bold;font-size:16px">Access Members Area</a></div>` : ''}<div style="background:#f3f4f6;padding:15px;border-radius:6px;margin-top:20px"><p style="color:#666;font-size:13px;margin:0"><strong>Access instructions:</strong><br>1. Click the button above<br>2. Email: <strong>${customerEmail}</strong><br>3. If first access, create your password</p></div></div></div>`
+        const lang = appLangToEmailLang(appLanguage)
+        const { subject, html } = buildAccessEmailHtml({
+            lang,
+            customerName: customerName || customerEmail,
+            customerEmail,
+            productName,
+            productsHtml: '',
+            loginUrl,
+        })
 
         const response = await fetch('https://api.resend.com/emails', {
             method: 'POST',
@@ -1150,9 +1157,9 @@ async function sendAccessEmail(
                 'Content-Type': 'application/json',
             },
             body: JSON.stringify({
-                from: fromAddress,
+                from: env.RESEND_FROM || 'noreply@clicknich.com',
                 to: customerEmail,
-                subject: `Your access to ${productName} is ready`,
+                subject,
                 html,
             }),
         })

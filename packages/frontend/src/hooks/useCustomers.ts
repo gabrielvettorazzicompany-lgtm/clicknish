@@ -401,13 +401,13 @@ export function useCustomers() {
         if (!customer.email) { alert('Customer email not found'); return }
         setSaving(true)
         try {
-            let appName = '', appSlug = '', marketplaceName = '', downloadLink = '', loginUrl = ''
+            let appName = '', appSlug = '', appLanguage = '', marketplaceName = '', downloadLink = '', loginUrl = ''
             const customerProductsList: string[] = []
 
             if (selectedApp && !selectedMarketplace) {
                 const app = apps.find(a => a.id === selectedApp)
                 if (app) {
-                    appName = app.name; appSlug = app.slug || ''
+                    appName = app.name; appSlug = app.slug || ''; appLanguage = app.language || 'en'
                     loginUrl = `${window.location.origin}/access/${app.slug}`
                     const { data: sess } = await supabase.auth.getSession()
                     const tkn = sess?.session?.access_token || SUPABASE_ANON_KEY
@@ -446,12 +446,26 @@ export function useCustomers() {
             const productsHtml = customerProductsList.length > 0
                 ? `<ul style="list-style:none;padding:0;margin:0">${customerProductsList.map(p => `<li style="padding:4px 0;color:#666">${p}</li>`).join('')}</ul>`
                 : ''
-            const html = `<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto"><div style="background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);padding:40px;text-align:center;border-radius:8px 8px 0 0"><h1 style="color:white;margin:0;font-size:28px">Access Granted</h1></div><div style="background:#f9fafb;padding:40px;border-radius:0 0 8px 8px"><p style="color:#333;font-size:16px">Hi <strong>${customer.full_name || customer.email}</strong>,</p><p style="color:#666;font-size:14px;line-height:1.6">Great news! You now have access to:</p><div style="background:white;padding:20px;border-radius:8px;margin:20px 0;border-left:4px solid #667eea"><p style="color:#333;font-size:14px;margin-bottom:10px"><strong>${productName}</strong></p>${productsHtml}</div>${loginUrl ? `<div style="margin:30px 0;text-align:center"><a href="${loginUrl}" style="background:#667eea;color:white;padding:14px 32px;text-decoration:none;border-radius:6px;display:inline-block;font-weight:bold;font-size:16px">${appSlug ? 'Access App Login' : 'Access Members Area'}</a></div>${downloadLink ? `<div style="margin:15px 0;text-align:center"><a href="${downloadLink}" style="background:white;color:#667eea;border:2px solid #667eea;padding:12px 28px;text-decoration:none;border-radius:6px;display:inline-block;font-weight:bold;font-size:14px">Download App</a></div>` : ''}` : ''}<div style="background:#f3f4f6;padding:15px;border-radius:6px;margin-top:20px"><p style="color:#666;font-size:13px;margin:0"><strong>Access instructions:</strong><br>1. Click the button above<br>2. Email: <strong>${customer.email}</strong><br>3. If first access, create your password${customer.phone ? `<br>4. Your phone: ${customer.phone}` : ''}</p></div></div></div>`
+
+            // Traduções por idioma do app
+            type EmailLang = 'pt' | 'en' | 'es' | 'fr' | 'de' | 'nl'
+            const emailI18n: Record<EmailLang, { title: string; greeting: string; body: string; button: string; instructions: string; step1: string; step3: string; subject: string }> = {
+                pt: { title: 'Acesso Liberado', greeting: 'Olá', body: 'Ótimo! Você agora tem acesso a:', button: appSlug ? 'Acessar App' : 'Acessar Área de Membros', instructions: 'Instruções de acesso:', step1: 'Clique no botão acima', step3: 'Se for primeiro acesso, crie sua senha', subject: `Seu acesso a ${productName} está pronto` },
+                en: { title: 'Access Granted', greeting: 'Hi', body: 'Great news! You now have access to:', button: appSlug ? 'Access App Login' : 'Access Members Area', instructions: 'Access instructions:', step1: 'Click the button above', step3: 'If first access, create your password', subject: `Your access to ${productName} is ready` },
+                es: { title: 'Acceso Concedido', greeting: 'Hola', body: '¡Buenas noticias! Ahora tienes acceso a:', button: appSlug ? 'Acceder al App' : 'Acceder al Área', instructions: 'Instrucciones de acceso:', step1: 'Haz clic en el botón de arriba', step3: 'Si es tu primer acceso, crea tu contraseña', subject: `Tu acceso a ${productName} está listo` },
+                fr: { title: 'Accès accordé', greeting: 'Bonjour', body: 'Bonne nouvelle ! Vous avez maintenant accès à :', button: appSlug ? "Accéder à l'App" : "Accéder à l'Espace", instructions: "Instructions d'accès :", step1: 'Cliquez sur le bouton ci-dessus', step3: "Si c'est votre premier accès, créez votre mot de passe", subject: `Votre accès à ${productName} est prêt` },
+                de: { title: 'Zugang gewährt', greeting: 'Hallo', body: 'Gute Neuigkeiten! Sie haben jetzt Zugang zu:', button: appSlug ? 'App-Zugang' : 'Mitgliederbereich', instructions: 'Zugangsinstruktionen:', step1: 'Klicken Sie auf den Button oben', step3: 'Wenn erster Zugang, erstellen Sie Ihr Passwort', subject: `Ihr Zugang zu ${productName} ist bereit` },
+                nl: { title: 'Toegang verleend', greeting: 'Hallo', body: 'Goed nieuws! U heeft nu toegang tot:', button: appSlug ? 'App-toegang' : 'Ledengebied', instructions: 'Toegangsinstructies:', step1: 'Klik op de knop hierboven', step3: 'Als dit uw eerste toegang is, maak dan uw wachtwoord aan', subject: `Uw toegang tot ${productName} is klaar` },
+            }
+            const normalizedLang = (appLanguage || 'en').toLowerCase().replace('pt-br', 'pt') as EmailLang
+            const lang = emailI18n[normalizedLang] || emailI18n['en']
+
+            const html = `<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto"><div style="background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);padding:40px;text-align:center;border-radius:8px 8px 0 0"><h1 style="color:white;margin:0;font-size:28px">${lang.title}</h1></div><div style="background:#f9fafb;padding:40px;border-radius:0 0 8px 8px"><p style="color:#333;font-size:16px">${lang.greeting} <strong>${customer.full_name || customer.email}</strong>,</p><p style="color:#666;font-size:14px;line-height:1.6">${lang.body}</p><div style="background:white;padding:20px;border-radius:8px;margin:20px 0;border-left:4px solid #667eea"><p style="color:#333;font-size:14px;margin-bottom:10px"><strong>${productName}</strong></p>${productsHtml}</div>${loginUrl ? `<div style="margin:30px 0;text-align:center"><a href="${loginUrl}" style="background:#667eea;color:white;padding:14px 32px;text-decoration:none;border-radius:6px;display:inline-block;font-weight:bold;font-size:16px">${lang.button}</a></div>${downloadLink ? `<div style="margin:15px 0;text-align:center"><a href="${downloadLink}" style="background:white;color:#667eea;border:2px solid #667eea;padding:12px 28px;text-decoration:none;border-radius:6px;display:inline-block;font-weight:bold;font-size:14px">Download App</a></div>` : ''}` : ''}<div style="background:#f3f4f6;padding:15px;border-radius:6px;margin-top:20px"><p style="color:#666;font-size:13px;margin:0"><strong>${lang.instructions}</strong><br>1. ${lang.step1}<br>2. Email: <strong>${customer.email}</strong><br>3. ${lang.step3}${customer.phone ? `<br>4. ${customer.phone}` : ''}</p></div></div></div>`
 
             const res = await fetch(`https://api.clicknich.com/api/send-email`, {
                 method: 'POST',
                 headers: { 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'Content-Type': 'application/json', 'apikey': SUPABASE_ANON_KEY },
-                body: JSON.stringify({ to: customer.email, subject: `Your access to ${productName} is ready`, html, customer_name: customer.full_name || customer.email })
+                body: JSON.stringify({ to: customer.email, subject: lang.subject, html, customer_name: customer.full_name || customer.email })
             })
             const result = await res.json()
             if (!res.ok) throw new Error(result.error || 'Failed to send email')

@@ -3,6 +3,7 @@ export interface App {
     name: string
     owner_id?: string
     slug?: string
+    language?: string
     android_url?: string
     ios_url?: string
 }
