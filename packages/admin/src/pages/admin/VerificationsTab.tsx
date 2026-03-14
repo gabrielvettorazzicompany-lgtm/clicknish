@@ -45,7 +45,7 @@ export function VerificationsTab({ userId, onCountChange }: { userId: string; on
                 const d = await res.json()
                 const list = d.verifications || []
                 setVerifications(list)
-                onCountChange?.(list.length)
+                onCountChange?.(list.filter((v: any) => v.verification_status === 'pending').length)
             }
         } catch (e) { console.error(e) } finally { setLoading(false) }
     }

@@ -24,7 +24,7 @@ export default function SuperAdmin() {
         if (!user?.id) return
         adminFetch('/bank-verifications', user.id)
             .then(r => r.ok ? r.json() : null)
-            .then(d => { if (d) setVerifyCount((d.verifications || []).length) })
+            .then(d => { if (d) setVerifyCount((d.verifications || []).filter((v: any) => v.verification_status === 'pending').length) })
         adminFetch('/all-apps', user.id)
             .then(r => r.ok ? r.json() : null)
             .then(d => { if (d) setPendingCount((d.apps || []).filter((a: any) => a.review_status === 'pending_review').length) })
