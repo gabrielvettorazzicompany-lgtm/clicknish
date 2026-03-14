@@ -499,7 +499,7 @@ export function useCustomers() {
                   <td style="background:#f8fafc;border:1px solid #e5e7eb;border-radius:8px;padding:20px;">
                     <p style="color:#111827;font-size:14px;font-weight:bold;margin:0 0 8px;">${lang.supportTitle}</p>
                     <p style="color:#6b7280;font-size:13px;margin:0 0 12px;line-height:1.6;">${lang.supportBody}</p>
-                    <p style="color:#374151;font-size:13px;margin:0 0 12px;">${lang.supportLabel} <a href="mailto:suporte@clicknich.com" style="color:#667eea;text-decoration:none;font-weight:500;">suporte@clicknich.com</a></p>
+                    <p style="color:#374151;font-size:13px;margin:0 0 12px;">${lang.supportLabel} <a href="mailto:support@clicknich.com" style="color:#667eea;text-decoration:none;font-weight:500;">support@clicknich.com</a></p>
                     <p style="color:#6b7280;font-size:12px;margin:0;line-height:1.6;">${lang.supportNote}</p>
                   </td>
                 </tr>
@@ -524,7 +524,7 @@ export function useCustomers() {
 </body>
 </html>`
 
-            const text = `${lang.greeting} ${customer.full_name || customer.email},\n\n${lang.body}\n\n${productName}\n\n${lang.instructions}\n1. ${lang.step1}\n2. Email: ${customer.email}\n3. ${lang.step3}${customer.phone ? `\n4. ${customer.phone}` : ''}\n\n${loginUrl ? `${lang.button}: ${loginUrl}\n\n` : ''}${lang.supportTitle}\n${lang.supportBody}\n${lang.supportLabel} suporte@clicknich.com\n\n${lang.guaranteeTitle}\n${lang.guaranteeBody}\n\n© ${new Date().getFullYear()} ClickNich.`
+            const text = `${lang.greeting} ${customer.full_name || customer.email},\n\n${lang.body}\n\n${productName}\n\n${lang.instructions}\n1. ${lang.step1}\n2. Email: ${customer.email}\n3. ${lang.step3}${customer.phone ? `\n4. ${customer.phone}` : ''}\n\n${loginUrl ? `${lang.button}: ${loginUrl}\n\n` : ''}${lang.supportTitle}\n${lang.supportBody}\n${lang.supportLabel} support@clicknich.com\n\n${lang.guaranteeTitle}\n${lang.guaranteeBody}\n\n© ${new Date().getFullYear()} ClickNich.`
 
             const res = await fetch(`https://api.clicknich.com/api/send-email`, {
                 method: 'POST',
