@@ -32,7 +32,7 @@ export function useCustomers() {
     const [reloading, setReloading] = useState(false)
     const [saving, setSaving] = useState(false)
     const [error, setError] = useState<string | null>(null)
-    const [selectedApp, setSelectedApp] = useState<string>('')
+    const [selectedApp, setSelectedApp] = useState<string>(ALL_ITEMS_ID)
     const [selectedMarketplace, setSelectedMarketplace] = useState<string>('')
     const [combinedItems, setCombinedItems] = useState<CombinedItem[]>([])
     const [showModal, setShowModal] = useState(false)
@@ -63,11 +63,17 @@ export function useCustomers() {
             ...marketplaceProducts.map(p => ({ id: p.id, name: p.name, type: 'marketplace' as const }))
         ]
         setCombinedItems(combined)
+        // Quando os dados carregam e o filtro é "Todos", buscar todos automaticamente
+        if (selectedApp === ALL_ITEMS_ID && combined.length > 0) {
+            fetchAllCustomers()
+        }
     }, [apps, marketplaceProducts])
 
     useEffect(() => {
         if (selectedApp === ALL_ITEMS_ID) {
-            fetchAllCustomers()
+            if (apps.length > 0 || marketplaceProducts.length > 0) {
+                fetchAllCustomers()
+            }
             setProducts([])
         } else if (selectedApp) {
             fetchCustomers(selectedApp, 'app')
