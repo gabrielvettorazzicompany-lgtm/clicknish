@@ -1,6 +1,8 @@
-import { Suspense, lazy } from 'react'
+import { Suspense, lazy, useEffect } from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import SuperAdminRoute from '@/components/SuperAdminRoute'
+import { useAuthStore } from '@/stores/authStore'
+import { supabase } from '@/services/supabase'
 
 const SuperAdminLogin = lazy(() => import('@/pages/admin/SuperAdminLogin'))
 const SuperAdminForgotPassword = lazy(() => import('@/pages/admin/SuperAdminForgotPassword'))
@@ -14,6 +16,22 @@ const Loader = () => (
 )
 
 export default function App() {
+    const { setUser, setLoading } = useAuthStore()
+
+    useEffect(() => {
+        supabase.auth.getSession().then(({ data: { session } }) => {
+            setUser(session?.user ?? null)
+            setLoading(false)
+        })
+
+        const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+            setUser(session?.user ?? null)
+            setLoading(false)
+        })
+
+        return () => subscription.unsubscribe()
+    }, [])
+
     return (
         <BrowserRouter>
             <Suspense fallback={<Loader />}>
