@@ -1285,13 +1285,21 @@ export async function handleSuperadmin(request: Request, env: any, pathSegments:
         if (request.method === 'GET' && pathSegments[0] === 'users-plans') {
             const search = url.searchParams.get('search') || ''
             const plan = url.searchParams.get('plan') || ''
-            let query = supabase.from('profiles').select('id, email, name, plan, created_at, updated_at', { count: 'exact' })
-            if (search) query = query.or(`email.ilike.%${search}%,name.ilike.%${search}%`)
+            let query = supabase.from('admin_profiles').select('user_id, full_name, plan, created_at, updated_at', { count: 'exact' })
+            if (search) query = (query as any).ilike('full_name', `%${search}%`)
             if (plan) query = query.eq('plan', plan)
             query = query.order('created_at', { ascending: false }).limit(200)
-            const { data, count, error } = await query
+            const { data: rawData, count, error } = await query
             if (error) throw error
-            return new Response(JSON.stringify({ users: data || [], total: count || 0 }), {
+            // Enrich with auth user email
+            const data = await Promise.all((rawData || []).map(async (p: any) => {
+                try {
+                    const { data: au } = await supabase.auth.admin.getUserById(p.user_id)
+                    return { id: p.user_id, name: p.full_name || au?.user?.email || 'N/A', email: au?.user?.email || 'N/A', plan: p.plan || 'free', created_at: p.created_at, updated_at: p.updated_at }
+                } catch { return { id: p.user_id, name: p.full_name || 'N/A', email: 'N/A', plan: p.plan || 'free', created_at: p.created_at, updated_at: p.updated_at } }
+            }))
+            if (search) { const q = search.toLowerCase(); const filtered = data.filter((u: any) => u.email.toLowerCase().includes(q) || u.name.toLowerCase().includes(q)); return new Response(JSON.stringify({ users: filtered, total: filtered.length }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }) }
+            return new Response(JSON.stringify({ users: data, total: count || 0 }), {
                 headers: { ...corsHeaders, 'Content-Type': 'application/json' }
             })
         }
@@ -1305,7 +1313,7 @@ export async function handleSuperadmin(request: Request, env: any, pathSegments:
             if (!validPlans.includes(plan)) {
                 return new Response(JSON.stringify({ error: 'Plano inválido' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
             }
-            const { error } = await supabase.from('profiles').update({ plan, updated_at: new Date().toISOString() }).eq('id', targetId)
+            const { error } = await supabase.from('admin_profiles').update({ plan, updated_at: new Date().toISOString() }).eq('user_id', targetId)
             if (error) throw error
             // Log history
             await supabase.from('plan_change_history').insert({
@@ -1400,12 +1408,12 @@ export async function handleSuperadmin(request: Request, env: any, pathSegments:
             if (error) throw error
 
             // If broadcasting to all or a plan, insert notifications for matching users
-            let profileQuery = supabase.from('profiles').select('id')
+            let profileQuery = supabase.from('admin_profiles').select('user_id')
             if (!target_all && target_plan) profileQuery = profileQuery.eq('plan', target_plan)
             const { data: profiles } = await profileQuery
             if (profiles && profiles.length > 0) {
                 const notifications = profiles.map((p: any) => ({
-                    user_id: p.id, type: 'admin_broadcast',
+                    user_id: p.user_id, type: 'admin_broadcast',
                     title, message, read: false,
                     metadata: { broadcast_id: data.id, broadcast_type: type || 'info' }
                 }))
