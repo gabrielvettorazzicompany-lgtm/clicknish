@@ -126,13 +126,59 @@ export function buildAccessEmailHtml(opts: {
     productsHtml: string
     loginUrl: string
     accentColor?: string
-}): { subject: string; html: string } {
+}): { subject: string; html: string; text: string } {
     const { lang, customerName, customerEmail, productName, productsHtml, loginUrl, accentColor = '#667eea' } = opts
     const i18n = accessEmailI18n[lang]
 
     const subject = i18n.subject(productName)
 
-    const html = `<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto"><div style="background:linear-gradient(135deg,${accentColor} 0%,#764ba2 100%);padding:40px;text-align:center;border-radius:8px 8px 0 0"><h1 style="color:white;margin:0;font-size:28px">${i18n.title}</h1></div><div style="background:#f9fafb;padding:40px;border-radius:0 0 8px 8px"><p style="color:#333;font-size:16px">${i18n.greeting} <strong>${customerName || customerEmail}</strong>,</p><p style="color:#666;font-size:14px;line-height:1.6">${i18n.body}</p><div style="background:white;padding:20px;border-radius:8px;margin:20px 0;border-left:4px solid ${accentColor}"><p style="color:#333;font-size:14px;margin-bottom:10px"><strong>${productName}</strong></p>${productsHtml}</div>${loginUrl ? `<div style="margin:30px 0;text-align:center"><a href="${loginUrl}" style="background:${accentColor};color:white;padding:14px 32px;text-decoration:none;border-radius:6px;display:inline-block;font-weight:bold;font-size:16px">${i18n.buttonText}</a></div>` : ''}<div style="background:#f3f4f6;padding:15px;border-radius:6px;margin-top:20px"><p style="color:#666;font-size:13px;margin:0"><strong>${i18n.instructionsTitle}</strong><br>1. ${i18n.instructionStep1}<br>2. ${i18n.instructionStep2(customerEmail)}<br>3. ${i18n.instructionStep3}</p></div><div style="margin-top:32px;padding-top:20px;border-top:1px solid #e5e7eb;text-align:center"><a href="${loginUrl}" style="color:#9ca3af;font-size:11px;text-decoration:underline">${i18n.refundText}</a></div></div></div>`
+    const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>${subject}</title>
+</head>
+<body style="margin:0;padding:0;background-color:#f3f4f6;font-family:Arial,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#f3f4f6;padding:40px 20px;">
+    <tr>
+      <td align="center">
+        <table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;">
+          <tr>
+            <td style="background:linear-gradient(135deg,${accentColor} 0%,#764ba2 100%);padding:40px;text-align:center;border-radius:8px 8px 0 0;">
+              <h1 style="color:white;margin:0;font-size:28px;font-weight:bold;">${i18n.title}</h1>
+            </td>
+          </tr>
+          <tr>
+            <td style="background:#f9fafb;padding:40px;border-radius:0 0 8px 8px;">
+              <p style="color:#333;font-size:16px;margin:0 0 16px;">${i18n.greeting} <strong>${customerName || customerEmail}</strong>,</p>
+              <p style="color:#666;font-size:14px;line-height:1.6;margin:0 0 16px;">${i18n.body}</p>
+              <div style="background:white;padding:20px;border-radius:8px;margin:20px 0;border-left:4px solid ${accentColor};">
+                <p style="color:#333;font-size:14px;margin:0 0 10px;"><strong>${productName}</strong></p>
+                ${productsHtml}
+              </div>
+              ${loginUrl ? `<div style="margin:30px 0;text-align:center;"><a href="${loginUrl}" style="background:${accentColor};color:white;padding:14px 32px;text-decoration:none;border-radius:6px;display:inline-block;font-weight:bold;font-size:16px;">${i18n.buttonText}</a></div>` : ''}
+              <div style="background:#f3f4f6;padding:15px;border-radius:6px;margin-top:20px;">
+                <p style="color:#666;font-size:13px;margin:0;">
+                  <strong>${i18n.instructionsTitle}</strong><br>
+                  1. ${i18n.instructionStep1}<br>
+                  2. ${i18n.instructionStep2(customerEmail)}<br>
+                  3. ${i18n.instructionStep3}
+                </p>
+              </div>
+              <div style="margin-top:32px;padding-top:20px;border-top:1px solid #e5e7eb;text-align:center;">
+                <p style="color:#9ca3af;font-size:11px;margin:0;">© ${new Date().getFullYear()} ClickNich. All rights reserved.</p>
+              </div>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`
 
-    return { subject, html }
+    const text = `${i18n.greeting} ${customerName || customerEmail},\n\n${i18n.body}\n\n${productName}\n\n${i18n.instructionsTitle}\n1. ${i18n.instructionStep1}\n2. ${customerEmail}\n3. ${i18n.instructionStep3}\n\n${loginUrl ? `${i18n.buttonText}: ${loginUrl}\n\n` : ''}© ${new Date().getFullYear()} ClickNich.`
+
+    return { subject, html, text }
 }

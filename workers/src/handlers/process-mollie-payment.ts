@@ -768,7 +768,7 @@ async function sendMollieAccessEmail(
 ) {
     try {
         const lang = appLangToEmailLang(appLanguage)
-        const { subject, html } = buildAccessEmailHtml({
+        const { subject, html, text } = buildAccessEmailHtml({
             lang,
             customerName: customerName || customerEmail,
             customerEmail,
@@ -782,10 +782,11 @@ async function sendMollieAccessEmail(
             method: 'POST',
             headers: { 'Authorization': `Bearer ${env.RESEND_API_KEY}`, 'Content-Type': 'application/json' },
             body: JSON.stringify({
-                from: env.RESEND_FROM || 'noreply@clicknich.com',
+                from: env.RESEND_FROM || 'ClickNich <noreply@clicknich.com>',
                 to: customerEmail,
                 subject,
                 html,
+                text,
             }),
         })
     } catch (e: any) {

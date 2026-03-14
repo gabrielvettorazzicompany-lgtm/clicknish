@@ -11,7 +11,7 @@ export async function handleSendEmail(request: Request, env: any): Promise<Respo
     }
 
     try {
-        const { to, subject, html, customer_name } = await request.json()
+        const { to, subject, html, text, customer_name } = await request.json()
 
         if (!to || !subject || !html) {
             return new Response(
@@ -49,6 +49,7 @@ export async function handleSendEmail(request: Request, env: any): Promise<Respo
                 to: to,
                 subject: subject,
                 html: html,
+                ...(text ? { text } : {}),
             }),
         })
 

@@ -1141,7 +1141,7 @@ async function sendAccessEmail(
         }
 
         const lang = appLangToEmailLang(appLanguage)
-        const { subject, html } = buildAccessEmailHtml({
+        const { subject, html, text } = buildAccessEmailHtml({
             lang,
             customerName: customerName || customerEmail,
             customerEmail,
@@ -1157,10 +1157,11 @@ async function sendAccessEmail(
                 'Content-Type': 'application/json',
             },
             body: JSON.stringify({
-                from: env.RESEND_FROM || 'noreply@clicknich.com',
+                from: env.RESEND_FROM || 'ClickNich <noreply@clicknich.com>',
                 to: customerEmail,
                 subject,
                 html,
+                text,
             }),
         })
 
@@ -1275,7 +1276,7 @@ async function sendCompleteAccessEmail(
         })
 
         const lang = appLangToEmailLang(appLanguage)
-        const { subject, html } = buildAccessEmailHtml({
+        const { subject, html, text } = buildAccessEmailHtml({
             lang,
             customerName: customerName || customerEmail,
             customerEmail,
@@ -1290,7 +1291,7 @@ async function sendCompleteAccessEmail(
             return
         }
 
-        const fromAddress = env.RESEND_FROM || 'noreply@clicknich.com'
+        const fromAddress = env.RESEND_FROM || 'ClickNich <noreply@clicknich.com>'
 
         const emailResponse = await fetch('https://api.resend.com/emails', {
             method: 'POST',
@@ -1303,6 +1304,7 @@ async function sendCompleteAccessEmail(
                 to: customerEmail,
                 subject: subject,
                 html: html,
+                text: text,
             }),
         })
 

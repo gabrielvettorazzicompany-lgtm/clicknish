@@ -460,12 +460,58 @@ export function useCustomers() {
             const normalizedLang = (appLanguage || 'en').toLowerCase().replace('pt-br', 'pt') as EmailLang
             const lang = emailI18n[normalizedLang] || emailI18n['en']
 
-            const html = `<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto"><div style="background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);padding:40px;text-align:center;border-radius:8px 8px 0 0"><h1 style="color:white;margin:0;font-size:28px">${lang.title}</h1></div><div style="background:#f9fafb;padding:40px;border-radius:0 0 8px 8px"><p style="color:#333;font-size:16px">${lang.greeting} <strong>${customer.full_name || customer.email}</strong>,</p><p style="color:#666;font-size:14px;line-height:1.6">${lang.body}</p><div style="background:white;padding:20px;border-radius:8px;margin:20px 0;border-left:4px solid #667eea"><p style="color:#333;font-size:14px;margin-bottom:10px"><strong>${productName}</strong></p>${productsHtml}</div>${loginUrl ? `<div style="margin:30px 0;text-align:center"><a href="${loginUrl}" style="background:#667eea;color:white;padding:14px 32px;text-decoration:none;border-radius:6px;display:inline-block;font-weight:bold;font-size:16px">${lang.button}</a></div>${downloadLink ? `<div style="margin:15px 0;text-align:center"><a href="${downloadLink}" style="background:white;color:#667eea;border:2px solid #667eea;padding:12px 28px;text-decoration:none;border-radius:6px;display:inline-block;font-weight:bold;font-size:14px">Download App</a></div>` : ''}` : ''}<div style="background:#f3f4f6;padding:15px;border-radius:6px;margin-top:20px"><p style="color:#666;font-size:13px;margin:0"><strong>${lang.instructions}</strong><br>1. ${lang.step1}<br>2. Email: <strong>${customer.email}</strong><br>3. ${lang.step3}${customer.phone ? `<br>4. ${customer.phone}` : ''}</p></div></div></div>`
+            const html = `<!DOCTYPE html>
+<html lang="${normalizedLang}">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>${lang.subject}</title>
+</head>
+<body style="margin:0;padding:0;background-color:#f3f4f6;font-family:Arial,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#f3f4f6;padding:40px 20px;">
+    <tr>
+      <td align="center">
+        <table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;">
+          <tr>
+            <td style="background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);padding:40px;text-align:center;border-radius:8px 8px 0 0;">
+              <h1 style="color:white;margin:0;font-size:28px;font-weight:bold;">${lang.title}</h1>
+            </td>
+          </tr>
+          <tr>
+            <td style="background:#f9fafb;padding:40px;border-radius:0 0 8px 8px;">
+              <p style="color:#333;font-size:16px;margin:0 0 16px;">${lang.greeting} <strong>${customer.full_name || customer.email}</strong>,</p>
+              <p style="color:#666;font-size:14px;line-height:1.6;margin:0 0 16px;">${lang.body}</p>
+              <div style="background:white;padding:20px;border-radius:8px;margin:20px 0;border-left:4px solid #667eea;">
+                <p style="color:#333;font-size:14px;margin:0 0 10px;"><strong>${productName}</strong></p>
+                ${productsHtml}
+              </div>
+              ${loginUrl ? `<div style="margin:30px 0;text-align:center;"><a href="${loginUrl}" style="background:#667eea;color:white;padding:14px 32px;text-decoration:none;border-radius:6px;display:inline-block;font-weight:bold;font-size:16px;">${lang.button}</a></div>${downloadLink ? `<div style="margin:15px 0;text-align:center;"><a href="${downloadLink}" style="background:white;color:#667eea;border:2px solid #667eea;padding:12px 28px;text-decoration:none;border-radius:6px;display:inline-block;font-weight:bold;font-size:14px;">Download App</a></div>` : ''}` : ''}
+              <div style="background:#f3f4f6;padding:15px;border-radius:6px;margin-top:20px;">
+                <p style="color:#666;font-size:13px;margin:0;">
+                  <strong>${lang.instructions}</strong><br>
+                  1. ${lang.step1}<br>
+                  2. Email: <strong>${customer.email}</strong><br>
+                  3. ${lang.step3}${customer.phone ? `<br>4. ${customer.phone}` : ''}
+                </p>
+              </div>
+              <div style="margin-top:32px;padding-top:20px;border-top:1px solid #e5e7eb;text-align:center;">
+                <p style="color:#9ca3af;font-size:11px;margin:0;">© ${new Date().getFullYear()} ClickNich. All rights reserved.</p>
+              </div>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`
+
+            const text = `${lang.greeting} ${customer.full_name || customer.email},\n\n${lang.body}\n\n${productName}\n\n${lang.instructions}\n1. ${lang.step1}\n2. Email: ${customer.email}\n3. ${lang.step3}${customer.phone ? `\n4. ${customer.phone}` : ''}\n\n${loginUrl ? `${lang.button}: ${loginUrl}\n\n` : ''}© ${new Date().getFullYear()} ClickNich.`
 
             const res = await fetch(`https://api.clicknich.com/api/send-email`, {
                 method: 'POST',
                 headers: { 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'Content-Type': 'application/json', 'apikey': SUPABASE_ANON_KEY },
-                body: JSON.stringify({ to: customer.email, subject: lang.subject, html, customer_name: customer.full_name || customer.email })
+                body: JSON.stringify({ to: customer.email, subject: lang.subject, html, text, customer_name: customer.full_name || customer.email })
             })
             const result = await res.json()
             if (!res.ok) throw new Error(result.error || 'Failed to send email')

@@ -115,6 +115,7 @@ export async function handleSendConfirmationEmail(request: Request, env: Env): P
         from: fromAddress,
         to: email,
         subject: i18n.subject,
+        text: `${i18n.greeting} ${fullName},\n\n${i18n.body}\n\n${i18n.button}: ${confirmationUrl}\n\n${i18n.ignore}\n\n© ${new Date().getFullYear()} ClickNich.`,
         html: `<!DOCTYPE html>
 <html>
   <head>

@@ -196,7 +196,7 @@ export async function handleRequestPasswordReset(request: Request, env: any): Pr
   </body>
 </html>`
 
-        const fromAddress = env.RESEND_FROM || 'noreply@clicknich.com'
+        const fromAddress = env.RESEND_FROM || 'ClickNich <noreply@clicknich.com>'
 
         const response = await fetch('https://api.resend.com/emails', {
             method: 'POST',
@@ -204,7 +204,7 @@ export async function handleRequestPasswordReset(request: Request, env: any): Pr
                 'Authorization': `Bearer ${resendApiKey}`,
                 'Content-Type': 'application/json',
             },
-            body: JSON.stringify({ from: fromAddress, to: email, subject, html }),
+            body: JSON.stringify({ from: fromAddress, to: email, subject, html, text: `${i18n.greeting}\n\n${i18n.body}\n\n${i18n.button}: ${resetUrl}\n\n${i18n.expire}\n\n${i18n.ignore}` }),
         })
 
         if (!response.ok) {
