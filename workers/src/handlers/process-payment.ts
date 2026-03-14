@@ -49,7 +49,7 @@ async function resolveStripeKey(supabase: any, ownerId: string | null): Promise<
         .maybeSingle()
     const globalKey = globalProvider?.credentials?.secret_key || globalProvider?.credentials?.api_key
     if (globalKey) {
-        console.log(`[resolveStripeKey] Using global default provider for owner ${ownerId}`)
+
         return globalKey
     }
 

@@ -228,15 +228,15 @@ export default function CheckoutRedirectConfig({ funnelId, pageId, onUpdate, onS
                         <option value="_custom">{t('funnel_components.checkout_redirect.custom_url')}</option>
                     </select>
 
-                    {/* Custom URL input - hide when login URL is selected */}
-                    {!settings.post_purchase_page_id && settings.post_purchase_redirect_url !== undefined && !(loginUrl && settings.post_purchase_redirect_url === loginUrl) && (
+                    {/* Custom URL input */}
+                    {!settings.post_purchase_page_id && settings.post_purchase_redirect_url !== undefined && (
                         <div className="mt-1.5 relative">
                             <Link2 size={12} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-zinc-500" />
                             <input
                                 type="url"
                                 value={settings.post_purchase_redirect_url || ''}
                                 onChange={(e) => {
-                                    const next = { ...settings, post_purchase_redirect_url: e.target.value || undefined }
+                                    const next = { ...settings, post_purchase_redirect_url: e.target.value }
                                     setSettings(next)
                                     onSettingsChange?.(next)
                                 }}
