@@ -546,22 +546,25 @@ async function sendPayPalAccessEmail(
 
         let productName = '', loginUrl = ''
         let appLanguage: string | null = null
+        let supportEmail: string | undefined = undefined
         const frontendUrl = env.FRONTEND_URL || 'https://app.clicknich.com'
 
         if (productType === 'app' && applicationId) {
             const { data: appData } = await supabase
-                .from('applications').select('name, slug, language').eq('id', applicationId).single()
+                .from('applications').select('name, slug, language, support_email').eq('id', applicationId).single()
             if (appData) {
                 productName = appData.name
                 loginUrl = `${frontendUrl}/access/${appData.slug || productSlug}`
                 appLanguage = appData.language || null
+                supportEmail = appData.support_email || undefined
             }
         } else {
             const { data: productData } = await supabase
-                .from('marketplace_products').select('name, slug').eq('id', productId).single()
+                .from('marketplace_products').select('name, slug, support_email').eq('id', productId).single()
             if (productData) {
                 productName = productData.name
                 loginUrl = `${frontendUrl}/members-login/${productData.slug || productSlug}`
+                supportEmail = productData.support_email || undefined
             }
         }
 
@@ -576,6 +579,7 @@ async function sendPayPalAccessEmail(
             productsHtml: '',
             loginUrl,
             accentColor: '#0070ba',
+            supportEmail,
         })
 
         await fetch('https://api.resend.com/emails', {

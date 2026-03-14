@@ -499,7 +499,7 @@ async function grantMollieAccess(
             const selectedBumpIds: string[] = Array.isArray(selectedOrderBumps) ? selectedOrderBumps : []
 
             const [appRes, appUserRes, appProdsRes, orderBumpsRes, funnelPageRes] = await Promise.all([
-                supabase.from('applications').select('name, slug, language, owner_id').eq('id', applicationId || productId).single(),
+                supabase.from('applications').select('name, slug, language, owner_id, support_email').eq('id', applicationId || productId).single(),
                 supabase.from('app_users').select('user_id').eq('email', customerEmail).eq('application_id', applicationId).maybeSingle(),
                 supabase.from('products').select('id').eq('application_id', applicationId),
                 // Todos os order bumps do checkout (para saber quais excluir do acesso principal)
@@ -568,7 +568,7 @@ async function grantMollieAccess(
                 // Enviar email com password reset link (para cliente criar sua própria senha)
                 if (env.RESEND_API_KEY) {
                     const loginUrl = `${frontendUrl}/access/${app.slug || applicationId}`
-                    await sendMollieAccessEmail(env, customerEmail, customerName, app.name, loginUrl, app.language)
+                    await sendMollieAccessEmail(env, customerEmail, customerName, app.name, loginUrl, app.language, app.support_email)
                 }
             }
 
@@ -668,7 +668,7 @@ async function grantMollieAccess(
             // ═══════════════════════════════════════════════════════
         } else {
             const [prodRes, memberRes] = await Promise.all([
-                supabase.from('marketplace_products').select('name, slug, owner_id').eq('id', productId).single(),
+                supabase.from('marketplace_products').select('name, slug, owner_id, support_email').eq('id', productId).single(),
                 supabase.from('member_profiles').select('id').eq('email', customerEmail).eq('product_id', productId).maybeSingle(),
             ])
 
@@ -716,7 +716,7 @@ async function grantMollieAccess(
                 // Email de boas-vindas para marketplace
                 if (env.RESEND_API_KEY && !(memberRes as any).data?.id) {
                     const loginUrl = `${frontendUrl}/members-login/${product.slug || productId}`
-                    await sendMollieAccessEmail(env, customerEmail, customerName, product.name, loginUrl, null)
+                    await sendMollieAccessEmail(env, customerEmail, customerName, product.name, loginUrl, null, product.support_email)
                 }
             }
 
@@ -765,6 +765,7 @@ async function sendMollieAccessEmail(
     productName: string,
     loginUrl: string,
     appLanguage: string | null | undefined,
+    supportEmail?: string,
 ) {
     try {
         const lang = appLangToEmailLang(appLanguage)
@@ -776,6 +777,7 @@ async function sendMollieAccessEmail(
             productsHtml: '',
             loginUrl,
             accentColor: '#ff6b35',
+            supportEmail,
         })
 
         await fetch('https://api.resend.com/emails', {

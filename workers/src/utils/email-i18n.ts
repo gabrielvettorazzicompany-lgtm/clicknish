@@ -20,6 +20,8 @@ interface AccessEmailI18n {
   supportBody: string
   supportLabel: string
   supportNote: string
+  producerSupportTitle: string
+  producerSupportLabel: string
   guaranteeTitle: string
   guaranteeBody: string
 }
@@ -40,6 +42,8 @@ const accessEmailI18n: Record<EmailLang, AccessEmailI18n> = {
     supportBody: 'Se tiver qualquer problema para acessar ou usar o produto, nossa equipe de suporte está disponível para ajudar.',
     supportLabel: 'Suporte:',
     supportNote: 'Antes de contatar o seu banco, por favor escreva para o nosso suporte para que possamos resolver qualquer problema rapidamente.',
+    producerSupportTitle: 'Dúvidas sobre o conteúdo?',
+    producerSupportLabel: 'Entre em contato diretamente com o produtor:',
     guaranteeTitle: 'Garantia de satisfação',
     guaranteeBody: 'Se o produto não cumprir com suas expectativas, você pode solicitar assistência ou um reembolso dentro do período de garantia. Nossa equipe estará encantada em ajudar.',
   },
@@ -58,6 +62,8 @@ const accessEmailI18n: Record<EmailLang, AccessEmailI18n> = {
     supportBody: 'If you have any trouble accessing or using the product, our support team is available to help.',
     supportLabel: 'Support:',
     supportNote: 'Before contacting your bank, please write to our support team so we can resolve any issue quickly.',
+    producerSupportTitle: 'Questions about the content?',
+    producerSupportLabel: 'Contact the producer directly:',
     guaranteeTitle: 'Satisfaction guarantee',
     guaranteeBody: 'If the product does not meet your expectations, you can request assistance or a refund within the guarantee period. Our team will be happy to help.',
   },
@@ -76,6 +82,8 @@ const accessEmailI18n: Record<EmailLang, AccessEmailI18n> = {
     supportBody: 'Si tienes algún problema para acceder o usar el producto, nuestro equipo de soporte está disponible para ayudarte.',
     supportLabel: 'Soporte:',
     supportNote: 'Antes de contactar a tu banco, por favor escríbenos para que podamos resolver cualquier problema rápidamente.',
+    producerSupportTitle: '¿Preguntas sobre el contenido?',
+    producerSupportLabel: 'Contacta directamente con el productor:',
     guaranteeTitle: 'Garantía de satisfacción',
     guaranteeBody: 'Si el producto no cumple tus expectativas, puedes solicitar asistencia o un reembolso dentro del período de garantía. Nuestro equipo estará encantado de ayudarte.',
   },
@@ -94,6 +102,8 @@ const accessEmailI18n: Record<EmailLang, AccessEmailI18n> = {
     supportBody: 'Si vous avez des difficultés à accéder au produit ou à l\'utiliser, notre équipe d\'assistance est disponible.',
     supportLabel: 'Support :',
     supportNote: 'Avant de contacter votre banque, veuillez nous écrire afin que nous puissions résoudre tout problème rapidement.',
+    producerSupportTitle: 'Des questions sur le contenu ?',
+    producerSupportLabel: 'Contactez directement le producteur :',
     guaranteeTitle: 'Garantie de satisfaction',
     guaranteeBody: 'Si le produit ne répond pas à vos attentes, vous pouvez demander une assistance ou un remboursement dans le délai de garantie.',
   },
@@ -112,6 +122,8 @@ const accessEmailI18n: Record<EmailLang, AccessEmailI18n> = {
     supportBody: 'Bei Problemen mit dem Zugang oder der Nutzung des Produkts steht Ihnen unser Support-Team zur Verfügung.',
     supportLabel: 'Support:',
     supportNote: 'Bitte schreiben Sie uns, bevor Sie Ihre Bank kontaktieren, damit wir das Problem schnell lösen können.',
+    producerSupportTitle: 'Fragen zum Inhalt?',
+    producerSupportLabel: 'Wenden Sie sich direkt an den Anbieter:',
     guaranteeTitle: 'Zufriedenheitsgarantie',
     guaranteeBody: 'Wenn das Produkt Ihre Erwartungen nicht erfüllt, können Sie innerhalb der Garantiezeit Unterstützung oder eine Rückerstattung beantragen.',
   },
@@ -130,6 +142,8 @@ const accessEmailI18n: Record<EmailLang, AccessEmailI18n> = {
     supportBody: 'Als u problemen heeft met het openen of gebruiken van het product, staat ons supportteam voor u klaar.',
     supportLabel: 'Support:',
     supportNote: 'Neem contact met ons op voordat u uw bank benadert, zodat we het probleem snel kunnen oplossen.',
+    producerSupportTitle: 'Vragen over de inhoud?',
+    producerSupportLabel: 'Neem direct contact op met de producent:',
     guaranteeTitle: 'Tevredenheidsgarantie',
     guaranteeBody: 'Als het product niet aan uw verwachtingen voldoet, kunt u binnen de garantietermijn om hulp of terugbetaling vragen.',
   },
@@ -168,8 +182,9 @@ export function buildAccessEmailHtml(opts: {
   productsHtml: string
   loginUrl: string
   accentColor?: string
+  supportEmail?: string
 }): { subject: string; html: string; text: string } {
-  const { lang, customerName, customerEmail, productName, productsHtml, loginUrl, accentColor = '#667eea' } = opts
+  const { lang, customerName, customerEmail, productName, productsHtml, loginUrl, accentColor = '#667eea', supportEmail } = opts
   const i18n = accessEmailI18n[lang]
   const effectiveSupportEmail = 'support@clicknich.com'
 
@@ -201,6 +216,7 @@ export function buildAccessEmailHtml(opts: {
                 ${productsHtml}
               </div>
               ${loginUrl ? `<div style="margin:30px 0;text-align:center;"><a href="${loginUrl}" style="background:${accentColor};color:white;padding:14px 32px;text-decoration:none;border-radius:6px;display:inline-block;font-weight:bold;font-size:16px;">${i18n.buttonText}</a></div>` : ''}
+              ${supportEmail ? `<table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:20px;"><tr><td style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:18px 20px;"><p style="color:#166534;font-size:14px;font-weight:bold;margin:0 0 6px;">${i18n.producerSupportTitle}</p><p style="color:#4b5563;font-size:13px;margin:0 0 10px;">${i18n.producerSupportLabel}</p><a href="mailto:${supportEmail}" style="color:${accentColor};font-size:13px;font-weight:500;text-decoration:none;">&#x2709;&#xFE0F; ${supportEmail}</a></td></tr></table>` : ''}
               <div style="background:#f3f4f6;padding:15px;border-radius:6px;margin-top:20px;">
                 <p style="color:#666;font-size:13px;margin:0;">
                   <strong>${i18n.instructionsTitle}</strong><br>
@@ -239,7 +255,7 @@ export function buildAccessEmailHtml(opts: {
 </body>
 </html>`
 
-  const text = `${i18n.greeting} ${customerName || customerEmail},\n\n${i18n.body}\n\n${productName}\n\n${i18n.instructionsTitle}\n1. ${i18n.instructionStep1}\n2. ${customerEmail}\n3. ${i18n.instructionStep3}\n\n${loginUrl ? `${i18n.buttonText}: ${loginUrl}\n\n` : ''}${i18n.supportTitle}\n${i18n.supportBody}\n${i18n.supportLabel} ${effectiveSupportEmail}\n\n${i18n.guaranteeTitle}\n${i18n.guaranteeBody}\n\n© ${new Date().getFullYear()} ClickNich.`
+  const text = `${i18n.greeting} ${customerName || customerEmail},\n\n${i18n.body}\n\n${productName}\n\n${i18n.instructionsTitle}\n1. ${i18n.instructionStep1}\n2. ${customerEmail}\n3. ${i18n.instructionStep3}\n\n${loginUrl ? `${i18n.buttonText}: ${loginUrl}\n\n` : ''}${supportEmail ? `${i18n.producerSupportTitle}\n${i18n.producerSupportLabel} ${supportEmail}\n\n` : ''}${i18n.supportTitle}\n${i18n.supportBody}\n${i18n.supportLabel} ${effectiveSupportEmail}\n\n${i18n.guaranteeTitle}\n${i18n.guaranteeBody}\n\n© ${new Date().getFullYear()} ClickNich.`
 
   return { subject, html, text }
 }

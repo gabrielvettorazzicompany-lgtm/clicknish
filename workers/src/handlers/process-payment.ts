@@ -1192,6 +1192,7 @@ async function sendCompleteAccessEmail(
 ) {
     try {
         let appName = '', marketplaceName = '', loginUrl = ''
+        let supportEmail: string | undefined = undefined
         const customerProductsList: string[] = []
 
         console.log('sendCompleteAccessEmail DEBUG:', {
@@ -1210,7 +1211,7 @@ async function sendCompleteAccessEmail(
             const [appResult, productsResult] = await Promise.all([
                 supabase
                     .from('applications')
-                    .select('name, slug, language')
+                    .select('name, slug, language, support_email')
                     .eq('id', applicationId)
                     .single(),
                 grantedProductIds.length > 0
@@ -1229,9 +1230,9 @@ async function sendCompleteAccessEmail(
                 appLanguage = appData.language || null
                 loginUrl = `${env.FRONTEND_URL || 'https://app.clicknich.com'}/access/${appData.slug || productSlug}`
                 console.log('✅ App data processed:', { appName, loginUrl })
-            } else {
-                console.log('❌ No app data found')
             }
+
+            supportEmail = appData?.support_email || undefined
 
             // Usar nomes dos módulos que foram AGORA liberados (clientes novos e existentes)
             const productsData = productsResult.data || []
@@ -1244,7 +1245,7 @@ async function sendCompleteAccessEmail(
             // Buscar dados do produto marketplace
             const { data: productData } = await supabase
                 .from('marketplace_products')
-                .select('name, slug')
+                .select('name, slug, support_email')
                 .eq('id', productId)
                 .single()
 
@@ -1254,6 +1255,7 @@ async function sendCompleteAccessEmail(
                 marketplaceName = productData.name
                 loginUrl = `${env.FRONTEND_URL || 'https://app.clicknich.com'}/members-login/${productData.slug || productSlug}`
                 console.log('✅ Marketplace data processed:', { marketplaceName, loginUrl })
+                supportEmail = productData.support_email || undefined
             } else {
                 console.log('❌ No marketplace data found')
             }
@@ -1283,6 +1285,7 @@ async function sendCompleteAccessEmail(
             productName,
             productsHtml,
             loginUrl,
+            supportEmail,
         })
 
         const resendApiKey = env.RESEND_API_KEY
