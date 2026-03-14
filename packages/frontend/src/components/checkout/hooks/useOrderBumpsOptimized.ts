@@ -41,10 +41,31 @@ const normalizeOffer = (item: any): OrderBump => {
     }
 }
 
+// Remove duplicatas por offer_product_id, priorizando o item com mais dados configurados
+const deduplicateOffers = (offers: OrderBump[]): OrderBump[] => {
+    const seen = new Map<string, OrderBump>()
+    for (const offer of offers) {
+        const key = offer.offer_product_id
+        if (!key) continue
+        const existing = seen.get(key)
+        if (!existing) {
+            seen.set(key, offer)
+        } else {
+            // Prefere o item com product_description preenchida (não padrão)
+            const hasDescription = offer.product_description && offer.product_description !== 'Add to purchase'
+            const existingHasDescription = existing.product_description && existing.product_description !== 'Add to purchase'
+            if (hasDescription && !existingHasDescription) {
+                seen.set(key, offer)
+            }
+        }
+    }
+    return Array.from(seen.values())
+}
+
 export const useOrderBumpsOptimized = (checkoutId?: string, productId?: string, initialBumps?: any[]) => {
     // Normaliza initialBumps imediatamente — evita $NaN quando chegam como objetos brutos do Worker
     const [orderBumps, setOrderBumps] = useState<OrderBump[]>(() =>
-        (initialBumps || []).map(normalizeOffer)
+        deduplicateOffers((initialBumps || []).map(normalizeOffer))
     )
     const [selectedBumps, setSelectedBumps] = useState<Set<string>>(new Set())
     const [loading, setLoading] = useState(false)
@@ -144,7 +165,7 @@ export const useOrderBumpsOptimized = (checkoutId?: string, productId?: string, 
                 // Helper: converte valor do Supabase para número seguro (trata PostgreSQL NaN → "NaN")
                 // (toSafeNum e normalizeOffer definidos no topo do módulo)
 
-                const transformedBumps: OrderBump[] = (data || []).map((item: any) => normalizeOffer(item))
+                const transformedBumps: OrderBump[] = deduplicateOffers((data || []).map((item: any) => normalizeOffer(item)))
 
                 // ✅ CACHE: Salvar resultado
                 orderBumpsCache.set(cacheKey, transformedBumps)
