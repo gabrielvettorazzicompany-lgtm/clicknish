@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import SuperAdminRoute from '@/components/SuperAdminRoute'
 import { useAuthStore } from '@/stores/authStore'
 import { supabase } from '@/services/supabase'
+import { I18nProvider } from '@/i18n'
 
 const SuperAdminLogin = lazy(() => import('@/pages/admin/SuperAdminLogin'))
 const SuperAdminForgotPassword = lazy(() => import('@/pages/admin/SuperAdminForgotPassword'))
@@ -33,6 +34,7 @@ export default function App() {
     }, [])
 
     return (
+        <I18nProvider>
         <BrowserRouter>
             <Suspense fallback={<Loader />}>
                 <Routes>
@@ -59,5 +61,6 @@ export default function App() {
                 </Routes>
             </Suspense>
         </BrowserRouter>
+        </I18nProvider>
     )
 }
