@@ -168,11 +168,10 @@ export function buildAccessEmailHtml(opts: {
     productsHtml: string
     loginUrl: string
     accentColor?: string
-    supportEmail?: string
 }): { subject: string; html: string; text: string } {
-    const { lang, customerName, customerEmail, productName, productsHtml, loginUrl, accentColor = '#667eea', supportEmail } = opts
+    const { lang, customerName, customerEmail, productName, productsHtml, loginUrl, accentColor = '#667eea' } = opts
     const i18n = accessEmailI18n[lang]
-    const effectiveSupportEmail = supportEmail || 'suporte@clicknich.com'
+    const effectiveSupportEmail = 'suporte@clicknich.com'
 
     const subject = i18n.subject(productName)
 
