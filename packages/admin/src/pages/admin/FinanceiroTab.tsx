@@ -70,6 +70,24 @@ interface Chargeback {
     status: ChargebackStatus
 }
 
+type AntecipacaoStatus = 'Processando' | 'Aprovado' | 'Rejeitado' | 'Cancelado'
+
+interface Antecipacao {
+    id: string
+    userId: string
+    userName: string
+    userEmail: string
+    amount: number
+    currency: string
+    payoutSchedule: string
+    feePercent: number
+    feeAmount: number
+    netAmount: number
+    status: AntecipacaoStatus
+    requestDate: string
+    notes: string
+}
+
 // ─────────────────────────────────────────────────────────────
 // HELPERS
 // ─────────────────────────────────────────────────────────────
@@ -204,6 +222,24 @@ function CbBadge({ status }: { status: ChargebackStatus }) {
         'Em Análise': 'bg-blue-500/15 text-blue-400 border-blue-500/25',
         Aprovado: 'bg-emerald-500/15 text-emerald-400 border-emerald-500/25',
         Contestado: 'bg-gray-500/15 text-gray-400 border-gray-500/25',
+    }
+    return <span className={`text-[10px] px-2 py-0.5 font-semibold border ${m[status]}`}>{status}</span>
+}
+
+function mapAntStatus(s: string): AntecipacaoStatus {
+    if (s === 'processing') return 'Processando'
+    if (s === 'completed') return 'Aprovado'
+    if (s === 'failed') return 'Rejeitado'
+    if (s === 'cancelled') return 'Cancelado'
+    return 'Processando'
+}
+
+function AntBadge({ status }: { status: AntecipacaoStatus }) {
+    const m: Record<AntecipacaoStatus, string> = {
+        Processando: 'bg-amber-500/15 text-amber-400 border-amber-500/25',
+        Aprovado: 'bg-emerald-500/15 text-emerald-400 border-emerald-500/25',
+        Rejeitado: 'bg-red-500/15 text-red-400 border-red-500/25',
+        Cancelado: 'bg-gray-500/15 text-gray-400 border-gray-500/25',
     }
     return <span className={`text-[10px] px-2 py-0.5 font-semibold border ${m[status]}`}>{status}</span>
 }
@@ -436,16 +472,18 @@ export function FinanceiroTab() {
     const [page, setPage] = useState(1)
     const [sortField, setSortField] = useState<keyof Transaction>('date')
     const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc')
-    const [section, setSection] = useState<'transactions' | 'withdrawals' | 'chargebacks'>('transactions')
+    const [section, setSection] = useState<'transactions' | 'withdrawals' | 'chargebacks' | 'produtores' | 'antecipacoes'>('transactions')
     const [selectedWds, setSelectedWds] = useState<Set<string>>(new Set())
 
     // Real data
     const [transactions, setTransactions] = useState<Transaction[]>([])
     const [withdrawals, setWithdrawals] = useState<Withdrawal[]>([])
     const [chargebacks] = useState<Chargeback[]>([])
+    const [anticipations, setAnticipations] = useState<Antecipacao[]>([])
     const [financialData, setFinancialData] = useState<any>(null)
     const [loadingTx, setLoadingTx] = useState(true)
     const [loadingWd, setLoadingWd] = useState(true)
+    const [loadingAnt, setLoadingAnt] = useState(true)
 
     // Modals
     const [releaseModal, setReleaseModal] = useState<{
@@ -545,11 +583,66 @@ export function FinanceiroTab() {
         } catch (e) { console.error('[FinanceiroTab] fetchFinancial', e) }
     }, [adminHeaders])
 
+    const fetchAnticipations = useCallback(async () => {
+        setLoadingAnt(true)
+        try {
+            const res = await fetch(`${API_BASE}/anticipations?limit=100`, { headers: adminHeaders })
+            if (!res.ok) return
+            const json = await res.json()
+            const mapped: Antecipacao[] = (json.data || []).map((a: any) => ({
+                id: a.id,
+                userId: a.user_id || '',
+                userName: a.user_email ? a.user_email.split('@')[0] : '—',
+                userEmail: a.user_email || '—',
+                amount: a.amount || 0,
+                currency: a.currency || 'BRL',
+                payoutSchedule: a.payout_schedule || 'D+5',
+                feePercent: a.fee_percentage || 0,
+                feeAmount: a.fee_amount || 0,
+                netAmount: a.net_amount || 0,
+                status: mapAntStatus(a.status || ''),
+                requestDate: a.created_at ? new Date(a.created_at).toLocaleString('pt-BR') : '—',
+                notes: a.notes || '',
+            }))
+            setAnticipations(mapped)
+        } catch (e) { console.error('[FinanceiroTab] fetchAnticipations', e) }
+        finally { setLoadingAnt(false) }
+    }, [adminHeaders])
+
+    const approveAnt = async (id: string) => {
+        try {
+            const res = await fetch(`${API_BASE}/anticipations/${id}`, {
+                method: 'PATCH',
+                headers: adminHeaders,
+                body: JSON.stringify({ status: 'completed' }),
+            })
+            if (res.ok) {
+                setAnticipations(prev => prev.map(a => a.id === id ? { ...a, status: 'Aprovado' as AntecipacaoStatus } : a))
+                toast('Antecipação aprovada!')
+            } else { toast('Erro ao aprovar antecipação.', false) }
+        } catch { toast('Erro ao aprovar antecipação.', false) }
+    }
+
+    const rejectAnt = async (id: string) => {
+        try {
+            const res = await fetch(`${API_BASE}/anticipations/${id}`, {
+                method: 'PATCH',
+                headers: adminHeaders,
+                body: JSON.stringify({ status: 'cancelled' }),
+            })
+            if (res.ok) {
+                setAnticipations(prev => prev.map(a => a.id === id ? { ...a, status: 'Cancelado' as AntecipacaoStatus } : a))
+                toast('Antecipação cancelada.')
+            } else { toast('Erro ao cancelar antecipação.', false) }
+        } catch { toast('Erro ao cancelar antecipação.', false) }
+    }
+
     useEffect(() => {
         fetchTransactions()
         fetchWithdrawals()
         fetchFinancial()
-    }, [fetchTransactions, fetchWithdrawals, fetchFinancial])
+        fetchAnticipations()
+    }, [fetchTransactions, fetchWithdrawals, fetchFinancial, fetchAnticipations])
 
     // ── Lista de produtores únicos das transações ────────────
     const producerList = useMemo(() => {
@@ -558,7 +651,53 @@ export function FinanceiroTab() {
         return Array.from(map.entries()).map(([id, email]) => ({ id, email }))
     }, [transactions])
 
-    // ── Computed KPIs ─────────────────────────────────────────
+    // ── Stats por produtor (saldo, risco chargeback) ──────────
+    const producerStats = useMemo(() => {
+        const map = new Map<string, {
+            id: string; email: string; grossVolume: number; netAvailable: number
+            totalSales: number; pendingRelease: number; chargebackCount: number
+        }>()
+        for (const tx of transactions) {
+            if (tx.paymentStatus !== 'Aprovado') continue
+            if (!tx.sellerId) continue
+            if (!map.has(tx.sellerId)) {
+                map.set(tx.sellerId, {
+                    id: tx.sellerId, email: tx.sellerEmail, grossVolume: 0,
+                    netAvailable: 0, totalSales: 0, pendingRelease: 0, chargebackCount: 0,
+                })
+            }
+            const p = map.get(tx.sellerId)!
+            p.grossVolume += tx.grossValue
+            p.totalSales += 1
+            if (tx.releaseStatus === 'Disponível' || tx.releaseStatus === 'Liberado') {
+                p.netAvailable += tx.netProducer
+            } else {
+                p.pendingRelease += tx.netProducer
+            }
+        }
+        // Subtract completed withdrawals from available balance
+        for (const wd of withdrawals) {
+            if (wd.status !== 'Aprovado') continue
+            for (const [, p] of map) {
+                if (p.email === wd.userEmail) {
+                    p.netAvailable = Math.max(0, p.netAvailable - wd.requestedAmount)
+                }
+            }
+        }
+        // Add chargeback counts
+        for (const cb of chargebacks) {
+            for (const [, p] of map) {
+                if (cb.buyerName && p.email && cb.originalSaleId) {
+                    // chargebacks don't directly link to seller — approximate by checking transactions
+                    const tx = transactions.find(t => t.id === cb.originalSaleId)
+                    if (tx && tx.sellerId === p.id) p.chargebackCount += 1
+                }
+            }
+        }
+        return Array.from(map.values()).sort((a, b) => b.grossVolume - a.grossVolume)
+    }, [transactions, withdrawals, chargebacks])
+
+
     const kpis = useMemo(() => {
         const txForKpi = producerFilter === 'all' ? transactions : transactions.filter(t => t.sellerId === producerFilter)
         const gross = producerFilter === 'all'
@@ -767,7 +906,7 @@ export function FinanceiroTab() {
                 )}
 
                 <div className="flex items-center gap-2 ml-auto">
-                    <button onClick={() => { fetchTransactions(); fetchWithdrawals(); fetchFinancial() }}
+                    <button onClick={() => { fetchTransactions(); fetchWithdrawals(); fetchFinancial(); fetchAnticipations() }}
                         className="flex items-center gap-1.5 text-xs px-3 py-1.5 bg-white/[0.02] border border-white/[0.06] text-gray-500 hover:text-white hover:bg-white/[0.05] transition-colors">
                         <RefreshCw className="w-3.5 h-3.5" /> Atualizar
                     </button>
@@ -841,14 +980,16 @@ export function FinanceiroTab() {
             </div>
 
             {/* ── Section nav ───────────────────────────────── */}
-            <div className="flex items-center gap-1 border-b border-white/[0.05]">
+            <div className="flex items-center gap-1 border-b border-white/[0.05] overflow-x-auto">
                 {([
                     { id: 'transactions', label: 'Extrato de Vendas', count: filteredTx.length },
                     { id: 'withdrawals', label: 'Saques Solicitados', count: pendingWdList.length },
                     { id: 'chargebacks', label: 'Chargebacks & Reembolsos', count: pendingUrgent.length },
+                    { id: 'produtores', label: 'Produtores', count: producerStats.length },
+                    { id: 'antecipacoes', label: 'Antecipações', count: anticipations.filter(a => a.status === 'Processando').length },
                 ] as const).map(tab => (
                     <button key={tab.id} onClick={() => setSection(tab.id)}
-                        className={`flex items-center gap-2 px-4 py-2 text-xs font-medium transition-all border-b-2 -mb-px ${section === tab.id ? 'border-blue-500 text-blue-400' : 'border-transparent text-gray-500 hover:text-gray-300'}`}>
+                        className={`flex items-center gap-2 px-4 py-2 text-xs font-medium transition-all border-b-2 -mb-px whitespace-nowrap ${section === tab.id ? 'border-blue-500 text-blue-400' : 'border-transparent text-gray-500 hover:text-gray-300'}`}>
                         {tab.label}
                         {tab.count > 0 && <span className="px-1.5 py-0.5 text-[10px] rounded-full bg-white/[0.06] text-gray-400">{tab.count}</span>}
                     </button>
@@ -1125,6 +1266,153 @@ export function FinanceiroTab() {
                             </table>
                         </div>
                     )}
+                </div>
+            )}
+
+            {/* ────────────────────────────────────────────────
+                SEÇÃO 4: PRODUTORES
+            ──────────────────────────────────────────────── */}
+            {section === 'produtores' && (
+                <div className="bg-[#0d1829] border border-white/[0.06] overflow-hidden">
+                    <div className="px-4 py-3 border-b border-white/[0.05] flex items-center justify-between">
+                        <p className="text-xs font-semibold text-white">Saldo & Risco por Produtor</p>
+                        <span className="text-[11px] text-gray-600">{producerStats.length} produtores</span>
+                    </div>
+
+                    {loadingTx ? (
+                        <div className="flex items-center justify-center py-16 gap-2 text-gray-600">
+                            <RefreshCw className="w-4 h-4 animate-spin" />
+                            <span className="text-xs">Calculando…</span>
+                        </div>
+                    ) : producerStats.length === 0 ? (
+                        <div className="flex flex-col items-center justify-center py-16 gap-2 text-gray-600">
+                            <Wallet className="w-8 h-8 opacity-30" />
+                            <p className="text-xs">Nenhum produtor com vendas no período</p>
+                        </div>
+                    ) : (
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-[11px]">
+                                <thead>
+                                    <tr className="border-b border-white/[0.05]">
+                                        {['Produtor', 'Vendas', 'Volume Bruto', 'Pendente Liberação', 'Saldo Disponível', 'Chargebacks', 'Risco'].map(h => (
+                                            <th key={h} className="px-3 py-2.5 text-left font-semibold text-gray-600 whitespace-nowrap">{h}</th>
+                                        ))}
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-white/[0.03]">
+                                    {producerStats.map(p => {
+                                        const cbRate = p.totalSales > 0 ? (p.chargebackCount / p.totalSales) * 100 : 0
+                                        const riskColor = cbRate > 1 ? 'text-red-400 bg-red-500/10 border-red-500/20' : cbRate > 0.5 ? 'text-amber-400 bg-amber-500/10 border-amber-500/20' : 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20'
+                                        const riskLabel = cbRate > 1 ? 'ALTO' : cbRate > 0.5 ? 'MÉDIO' : 'BAIXO'
+                                        return (
+                                            <tr key={p.id} className="hover:bg-white/[0.02] transition-colors">
+                                                <td className="px-3 py-2.5">
+                                                    <div className="flex items-center gap-2">
+                                                        <div className="w-7 h-7 rounded-full bg-gradient-to-br from-violet-500 to-blue-600 flex items-center justify-center text-[10px] text-white font-bold flex-shrink-0">
+                                                            {(p.email || '?').charAt(0).toUpperCase()}
+                                                        </div>
+                                                        <p className="text-gray-300 font-medium">{p.email}</p>
+                                                    </div>
+                                                </td>
+                                                <td className="px-3 py-2.5 text-white font-semibold">{p.totalSales}</td>
+                                                <td className="px-3 py-2.5 text-white font-semibold">{fmt(p.grossVolume)}</td>
+                                                <td className="px-3 py-2.5 text-amber-400 font-semibold">{fmt(p.pendingRelease)}</td>
+                                                <td className="px-3 py-2.5 text-emerald-400 font-semibold">{fmt(p.netAvailable)}</td>
+                                                <td className="px-3 py-2.5 text-gray-400">{p.chargebackCount}</td>
+                                                <td className="px-3 py-2.5">
+                                                    <span className={`text-[10px] px-2 py-0.5 font-semibold border ${riskColor}`}>
+                                                        {riskLabel} {cbRate > 0 ? `(${cbRate.toFixed(1)}%)` : ''}
+                                                    </span>
+                                                </td>
+                                            </tr>
+                                        )
+                                    })}
+                                </tbody>
+                            </table>
+                        </div>
+                    )}
+                </div>
+            )}
+
+            {/* ────────────────────────────────────────────────
+                SEÇÃO 5: ANTECIPAÇÕES
+            ──────────────────────────────────────────────── */}
+            {section === 'antecipacoes' && (
+                <div className="bg-[#0d1829] border border-white/[0.06] overflow-hidden">
+                    <div className="px-4 py-3 border-b border-white/[0.05] flex items-center justify-between">
+                        <p className="text-xs font-semibold text-white">Antecipações de Recebíveis</p>
+                        <span className="text-[11px] text-gray-600">{anticipations.length} solicitações</span>
+                    </div>
+
+                    <div className="overflow-x-auto">
+                        {loadingAnt ? (
+                            <div className="flex items-center justify-center py-16 gap-2 text-gray-600">
+                                <RefreshCw className="w-4 h-4 animate-spin" />
+                                <span className="text-xs">Carregando antecipações…</span>
+                            </div>
+                        ) : anticipations.length === 0 ? (
+                            <div className="flex flex-col items-center justify-center py-12 gap-2 text-gray-600">
+                                <Clock className="w-8 h-8 opacity-30" />
+                                <p className="text-xs">Nenhuma antecipação solicitada</p>
+                            </div>
+                        ) : (
+                            <table className="w-full text-[11px]">
+                                <thead>
+                                    <tr className="border-b border-white/[0.05]">
+                                        {['Usuário', 'Valor Solicitado', 'Taxa', 'Valor Líquido', 'Prazo', 'Data Pedido', 'Status', 'Ações'].map(h => (
+                                            <th key={h} className="px-3 py-2.5 text-left font-semibold text-gray-600 whitespace-nowrap">{h}</th>
+                                        ))}
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-white/[0.03]">
+                                    {anticipations.map(ant => (
+                                        <tr key={ant.id} className="hover:bg-white/[0.02] transition-colors group">
+                                            <td className="px-3 py-2.5">
+                                                <div className="flex items-center gap-2">
+                                                    <div className="w-7 h-7 rounded-full bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center text-[10px] text-white font-bold flex-shrink-0">
+                                                        {ant.userName.charAt(0).toUpperCase()}
+                                                    </div>
+                                                    <div>
+                                                        <p className="text-white font-medium">{ant.userName}</p>
+                                                        <p className="text-gray-600">{ant.userEmail}</p>
+                                                    </div>
+                                                </div>
+                                            </td>
+                                            <td className="px-3 py-2.5 text-white font-semibold">{makeFmt(ant.currency)(ant.amount)}</td>
+                                            <td className="px-3 py-2.5">
+                                                <div>
+                                                    <span className="text-amber-400">{ant.feePercent}%</span>
+                                                    <span className="text-gray-600 ml-1">({makeFmt(ant.currency)(ant.feeAmount)})</span>
+                                                </div>
+                                            </td>
+                                            <td className="px-3 py-2.5 text-emerald-400 font-semibold">{makeFmt(ant.currency)(ant.netAmount)}</td>
+                                            <td className="px-3 py-2.5">
+                                                <span className="text-xs font-semibold text-blue-400 bg-blue-500/10 border border-blue-500/20 px-2 py-0.5">
+                                                    {ant.payoutSchedule}
+                                                </span>
+                                            </td>
+                                            <td className="px-3 py-2.5 text-gray-500">{ant.requestDate}</td>
+                                            <td className="px-3 py-2.5"><AntBadge status={ant.status} /></td>
+                                            <td className="px-3 py-2.5">
+                                                {ant.status === 'Processando' && (
+                                                    <div className="flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                        <button onClick={() => approveAnt(ant.id)}
+                                                            className="flex items-center gap-1 text-[10px] px-2 py-1 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 hover:bg-emerald-500/20 transition-colors">
+                                                            <CheckCircle className="w-3 h-3" /> Aprovar
+                                                        </button>
+                                                        <button onClick={() => rejectAnt(ant.id)}
+                                                            className="flex items-center gap-1 text-[10px] px-2 py-1 bg-red-500/10 border border-red-500/20 text-red-400 hover:bg-red-500/20 transition-colors">
+                                                            <XCircle className="w-3 h-3" /> Cancelar
+                                                        </button>
+                                                    </div>
+                                                )}
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        )}
+                    </div>
                 </div>
             )}
 
