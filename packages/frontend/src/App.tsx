@@ -70,12 +70,6 @@ const CommunityLogin = lazy(() => import('./pages/community/CommunityLogin'))
 // Pages - Marketplace (lazy loaded)
 const Marketplace = lazy(() => import('./pages/marketplace/Marketplace'))
 
-// Pages - Admin (lazy loaded)
-const SuperAdmin = lazy(() => import('./pages/admin/SuperAdmin'))
-const SuperAdminLogin = lazy(() => import('./pages/admin/SuperAdminLogin'))
-const SuperAdminForgotPassword = lazy(() => import('./pages/admin/SuperAdminForgotPassword'))
-const SuperAdminResetPassword = lazy(() => import('./pages/admin/SuperAdminResetPassword'))
-
 // Pages - Settings (lazy loaded)
 const AdminSettings = lazy(() => import('./pages/settings/AdminSettings'))
 const AdminPayments = lazy(() => import('./pages/settings/AdminPayments'))
@@ -85,7 +79,6 @@ const Settings = lazy(() => import('./pages/settings/Settings'))
 // Components (sempre carregados)
 import ProductGuard from './components/ProductGuard'
 import MemberGuard from './components/MemberGuard'
-import SuperAdminRoute from './components/SuperAdminRoute'
 import ProtectedRoute from './components/ProtectedRoute'
 
 // Interface para o app de domínio personalizado
@@ -216,10 +209,6 @@ export default function App() {
           <Route path="/auth/reset-password" element={<ResetPassword />} />
           <Route path="/auth/login" element={<Login />} />
           <Route path="/auth/confirm" element={<EmailConfirmation />} />
-          <Route path="/admin-login" element={<SuperAdminLogin />} />
-          <Route path="/super-login" element={<SuperAdminLogin />} />
-          <Route path="/super-login/forgot-password" element={<SuperAdminForgotPassword />} />
-          <Route path="/super-login/reset-password" element={<SuperAdminResetPassword />} />
           <Route
             path="/dashboard"
             element={
@@ -606,30 +595,6 @@ export default function App() {
               <ProtectedRoute>
                 <Plans />
               </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/superadmin"
-            element={
-              <SuperAdminRoute>
-                <SuperAdmin />
-              </SuperAdminRoute>
-            }
-          />
-          <Route
-            path="/platform-admin"
-            element={
-              <SuperAdminRoute>
-                <SuperAdmin />
-              </SuperAdminRoute>
-            }
-          />
-          <Route
-            path="/admin-dashboard"
-            element={
-              <SuperAdminRoute>
-                <SuperAdmin />
-              </SuperAdminRoute>
             }
           />
           <Route path="/app/:appSlug/*" element={
