@@ -16,6 +16,12 @@ interface AccessEmailI18n {
     instructionStep2: (email: string) => string
     instructionStep3: string
     refundText: string
+    supportTitle: string
+    supportBody: string
+    supportLabel: string
+    supportNote: string
+    guaranteeTitle: string
+    guaranteeBody: string
 }
 
 const accessEmailI18n: Record<EmailLang, AccessEmailI18n> = {
@@ -30,6 +36,12 @@ const accessEmailI18n: Record<EmailLang, AccessEmailI18n> = {
         instructionStep2: (e) => `E-mail: <strong>${e}</strong>`,
         instructionStep3: 'Se for primeiro acesso, crie sua senha',
         refundText: 'Solicitar reembolso',
+        supportTitle: 'Precisa de ajuda?',
+        supportBody: 'Se tiver qualquer problema para acessar ou usar o produto, nossa equipe de suporte está disponível para ajudar.',
+        supportLabel: 'Suporte:',
+        supportNote: 'Antes de contatar o seu banco, por favor escreva para o nosso suporte para que possamos resolver qualquer problema rapidamente.',
+        guaranteeTitle: 'Garantia de satisfação',
+        guaranteeBody: 'Se o produto não cumprir com suas expectativas, você pode solicitar assistência ou um reembolso dentro do período de garantia. Nossa equipe estará encantada em ajudar.',
     },
     en: {
         subject: (p) => `Your access to ${p} is ready`,
@@ -42,6 +54,12 @@ const accessEmailI18n: Record<EmailLang, AccessEmailI18n> = {
         instructionStep2: (e) => `Email: <strong>${e}</strong>`,
         instructionStep3: 'If first access, create your password',
         refundText: 'Request a refund',
+        supportTitle: 'Need help?',
+        supportBody: 'If you have any trouble accessing or using the product, our support team is available to help.',
+        supportLabel: 'Support:',
+        supportNote: 'Before contacting your bank, please write to our support team so we can resolve any issue quickly.',
+        guaranteeTitle: 'Satisfaction guarantee',
+        guaranteeBody: 'If the product does not meet your expectations, you can request assistance or a refund within the guarantee period. Our team will be happy to help.',
     },
     es: {
         subject: (p) => `Tu acceso a ${p} está listo`,
@@ -54,6 +72,12 @@ const accessEmailI18n: Record<EmailLang, AccessEmailI18n> = {
         instructionStep2: (e) => `Correo: <strong>${e}</strong>`,
         instructionStep3: 'Si es tu primer acceso, crea tu contraseña',
         refundText: 'Solicitar reembolso',
+        supportTitle: '¿Necesitas ayuda?',
+        supportBody: 'Si tienes algún problema para acceder o usar el producto, nuestro equipo de soporte está disponible para ayudarte.',
+        supportLabel: 'Soporte:',
+        supportNote: 'Antes de contactar a tu banco, por favor escríbenos para que podamos resolver cualquier problema rápidamente.',
+        guaranteeTitle: 'Garantía de satisfacción',
+        guaranteeBody: 'Si el producto no cumple tus expectativas, puedes solicitar asistencia o un reembolso dentro del período de garantía. Nuestro equipo estará encantado de ayudarte.',
     },
     fr: {
         subject: (p) => `Votre accès à ${p} est prêt`,
@@ -66,6 +90,12 @@ const accessEmailI18n: Record<EmailLang, AccessEmailI18n> = {
         instructionStep2: (e) => `E-mail : <strong>${e}</strong>`,
         instructionStep3: 'Si c\'est votre premier accès, créez votre mot de passe',
         refundText: 'Demander un remboursement',
+        supportTitle: 'Besoin d\'aide ?',
+        supportBody: 'Si vous avez des difficultés à accéder au produit ou à l\'utiliser, notre équipe d\'assistance est disponible.',
+        supportLabel: 'Support :',
+        supportNote: 'Avant de contacter votre banque, veuillez nous écrire afin que nous puissions résoudre tout problème rapidement.',
+        guaranteeTitle: 'Garantie de satisfaction',
+        guaranteeBody: 'Si le produit ne répond pas à vos attentes, vous pouvez demander une assistance ou un remboursement dans le délai de garantie.',
     },
     de: {
         subject: (p) => `Ihr Zugang zu ${p} ist bereit`,
@@ -78,6 +108,12 @@ const accessEmailI18n: Record<EmailLang, AccessEmailI18n> = {
         instructionStep2: (e) => `E-Mail: <strong>${e}</strong>`,
         instructionStep3: 'Wenn erster Zugang, erstellen Sie Ihr Passwort',
         refundText: 'Rückerstattung anfordern',
+        supportTitle: 'Brauchen Sie Hilfe?',
+        supportBody: 'Bei Problemen mit dem Zugang oder der Nutzung des Produkts steht Ihnen unser Support-Team zur Verfügung.',
+        supportLabel: 'Support:',
+        supportNote: 'Bitte schreiben Sie uns, bevor Sie Ihre Bank kontaktieren, damit wir das Problem schnell lösen können.',
+        guaranteeTitle: 'Zufriedenheitsgarantie',
+        guaranteeBody: 'Wenn das Produkt Ihre Erwartungen nicht erfüllt, können Sie innerhalb der Garantiezeit Unterstützung oder eine Rückerstattung beantragen.',
     },
     nl: {
         subject: (p) => `Uw toegang tot ${p} is klaar`,
@@ -90,6 +126,12 @@ const accessEmailI18n: Record<EmailLang, AccessEmailI18n> = {
         instructionStep2: (e) => `E-mail: <strong>${e}</strong>`,
         instructionStep3: 'Als dit uw eerste toegang is, maak dan uw wachtwoord aan',
         refundText: 'Terugbetaling aanvragen',
+        supportTitle: 'Hulp nodig?',
+        supportBody: 'Als u problemen heeft met het openen of gebruiken van het product, staat ons supportteam voor u klaar.',
+        supportLabel: 'Support:',
+        supportNote: 'Neem contact met ons op voordat u uw bank benadert, zodat we het probleem snel kunnen oplossen.',
+        guaranteeTitle: 'Tevredenheidsgarantie',
+        guaranteeBody: 'Als het product niet aan uw verwachtingen voldoet, kunt u binnen de garantietermijn om hulp of terugbetaling vragen.',
     },
 }
 
@@ -126,8 +168,9 @@ export function buildAccessEmailHtml(opts: {
     productsHtml: string
     loginUrl: string
     accentColor?: string
+    supportEmail?: string
 }): { subject: string; html: string; text: string } {
-    const { lang, customerName, customerEmail, productName, productsHtml, loginUrl, accentColor = '#667eea' } = opts
+    const { lang, customerName, customerEmail, productName, productsHtml, loginUrl, accentColor = '#667eea', supportEmail } = opts
     const i18n = accessEmailI18n[lang]
 
     const subject = i18n.subject(productName)
@@ -166,6 +209,25 @@ export function buildAccessEmailHtml(opts: {
                   3. ${i18n.instructionStep3}
                 </p>
               </div>
+              ${supportEmail ? `
+              <table width="100%" cellpadding="0" cellspacing="0" style="margin-top:24px;">
+                <tr>
+                  <td style="background:#f8fafc;border:1px solid #e5e7eb;border-radius:8px;padding:20px;">
+                    <p style="color:#111827;font-size:14px;font-weight:bold;margin:0 0 8px;">${i18n.supportTitle}</p>
+                    <p style="color:#6b7280;font-size:13px;margin:0 0 12px;line-height:1.6;">${i18n.supportBody}</p>
+                    <p style="color:#374151;font-size:13px;margin:0 0 12px;">${i18n.supportLabel} <a href="mailto:${supportEmail}" style="color:${accentColor};text-decoration:none;font-weight:500;">${supportEmail}</a></p>
+                    <p style="color:#6b7280;font-size:12px;margin:0;line-height:1.6;">${i18n.supportNote}</p>
+                  </td>
+                </tr>
+              </table>
+              <table width="100%" cellpadding="0" cellspacing="0" style="margin-top:16px;">
+                <tr>
+                  <td style="background:#f8fafc;border:1px solid #e5e7eb;border-radius:8px;padding:20px;">
+                    <p style="color:#111827;font-size:14px;font-weight:bold;margin:0 0 8px;">${i18n.guaranteeTitle}</p>
+                    <p style="color:#6b7280;font-size:13px;margin:0;line-height:1.6;">${i18n.guaranteeBody}</p>
+                  </td>
+                </tr>
+              </table>` : ''}
               <div style="margin-top:32px;padding-top:20px;border-top:1px solid #e5e7eb;text-align:center;">
                 <p style="color:#9ca3af;font-size:11px;margin:0;">© ${new Date().getFullYear()} ClickNich. All rights reserved.</p>
               </div>
@@ -178,7 +240,7 @@ export function buildAccessEmailHtml(opts: {
 </body>
 </html>`
 
-    const text = `${i18n.greeting} ${customerName || customerEmail},\n\n${i18n.body}\n\n${productName}\n\n${i18n.instructionsTitle}\n1. ${i18n.instructionStep1}\n2. ${customerEmail}\n3. ${i18n.instructionStep3}\n\n${loginUrl ? `${i18n.buttonText}: ${loginUrl}\n\n` : ''}© ${new Date().getFullYear()} ClickNich.`
+    const text = `${i18n.greeting} ${customerName || customerEmail},\n\n${i18n.body}\n\n${productName}\n\n${i18n.instructionsTitle}\n1. ${i18n.instructionStep1}\n2. ${customerEmail}\n3. ${i18n.instructionStep3}\n\n${loginUrl ? `${i18n.buttonText}: ${loginUrl}\n\n` : ''}${supportEmail ? `${i18n.supportTitle}\n${i18n.supportBody}\n${i18n.supportLabel} ${supportEmail}\n\n${i18n.guaranteeTitle}\n${i18n.guaranteeBody}\n\n` : ''}© ${new Date().getFullYear()} ClickNich.`
 
     return { subject, html, text }
 }

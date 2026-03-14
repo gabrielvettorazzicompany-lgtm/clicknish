@@ -584,7 +584,7 @@ async function grantStripeRedirectAccess(
 
         if (productType === 'app') {
             const [appRes, appUserRes, appProdsRes, orderBumpsRes, funnelPageRes] = await Promise.all([
-                supabase.from('applications').select('name, slug, language, owner_id').eq('id', applicationId || productId).single(),
+                supabase.from('applications').select('name, slug, language, owner_id, support_email').eq('id', applicationId || productId).single(),
                 supabase.from('app_users').select('user_id').eq('email', customerEmail).eq('application_id', applicationId).maybeSingle(),
                 supabase.from('products').select('id').eq('application_id', applicationId),
                 checkoutId
@@ -645,7 +645,7 @@ async function grantStripeRedirectAccess(
 
                 if (env.RESEND_API_KEY) {
                     const loginUrl = `${frontendUrl}/access/${app.slug || applicationId}`
-                    await sendAccessEmail(env, customerEmail, customerName, app.name, loginUrl, app.language)
+                    await sendAccessEmail(env, customerEmail, customerName, app.name, loginUrl, app.language, app.support_email)
                 }
             }
 
@@ -804,6 +804,7 @@ async function sendAccessEmail(
     productName: string,
     loginUrl: string,
     appLanguage: string | null | undefined,
+    supportEmail?: string | null,
 ) {
     try {
         const lang = appLangToEmailLang(appLanguage)
@@ -815,6 +816,7 @@ async function sendAccessEmail(
             productsHtml: '',
             loginUrl,
             accentColor: '#635bff',
+            supportEmail: supportEmail || undefined,
         })
 
         await fetch('https://api.resend.com/emails', {

@@ -1191,7 +1191,7 @@ async function sendCompleteAccessEmail(
     grantedProductIds: string[] = []
 ) {
     try {
-        let appName = '', marketplaceName = '', loginUrl = ''
+        let appName = '', marketplaceName = '', loginUrl = '', appSupportEmail: string | null = null
         const customerProductsList: string[] = []
 
         console.log('sendCompleteAccessEmail DEBUG:', {
@@ -1210,7 +1210,7 @@ async function sendCompleteAccessEmail(
             const [appResult, productsResult] = await Promise.all([
                 supabase
                     .from('applications')
-                    .select('name, slug, language')
+                    .select('name, slug, language, support_email')
                     .eq('id', applicationId)
                     .single(),
                 grantedProductIds.length > 0
@@ -1227,6 +1227,7 @@ async function sendCompleteAccessEmail(
             if (appData) {
                 appName = appData.name
                 appLanguage = appData.language || null
+                appSupportEmail = appData.support_email || null
                 loginUrl = `${env.FRONTEND_URL || 'https://app.clicknich.com'}/access/${appData.slug || productSlug}`
                 console.log('✅ App data processed:', { appName, loginUrl })
             } else {
@@ -1283,6 +1284,7 @@ async function sendCompleteAccessEmail(
             productName,
             productsHtml,
             loginUrl,
+            supportEmail: appSupportEmail || undefined,
         })
 
         const resendApiKey = env.RESEND_API_KEY
