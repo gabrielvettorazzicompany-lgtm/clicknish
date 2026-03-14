@@ -1277,6 +1277,227 @@ export async function handleSuperadmin(request: Request, env: any, pathSegments:
             })
         }
 
+        // ─────────────────────────────────────────────────────────
+        // PLANS MANAGEMENT
+        // ─────────────────────────────────────────────────────────
+
+        // GET /api/superadmin/users-plans — list users with their plans
+        if (request.method === 'GET' && pathSegments[0] === 'users-plans') {
+            const search = url.searchParams.get('search') || ''
+            const plan = url.searchParams.get('plan') || ''
+            let query = supabase.from('profiles').select('id, email, name, plan, created_at, updated_at', { count: 'exact' })
+            if (search) query = query.or(`email.ilike.%${search}%,name.ilike.%${search}%`)
+            if (plan) query = query.eq('plan', plan)
+            query = query.order('created_at', { ascending: false }).limit(200)
+            const { data, count, error } = await query
+            if (error) throw error
+            return new Response(JSON.stringify({ users: data || [], total: count || 0 }), {
+                headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+            })
+        }
+
+        // PATCH /api/superadmin/users-plans/:id — change user plan
+        if (request.method === 'PATCH' && pathSegments[0] === 'users-plans' && pathSegments[1]) {
+            const targetId = pathSegments[1]
+            const body: any = await request.json()
+            const { plan, notes } = body
+            const validPlans = ['free', 'pro', 'advanced', 'enterprise']
+            if (!validPlans.includes(plan)) {
+                return new Response(JSON.stringify({ error: 'Plano inválido' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+            }
+            const { error } = await supabase.from('profiles').update({ plan, updated_at: new Date().toISOString() }).eq('id', targetId)
+            if (error) throw error
+            // Log history
+            await supabase.from('plan_change_history').insert({
+                user_id: targetId, changed_by: userId, new_plan: plan, notes: notes || null
+            }).then(() => {}) // silent fail if table doesn't exist yet
+            const { data: adminData } = await supabase.auth.admin.getUserById(userId)
+            await logAudit(supabase, userId, adminData?.user?.email || '', 'update_plan', 'user', targetId, { new_plan: plan, notes })
+            return new Response(JSON.stringify({ success: true }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+        }
+
+        // GET /api/superadmin/plan-history/:userId — get plan change history
+        if (request.method === 'GET' && pathSegments[0] === 'plan-history' && pathSegments[1]) {
+            const targetId = pathSegments[1]
+            const { data, error } = await supabase
+                .from('plan_change_history')
+                .select('*')
+                .eq('user_id', targetId)
+                .order('created_at', { ascending: false })
+                .limit(50)
+            if (error) return new Response(JSON.stringify({ history: [] }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+            return new Response(JSON.stringify({ history: data || [] }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+        }
+
+        // ─────────────────────────────────────────────────────────
+        // COMMISSION OVERRIDE
+        // ─────────────────────────────────────────────────────────
+
+        // GET /api/superadmin/commission-override/:userId
+        if (request.method === 'GET' && pathSegments[0] === 'commission-override' && pathSegments[1]) {
+            const targetId = pathSegments[1]
+            const { data, error } = await supabase
+                .from('commission_overrides')
+                .select('*')
+                .eq('user_id', targetId)
+                .maybeSingle()
+            if (error) return new Response(JSON.stringify({ override: null }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+            return new Response(JSON.stringify({ override: data }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+        }
+
+        // PUT /api/superadmin/commission-override/:userId
+        if (request.method === 'PUT' && pathSegments[0] === 'commission-override' && pathSegments[1]) {
+            const targetId = pathSegments[1]
+            const body: any = await request.json()
+            const { fee_percentage, notes } = body
+            if (fee_percentage === null || fee_percentage === undefined) {
+                // Remove override
+                await supabase.from('commission_overrides').delete().eq('user_id', targetId)
+            } else {
+                const pct = parseFloat(fee_percentage)
+                if (isNaN(pct) || pct < 0 || pct > 100) {
+                    return new Response(JSON.stringify({ error: 'Percentual inválido' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+                }
+                await supabase.from('commission_overrides').upsert({
+                    user_id: targetId, fee_percentage: pct, notes: notes || null,
+                    updated_at: new Date().toISOString()
+                }, { onConflict: 'user_id' })
+            }
+            const { data: adminData } = await supabase.auth.admin.getUserById(userId)
+            await logAudit(supabase, userId, adminData?.user?.email || '', 'update_commission', 'user', targetId, { fee_percentage, notes })
+            return new Response(JSON.stringify({ success: true }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+        }
+
+        // ─────────────────────────────────────────────────────────
+        // BROADCASTS
+        // ─────────────────────────────────────────────────────────
+
+        // GET /api/superadmin/broadcasts
+        if (request.method === 'GET' && pathSegments[0] === 'broadcasts' && !pathSegments[1]) {
+            const { data, error } = await supabase
+                .from('admin_broadcasts')
+                .select('*')
+                .order('created_at', { ascending: false })
+                .limit(50)
+            if (error) throw error
+            return new Response(JSON.stringify({ broadcasts: data || [] }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+        }
+
+        // POST /api/superadmin/broadcasts
+        if (request.method === 'POST' && pathSegments[0] === 'broadcasts') {
+            const body: any = await request.json()
+            const { title, message, type, target_plan, target_all } = body
+            if (!title || !message) {
+                return new Response(JSON.stringify({ error: 'Título e mensagem obrigatórios' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+            }
+            const { data: adminData } = await supabase.auth.admin.getUserById(userId)
+            const { data, error } = await supabase.from('admin_broadcasts').insert({
+                title, message, type: type || 'info', target_plan: target_plan || null,
+                target_all: target_all ?? true, sent_by: userId,
+                sent_by_email: adminData?.user?.email || '',
+                status: 'sent', sent_at: new Date().toISOString()
+            }).select().single()
+            if (error) throw error
+
+            // If broadcasting to all or a plan, insert notifications for matching users
+            let profileQuery = supabase.from('profiles').select('id')
+            if (!target_all && target_plan) profileQuery = profileQuery.eq('plan', target_plan)
+            const { data: profiles } = await profileQuery
+            if (profiles && profiles.length > 0) {
+                const notifications = profiles.map((p: any) => ({
+                    user_id: p.id, type: 'admin_broadcast',
+                    title, message, read: false,
+                    metadata: { broadcast_id: data.id, broadcast_type: type || 'info' }
+                }))
+                // batch insert in chunks of 100
+                for (let i = 0; i < notifications.length; i += 100) {
+                    await supabase.from('notifications').insert(notifications.slice(i, i + 100)).then(() => {})
+                }
+            }
+
+            await logAudit(supabase, userId, adminData?.user?.email || '', 'send_broadcast', 'broadcast', data.id, { title, target_all, target_plan })
+            return new Response(JSON.stringify({ success: true, broadcast: data }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+        }
+
+        // DELETE /api/superadmin/broadcasts/:id
+        if (request.method === 'DELETE' && pathSegments[0] === 'broadcasts' && pathSegments[1]) {
+            const broadcastId = pathSegments[1]
+            const { error } = await supabase.from('admin_broadcasts').delete().eq('id', broadcastId)
+            if (error) throw error
+            return new Response(JSON.stringify({ success: true }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+        }
+
+        // ─────────────────────────────────────────────────────────
+        // SUPPORT TICKETS
+        // ─────────────────────────────────────────────────────────
+
+        // GET /api/superadmin/support-tickets
+        if (request.method === 'GET' && pathSegments[0] === 'support-tickets' && !pathSegments[1]) {
+            const status = url.searchParams.get('status') || ''
+            const priority = url.searchParams.get('priority') || ''
+            const page = parseInt(url.searchParams.get('page') || '1')
+            const limit = parseInt(url.searchParams.get('limit') || '50')
+            const offset = (page - 1) * limit
+            let query = supabase.from('support_tickets').select('*', { count: 'exact' }).order('created_at', { ascending: false }).range(offset, offset + limit - 1)
+            if (status) query = query.eq('status', status)
+            if (priority) query = query.eq('priority', priority)
+            const { data, count, error } = await query
+            if (error) throw error
+            const enriched = await Promise.all((data || []).map(async (t: any) => {
+                try {
+                    const { data: u } = await supabase.auth.admin.getUserById(t.user_id)
+                    return { ...t, user_email: u?.user?.email || t.user_id }
+                } catch { return { ...t, user_email: t.user_id } }
+            }))
+            return new Response(JSON.stringify({ tickets: enriched, total: count || 0, page, limit }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+        }
+
+        // GET /api/superadmin/support-tickets/:id — ticket detail + replies
+        if (request.method === 'GET' && pathSegments[0] === 'support-tickets' && pathSegments[1]) {
+            const ticketId = pathSegments[1]
+            const { data: ticket, error } = await supabase.from('support_tickets').select('*').eq('id', ticketId).single()
+            if (error || !ticket) return new Response(JSON.stringify({ error: 'Ticket not found' }), { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+            const { data: replies } = await supabase.from('support_ticket_replies').select('*').eq('ticket_id', ticketId).order('created_at', { ascending: true })
+            try {
+                const { data: u } = await supabase.auth.admin.getUserById(ticket.user_id)
+                return new Response(JSON.stringify({ ticket: { ...ticket, user_email: u?.user?.email || ticket.user_id }, replies: replies || [] }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+            } catch {
+                return new Response(JSON.stringify({ ticket, replies: replies || [] }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+            }
+        }
+
+        // PATCH /api/superadmin/support-tickets/:id — update status/priority/assignee
+        if (request.method === 'PATCH' && pathSegments[0] === 'support-tickets' && pathSegments[1] && !pathSegments[2]) {
+            const ticketId = pathSegments[1]
+            const body: any = await request.json()
+            const allowedFields = ['status', 'priority', 'assigned_to', 'internal_notes']
+            const updates: any = { updated_at: new Date().toISOString() }
+            for (const f of allowedFields) { if (body[f] !== undefined) updates[f] = body[f] }
+            const { error } = await supabase.from('support_tickets').update(updates).eq('id', ticketId)
+            if (error) throw error
+            const { data: adminData } = await supabase.auth.admin.getUserById(userId)
+            await logAudit(supabase, userId, adminData?.user?.email || '', 'update_ticket', 'support_ticket', ticketId, updates)
+            return new Response(JSON.stringify({ success: true }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+        }
+
+        // POST /api/superadmin/support-tickets/:id/reply — admin reply
+        if (request.method === 'POST' && pathSegments[0] === 'support-tickets' && pathSegments[1] && pathSegments[2] === 'reply') {
+            const ticketId = pathSegments[1]
+            const body: any = await request.json()
+            const { message } = body
+            if (!message) return new Response(JSON.stringify({ error: 'Mensagem obrigatória' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+            const { data: adminData } = await supabase.auth.admin.getUserById(userId)
+            const { data, error } = await supabase.from('support_ticket_replies').insert({
+                ticket_id: ticketId, author_id: userId,
+                author_email: adminData?.user?.email || '',
+                message, is_admin: true
+            }).select().single()
+            if (error) throw error
+            // Update ticket status to 'waiting_user' when admin replies
+            await supabase.from('support_tickets').update({ status: 'waiting_user', updated_at: new Date().toISOString() }).eq('id', ticketId)
+            return new Response(JSON.stringify({ success: true, reply: data }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+        }
+
         return new Response(JSON.stringify({ error: 'Endpoint não encontrado' }), {
             status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         })

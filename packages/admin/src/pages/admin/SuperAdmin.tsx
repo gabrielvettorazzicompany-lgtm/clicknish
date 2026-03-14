@@ -11,6 +11,8 @@ import { FinanceiroTab } from './FinanceiroTab'
 import { ProvidersTab } from './ProvidersTab'
 import { ConfigTab } from './ConfigTab'
 import { AuditTab } from './AuditTab'
+import { BroadcastTab } from './BroadcastTab'
+import { SupportTab } from './SupportTab'
 
 export default function SuperAdmin() {
     const { t } = useI18n()
@@ -62,6 +64,14 @@ export default function SuperAdmin() {
         {
             id: 'providers', label: 'Provedores', badge: 0,
             icon: <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" /></svg>,
+        },
+        {
+            id: 'broadcast', label: 'Broadcasts', badge: 0,
+            icon: <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z" /></svg>,
+        },
+        {
+            id: 'support', label: 'Suporte', badge: 0,
+            icon: <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M18.364 5.636l-3.536 3.536m0 5.656l3.536 3.536M9.172 9.172L5.636 5.636m3.536 9.192l-3.536 3.536M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-5 0a4 4 0 11-8 0 4 4 0 018 0z" /></svg>,
         },
         {
             id: 'audit', label: 'Audit Log', badge: 0,
@@ -169,7 +179,9 @@ export default function SuperAdmin() {
                     {activeTab === 'reviews' && <ReviewsTab userId={user?.id ?? ''} onPendingCountChange={setPendingCount} />}
                     {activeTab === 'users' && <UsersTab userId={user?.id ?? ''} />}
                     {activeTab === 'verifications' && <VerificationsTab userId={user?.id ?? ''} onCountChange={setVerifyCount} />}
-                    {activeTab === 'plans' && <PlansTab userId={user?.id ?? ''} onNavigateToUsers={() => setActiveTab('users')} />}
+                    {activeTab === 'plans' && <PlansTab userId={user?.id ?? ''} />}
+                    {activeTab === 'broadcast' && <BroadcastTab userId={user?.id ?? ''} />}
+                    {activeTab === 'support' && <SupportTab userId={user?.id ?? ''} />}
                     {activeTab === 'financial' && <FinanceiroTab />}
                     {activeTab === 'providers' && <ProvidersTab userId={user?.id ?? ''} />}
                     {activeTab === 'config' && <ConfigTab userId={user?.id ?? ''} />}

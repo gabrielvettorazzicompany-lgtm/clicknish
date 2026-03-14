@@ -31,6 +31,9 @@ export function UsersTab({ userId }: { userId: string }) {
     const [providers, setProviders] = useState<Provider[]>([])
     const [userModalProviderId, setUserModalProviderId] = useState('')
     const [savingProvider, setSavingProvider] = useState(false)
+    const [commissionOverride, setCommissionOverride] = useState('')
+    const [commissionNotes, setCommissionNotes] = useState('')
+    const [savingCommission, setSavingCommission] = useState(false)
 
     const fetchUsers = async (search = searchQuery) => {
         try {
@@ -69,9 +72,34 @@ export function UsersTab({ userId }: { userId: string }) {
 
     useEffect(() => { fetchUsers(); fetchProviders() }, [])
 
+    const fetchCommissionOverride = async (uid: string) => {
+        try {
+            const res = await adminFetch(`/commission-override/${uid}`, userId)
+            if (res.ok) {
+                const d = await res.json()
+                setCommissionOverride(d.override?.fee_percentage?.toString() || '')
+                setCommissionNotes(d.override?.notes || '')
+            }
+        } catch (e) { console.error(e) }
+    }
+
+    const handleSaveCommission = async (remove = false) => {
+        if (!selectedUser) return
+        setSavingCommission(true)
+        try {
+            const res = await adminFetch(`/commission-override/${selectedUser.id}`, userId, {
+                method: 'PUT',
+                body: JSON.stringify(remove ? { fee_percentage: null } : { fee_percentage: parseFloat(commissionOverride) || null }),
+            })
+            if (res.ok) { if (remove) { setCommissionOverride(''); setCommissionNotes('') } }
+            else alert('Erro ao salvar comissão')
+        } catch (e) { console.error(e) } finally { setSavingCommission(false) }
+    }
+
     useEffect(() => {
-        if (!selectedUser) { setUserModalProviderId(''); return }
+        if (!selectedUser) { setUserModalProviderId(''); setCommissionOverride(''); setCommissionNotes(''); return }
         fetchUserProvider(selectedUser.email)
+        fetchCommissionOverride(selectedUser.id)
     }, [selectedUser])
 
     const handleBanUser = async (uid: string, ban: boolean) => {
@@ -245,6 +273,33 @@ export function UsersTab({ userId }: { userId: string }) {
                                                 {savingProvider ? 'Salvando...' : 'Salvar'}
                                             </button>
                                         </div>
+                                    </div>
+
+                                    {/* Commission Override */}
+                                    <div className="backdrop-blur-xl bg-white/[0.02] border border-white/[0.05] rounded-xl p-4">
+                                        <h4 className="font-semibold text-white text-sm mb-1">Taxa de Comissão Personalizada</h4>
+                                        <p className="text-xs text-gray-500 mb-3">Override da taxa global da plataforma. Deixe em branco para usar a taxa padrão.</p>
+                                        <div className="flex gap-2 items-center">
+                                            <div className="relative flex-1">
+                                                <input type="number" min="0" max="100" step="0.1"
+                                                    value={commissionOverride}
+                                                    onChange={e => setCommissionOverride(e.target.value)}
+                                                    placeholder="Ex: 3.5 (taxa padrão global)"
+                                                    className="w-full px-3 py-2 bg-[#0d1117] border border-white/[0.08] rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40 pr-8" />
+                                                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 text-xs">%</span>
+                                            </div>
+                                            <button onClick={() => handleSaveCommission(false)} disabled={savingCommission}
+                                                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded-lg text-sm font-medium transition-all">
+                                                {savingCommission ? 'Salvando...' : 'Salvar'}
+                                            </button>
+                                            {commissionOverride && (
+                                                <button onClick={() => handleSaveCommission(true)}
+                                                    className="px-3 py-2 bg-gray-700 hover:bg-gray-600 text-gray-300 rounded-lg text-sm transition-all">
+                                                    Remover
+                                                </button>
+                                            )}
+                                        </div>
+                                        {commissionNotes && <p className="text-xs text-gray-600 mt-2">Obs: {commissionNotes}</p>}
                                     </div>
 
                                     {/* Actions */}
