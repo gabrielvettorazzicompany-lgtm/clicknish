@@ -212,7 +212,45 @@ export const useFunnels = () => {
                     funnel_id: newFunnel.id,
                     is_published: false,
                 }))
-                await supabase.from('funnel_pages').insert(newPages)
+                const { data: insertedPages } = await supabase
+                    .from('funnel_pages')
+                    .insert(newPages)
+                    .select('id')
+
+                // Remapear referências de page_id nos settings:
+                // post_purchase_page_id, accept_page_id, reject_page_id apontam para
+                // IDs do funil original — precisam apontar para as novas páginas.
+                if (insertedPages && insertedPages.length === pages.length) {
+                    const oldToNew: Record<string, string> = {}
+                    pages.forEach((oldPage, i) => {
+                        oldToNew[oldPage.id] = insertedPages[i].id
+                    })
+
+                    const remapSettings = (settings: any) => {
+                        if (!settings) return settings
+                        const s = { ...settings }
+                        if (s.post_purchase_page_id && oldToNew[s.post_purchase_page_id])
+                            s.post_purchase_page_id = oldToNew[s.post_purchase_page_id]
+                        if (s.accept_page_id && oldToNew[s.accept_page_id])
+                            s.accept_page_id = oldToNew[s.accept_page_id]
+                        if (s.reject_page_id && oldToNew[s.reject_page_id])
+                            s.reject_page_id = oldToNew[s.reject_page_id]
+                        return s
+                    }
+
+                    const updates = insertedPages
+                        .map((newPage, i) => {
+                            const remapped = remapSettings(pages[i].settings)
+                            if (JSON.stringify(remapped) === JSON.stringify(pages[i].settings)) return null
+                            return supabase
+                                .from('funnel_pages')
+                                .update({ settings: remapped })
+                                .eq('id', newPage.id)
+                        })
+                        .filter(Boolean)
+
+                    if (updates.length > 0) await Promise.all(updates)
+                }
             }
 
             setFunnels(prev => [newFunnel, ...prev])
