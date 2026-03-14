@@ -250,6 +250,25 @@ export const useFunnels = () => {
                         .filter(Boolean)
 
                     if (updates.length > 0) await Promise.all(updates)
+
+                    // Copiar ofertas de upsell/downsell (checkout_offers com page_id)
+                    const oldPageIds = pages.map(p => p.id)
+                    const { data: pageOffers } = await supabase
+                        .from('checkout_offers')
+                        .select('*')
+                        .in('page_id', oldPageIds)
+                    if (pageOffers && pageOffers.length > 0) {
+                        const newOffers = pageOffers
+                            .filter(o => oldToNew[o.page_id])
+                            .map(({ id: _id, created_at: _ca, updated_at: _ua, ...rest }) => ({
+                                ...rest,
+                                funnel_id: newFunnel.id,
+                                page_id: oldToNew[rest.page_id],
+                            }))
+                        if (newOffers.length > 0) {
+                            await supabase.from('checkout_offers').insert(newOffers)
+                        }
+                    }
                 }
             }
 
