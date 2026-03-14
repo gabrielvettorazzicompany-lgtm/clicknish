@@ -340,7 +340,7 @@ export async function handleSuperadmin(request: Request, env: any, pathSegments:
             if (fetchError || !paymentSettings) return new Response(JSON.stringify({ error: 'Verification not found' }), { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
             const { error: updateError } = await supabase.from('payment_settings').update({ verification_status: 'approved', is_verified: true, approved_by: userId, approved_at: new Date().toISOString(), rejection_reason: null }).eq('id', verificationId)
             if (updateError) throw updateError
-            await supabase.from('user_notifications').insert({ user_id: paymentSettings.user_id, title: 'Bank Account Approved', message: 'Your bank account has been verified and approved. You can now receive payouts.', type: 'success', read: false, created_at: new Date().toISOString() })
+            await supabase.from('producer_notifications').insert({ user_id: paymentSettings.user_id, title: 'Bank Account Approved', message: 'Your bank account has been verified and approved. You can now receive payouts.', type: 'success', read: false })
             return new Response(JSON.stringify({ success: true, message: 'Bank account approved successfully' }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
         }
 
@@ -353,7 +353,7 @@ export async function handleSuperadmin(request: Request, env: any, pathSegments:
             if (fetchError || !paymentSettings) return new Response(JSON.stringify({ error: 'Verification not found' }), { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
             const { error: updateError } = await supabase.from('payment_settings').update({ verification_status: 'rejected', is_verified: false, rejection_reason: rejectionReason, approved_by: null, approved_at: null }).eq('id', verificationId)
             if (updateError) throw updateError
-            await supabase.from('user_notifications').insert({ user_id: paymentSettings.user_id, title: 'Bank Account Verification Rejected', message: `Your bank account verification was rejected. Reason: ${rejectionReason}`, type: 'error', read: false, created_at: new Date().toISOString() })
+            await supabase.from('producer_notifications').insert({ user_id: paymentSettings.user_id, title: 'Bank Account Verification Rejected', message: `Your bank account verification was rejected. Reason: ${rejectionReason}`, type: 'error', read: false })
             return new Response(JSON.stringify({ success: true, message: 'Bank account rejected' }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
         }
 
@@ -407,7 +407,7 @@ export async function handleSuperadmin(request: Request, env: any, pathSegments:
             if (fetchError || !product) return new Response(JSON.stringify({ error: 'Product not found' }), { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
             const { error: updateError } = await supabase.from('member_areas').update({ review_status: 'approved', reviewed_at: new Date().toISOString(), reviewed_by: userId }).eq('id', productId)
             if (updateError) throw updateError
-            try { if (product.owner_id) await supabase.from('user_notifications').insert({ user_id: product.owner_id, title: 'Product Approved', message: `Your product "${product.name}" has been approved and is now live on the marketplace.`, type: 'success', read: false, created_at: new Date().toISOString() }) } catch { }
+            try { if (product.owner_id) await supabase.from('producer_notifications').insert({ user_id: product.owner_id, title: 'Product Approved', message: `Your product "${product.name}" has been approved and is now live on the marketplace.`, type: 'success', read: false }) } catch { }
             return new Response(JSON.stringify({ success: true, message: 'Product approved successfully' }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
         }
 
@@ -420,7 +420,7 @@ export async function handleSuperadmin(request: Request, env: any, pathSegments:
             if (fetchError || !product) return new Response(JSON.stringify({ error: 'Product not found' }), { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
             const { error: updateError } = await supabase.from('member_areas').update({ review_status: 'rejected', review_notes: rejectionReason, reviewed_at: new Date().toISOString(), reviewed_by: userId }).eq('id', productId)
             if (updateError) throw updateError
-            try { if (product.owner_id) await supabase.from('user_notifications').insert({ user_id: product.owner_id, title: 'Product Rejected', message: `Your product "${product.name}" was rejected. Reason: ${rejectionReason}`, type: 'error', read: false, created_at: new Date().toISOString() }) } catch { }
+            try { if (product.owner_id) await supabase.from('producer_notifications').insert({ user_id: product.owner_id, title: 'Product Rejected', message: `Your product "${product.name}" was rejected. Reason: ${rejectionReason}`, type: 'error', read: false }) } catch { }
             return new Response(JSON.stringify({ success: true, message: 'Product rejected' }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
         }
 
@@ -498,7 +498,7 @@ export async function handleSuperadmin(request: Request, env: any, pathSegments:
             if (fetchError || !app) return new Response(JSON.stringify({ error: 'App not found' }), { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
             const { error: updateError } = await supabase.from('applications').update({ review_status: 'approved', reviewed_at: new Date().toISOString(), reviewed_by: userId }).eq('id', appId)
             if (updateError) throw updateError
-            try { if (app.owner_id) await supabase.from('user_notifications').insert({ user_id: app.owner_id, title: 'App Approved', message: `Your app "${app.name}" has been approved and is now live.`, type: 'success', read: false, created_at: new Date().toISOString() }) } catch { }
+            try { if (app.owner_id) await supabase.from('producer_notifications').insert({ user_id: app.owner_id, title: 'App Approved', message: `Your app "${app.name}" has been approved and is now live.`, type: 'success', read: false }) } catch { }
             return new Response(JSON.stringify({ success: true, message: 'App approved successfully' }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
         }
 
@@ -511,7 +511,7 @@ export async function handleSuperadmin(request: Request, env: any, pathSegments:
             if (fetchError || !app) return new Response(JSON.stringify({ error: 'App not found' }), { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
             const { error: updateError } = await supabase.from('applications').update({ review_status: 'rejected', review_notes: rejectionReason, reviewed_at: new Date().toISOString(), reviewed_by: userId }).eq('id', appId)
             if (updateError) throw updateError
-            try { if (app.owner_id) await supabase.from('user_notifications').insert({ user_id: app.owner_id, title: 'App Rejected', message: `Your app "${app.name}" was rejected. Reason: ${rejectionReason}`, type: 'error', read: false, created_at: new Date().toISOString() }) } catch { }
+            try { if (app.owner_id) await supabase.from('producer_notifications').insert({ user_id: app.owner_id, title: 'App Rejected', message: `Your app "${app.name}" was rejected. Reason: ${rejectionReason}`, type: 'error', read: false }) } catch { }
             return new Response(JSON.stringify({ success: true, message: 'App rejected' }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
         }
 
@@ -1419,7 +1419,7 @@ export async function handleSuperadmin(request: Request, env: any, pathSegments:
                 }))
                 // batch insert in chunks of 100
                 for (let i = 0; i < notifications.length; i += 100) {
-                    await supabase.from('user_notifications').insert(notifications.slice(i, i + 100)).then(() => { })
+                    await supabase.from('producer_notifications').insert(notifications.slice(i, i + 100)).then(() => { })
                 }
             }
 

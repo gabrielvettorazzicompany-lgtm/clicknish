@@ -434,11 +434,10 @@ async function handleApiRoute(
         const { createClient } = await import('./lib/supabase')
         const supabase = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY)
         const { data } = await supabase
-            .from('user_notifications')
+            .from('producer_notifications')
             .select('id, title, message, type')
             .eq('user_id', userId)
             .eq('read', false)
-            .is('application_id', null)
             .order('created_at', { ascending: false })
             .limit(5)
         return jsonResponse({ notifications: data || [] })
@@ -449,7 +448,7 @@ async function handleApiRoute(
         const notifId = pathname.split('/api/user-notifications/')[1].replace('/read', '')
         const { createClient } = await import('./lib/supabase')
         const supabase = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY)
-        await supabase.from('user_notifications').update({ read: true }).eq('id', notifId)
+        await supabase.from('producer_notifications').update({ read: true }).eq('id', notifId)
         return jsonResponse({ success: true })
     }
 
