@@ -501,19 +501,6 @@ export default function CheckoutManager({
                                     />
                                 </div>
 
-                                <div className="flex items-center gap-2">
-                                    <input
-                                        type="checkbox"
-                                        id="is-default"
-                                        checked={checkoutForm.is_default}
-                                        onChange={(e) => setCheckoutForm({ ...checkoutForm, is_default: e.target.checked })}
-                                        className="rounded border-[#252941]/30 bg-[#0f1117] text-blue-500 focus:ring-blue-500/50"
-                                    />
-                                    <label htmlFor="is-default" className="text-xs text-gray-300">
-                                        {t('components.checkout_manager.set_default')}
-                                    </label>
-                                </div>
-
                                 <div className="flex gap-2 pt-3">
                                     <button
                                         type="button"
