@@ -88,7 +88,7 @@ export async function handleOrders(
             for (const a of (appsResult.data || [])) productNames.set(a.id, { name: a.name, type: 'app' })
             for (const m of (memberAreasResult.data || [])) productNames.set(m.id, { name: m.name, type: 'marketplace' })
 
-            // Fonte principal: sale_locations — 1 linha por venda, com email já disponível
+            // Fonte principal: sale_locations — 1 linha por venda COMPLETADA
             let query = supabase
                 .from('sale_locations')
                 .select('id, sale_date, amount, currency, payment_method, customer_email, customer_id, product_id, checkout_id, user_product_access_id')
@@ -103,16 +103,45 @@ export async function handleOrders(
             const { data: salesData } = await query
             const sales = salesData || []
 
-            // Buscar status de pagamento via user_product_access (para apps)
-            const accessIds = sales.map(s => s.user_product_access_id).filter(Boolean)
-            let statusMap = new Map<string, string>()
-            if (accessIds.length > 0) {
-                const { data: accessData } = await supabase
+            // Buscar pedidos pending/failed em user_product_access (apps)
+            const appIds = [...productNames.entries()]
+                .filter(([, v]) => v.type === 'app').map(([k]) => k)
+            const memberAreaIds = [...productNames.entries()]
+                .filter(([, v]) => v.type === 'marketplace').map(([k]) => k)
+
+            const pendingQueries: Promise<any>[] = []
+
+            if (appIds.length > 0) {
+                let q = supabase
                     .from('user_product_access')
-                    .select('id, payment_status')
-                    .in('id', accessIds)
-                for (const a of (accessData || [])) statusMap.set(a.id, a.payment_status)
+                    .select('id, created_at, purchase_price, currency, payment_method, customer_email, application_id, payment_status')
+                    .in('application_id', appIds)
+                    .in('payment_status', ['pending', 'failed'])
+                    .order('created_at', { ascending: false })
+                    .limit(200)
+                if (fromDateObj) q = q.gte('created_at', fromDateObj.toISOString())
+                if (endOfDay) q = q.lte('created_at', endOfDay.toISOString())
+                pendingQueries.push(q)
+            } else {
+                pendingQueries.push(Promise.resolve({ data: [] }))
             }
+
+            if (memberAreaIds.length > 0) {
+                let q = supabase
+                    .from('user_member_area_access')
+                    .select('id, created_at, purchase_price, payment_method, customer_email, member_area_id, payment_status')
+                    .in('member_area_id', memberAreaIds)
+                    .in('payment_status', ['pending', 'failed'])
+                    .order('created_at', { ascending: false })
+                    .limit(200)
+                if (fromDateObj) q = q.gte('created_at', fromDateObj.toISOString())
+                if (endOfDay) q = q.lte('created_at', endOfDay.toISOString())
+                pendingQueries.push(q)
+            } else {
+                pendingQueries.push(Promise.resolve({ data: [] }))
+            }
+
+            const [pendingAppsRes, pendingMpRes] = await Promise.all(pendingQueries)
 
             const toStatus = (s: string | null | undefined): 'completed' | 'pending' | 'failed' => {
                 if (!s || s === 'completed' || s === 'paid' || s === 'approved') return 'completed'
@@ -141,11 +170,10 @@ export async function handleOrders(
                 return m
             }
 
-            const orders: Order[] = sales.map((sale, idx) => {
+            // Pedidos completados (sale_locations = sempre 'completed')
+            const completedOrders: Order[] = sales.map((sale, idx) => {
                 const product = productNames.get(sale.product_id)
-                const paymentStatus = statusMap.get(sale.user_product_access_id) || null
                 const email = sale.customer_email || ''
-
                 return {
                     id: sale.id,
                     orderNumber: `#${String(idx + 1).padStart(4, '0')}`,
@@ -157,12 +185,65 @@ export async function handleOrders(
                         email: email
                     },
                     paymentMethod: normalizeMethod(sale.payment_method),
-                    paymentStatus: toStatus(paymentStatus),
+                    paymentStatus: 'completed' as const,
                     productName: product?.name || 'Produto',
                     productId: sale.product_id,
                     productType: product?.type || 'app'
                 }
             })
+
+            // Pedidos pending/failed de apps
+            const pendingAppsRows = (pendingAppsRes.data || []) as Array<{
+                id: string; created_at: string; purchase_price: string | null;
+                currency: string | null; payment_method: string | null;
+                customer_email: string | null; application_id: string; payment_status: string
+            }>
+            const pendingAppsOrders: Order[] = pendingAppsRows
+                .filter(row => !selectedProduct || row.application_id === selectedProduct)
+                .map((row, idx) => {
+                    const email = row.customer_email || ''
+                    return {
+                        id: row.id,
+                        orderNumber: `#${String(completedOrders.length + idx + 1).padStart(4, '0')}`,
+                        date: row.created_at,
+                        total: parseFloat(row.purchase_price || '0'),
+                        currency: row.currency || 'BRL',
+                        customer: { name: email ? email.split('@')[0] : 'Cliente', email },
+                        paymentMethod: normalizeMethod(row.payment_method),
+                        paymentStatus: toStatus(row.payment_status),
+                        productName: productNames.get(row.application_id)?.name || 'Produto',
+                        productId: row.application_id,
+                        productType: 'app' as const
+                    }
+                })
+
+            // Pedidos pending/failed de member areas
+            const pendingMpRows = (pendingMpRes.data || []) as Array<{
+                id: string; created_at: string; purchase_price: string | null;
+                payment_method: string | null; customer_email: string | null;
+                member_area_id: string; payment_status: string
+            }>
+            const pendingMpOrders: Order[] = pendingMpRows
+                .filter(row => !selectedProduct || row.member_area_id === selectedProduct)
+                .map((row, idx) => {
+                    const email = row.customer_email || ''
+                    return {
+                        id: row.id,
+                        orderNumber: `#${String(completedOrders.length + pendingAppsOrders.length + idx + 1).padStart(4, '0')}`,
+                        date: row.created_at,
+                        total: parseFloat(row.purchase_price || '0'),
+                        currency: 'EUR',
+                        customer: { name: email ? email.split('@')[0] : 'Cliente', email },
+                        paymentMethod: normalizeMethod(row.payment_method),
+                        paymentStatus: toStatus(row.payment_status),
+                        productName: productNames.get(row.member_area_id)?.name || 'Produto',
+                        productId: row.member_area_id,
+                        productType: 'marketplace' as const
+                    }
+                })
+
+            const orders: Order[] = [...completedOrders, ...pendingAppsOrders, ...pendingMpOrders]
+                .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
 
             // Calcular stats
             const stats = {

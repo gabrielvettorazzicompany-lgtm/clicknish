@@ -37,6 +37,42 @@ const PaymentMethodBadge = memo(function PaymentMethodBadge({ method }: { method
     if (normalized.includes('boleto')) {
         return <Chip size="sm" variant="flat" color="warning" radius="sm">{t('orders.payment_method.boleto')}</Chip>
     }
+    if (normalized.includes('paypal')) {
+        return <Chip size="sm" variant="flat" color="primary" radius="sm">PayPal</Chip>
+    }
+    if (normalized.includes('ideal')) {
+        return <Chip size="sm" variant="flat" color="secondary" radius="sm">iDEAL</Chip>
+    }
+    if (normalized.includes('bancontact')) {
+        return <Chip size="sm" variant="flat" color="secondary" radius="sm">Bancontact</Chip>
+    }
+    if (normalized.includes('klarna')) {
+        return <Chip size="sm" variant="flat" color="secondary" radius="sm">Klarna</Chip>
+    }
+    if (normalized.includes('sofort')) {
+        return <Chip size="sm" variant="flat" color="secondary" radius="sm">SOFORT</Chip>
+    }
+    if (normalized.includes('giropay')) {
+        return <Chip size="sm" variant="flat" color="secondary" radius="sm">Giropay</Chip>
+    }
+    if (normalized.includes('applepay') || normalized.includes('apple_pay')) {
+        return <Chip size="sm" variant="flat" color="default" radius="sm">Apple Pay</Chip>
+    }
+    if (normalized.includes('googlepay') || normalized.includes('google_pay')) {
+        return <Chip size="sm" variant="flat" color="default" radius="sm">Google Pay</Chip>
+    }
+    if (normalized.includes('eps')) {
+        return <Chip size="sm" variant="flat" color="secondary" radius="sm">EPS</Chip>
+    }
+    if (normalized.includes('przelewy') || normalized.includes('p24')) {
+        return <Chip size="sm" variant="flat" color="secondary" radius="sm">Przelewy24</Chip>
+    }
+    if (normalized.includes('sepa') || normalized.includes('direct_debit')) {
+        return <Chip size="sm" variant="flat" color="secondary" radius="sm">SEPA</Chip>
+    }
+    if (normalized.includes('bank_transfer') || normalized.includes('banktransfer')) {
+        return <Chip size="sm" variant="flat" color="default" radius="sm">Transferência</Chip>
+    }
     return (
         <Chip
             size="sm"
@@ -45,7 +81,7 @@ const PaymentMethodBadge = memo(function PaymentMethodBadge({ method }: { method
             radius="sm"
             startContent={<CreditCard size={11} />}
         >
-            {t('orders.payment_method.card')}
+            {t('orders.payment_method.credit_card')}
         </Chip>
     )
 })
