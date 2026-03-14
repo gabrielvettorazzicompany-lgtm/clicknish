@@ -91,7 +91,7 @@ export async function handleOrders(
             // Fonte principal: sale_locations — 1 linha por venda COMPLETADA
             let query = supabase
                 .from('sale_locations')
-                .select('id, sale_date, amount, currency, payment_method, customer_email, customer_id, product_id, checkout_id, user_product_access_id')
+                .select('id, sale_date, amount, currency, payment_method, customer_email, customer_id, product_id, checkout_id, user_product_access_id, payment_id')
                 .eq('user_id', userId)
                 .order('sale_date', { ascending: false })
                 .limit(500)
@@ -101,7 +101,23 @@ export async function handleOrders(
             if (endOfDay) query = query.lte('sale_date', endOfDay.toISOString())
 
             const { data: salesData } = await query
-            const sales = salesData || []
+            const salesRaw = salesData || []
+
+            // Deduplicate: rows com mesmo payment_id (future) ou mesmo customer+produto+minuto (legacy)
+            const seenKeys = new Set<string>()
+            const sales = salesRaw.filter((sale: any) => {
+                if (sale.payment_id) {
+                    const k = `pid:${sale.payment_id}`
+                    if (seenKeys.has(k)) return false
+                    seenKeys.add(k)
+                } else {
+                    const minute = (sale.sale_date as string | null)?.slice(0, 16) ?? ''
+                    const k = `${sale.customer_email}|${sale.product_id}|${minute}`
+                    if (seenKeys.has(k)) return false
+                    seenKeys.add(k)
+                }
+                return true
+            })
 
             // Buscar pedidos pending/failed em user_product_access (apps)
             const appIds = [...productNames.entries()]

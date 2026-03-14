@@ -744,6 +744,7 @@ async function grantStripeRedirectAccess(
                     product_id: productId || applicationId || null,
                     payout_schedule: producerPayoutSchedule,
                     sale_date: new Date().toISOString(),
+                    payment_id: paymentIntent.id,
                 }),
                 checkoutId
                     ? supabase.from('checkout_analytics').insert({
@@ -798,6 +799,7 @@ async function grantStripeRedirectAccess(
                     product_id: productId || null,
                     payout_schedule: producerPayoutSchedule,
                     sale_date: new Date().toISOString(),
+                    payment_id: paymentIntent.id,
                 }),
 
                 checkoutId
