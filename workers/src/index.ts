@@ -426,6 +426,33 @@ async function handleApiRoute(
         return handleDashboardStats(request, env, ctx)
     }
 
+    // GET /api/user-notifications?userId=xxx — notificações não lidas do produtor (service role, bypassa RLS)
+    if (pathname === '/api/user-notifications' && request.method === 'GET') {
+        const reqUrl = new URL(request.url)
+        const userId = reqUrl.searchParams.get('userId')
+        if (!userId) return jsonResponse({ error: 'userId required' }, 400)
+        const { createClient } = await import('./lib/supabase')
+        const supabase = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY)
+        const { data } = await supabase
+            .from('user_notifications')
+            .select('id, title, message, type')
+            .eq('user_id', userId)
+            .eq('read', false)
+            .is('application_id', null)
+            .order('created_at', { ascending: false })
+            .limit(5)
+        return jsonResponse({ notifications: data || [] })
+    }
+
+    // PUT /api/user-notifications/:id/read — marcar como lida (service role)
+    if (pathname.startsWith('/api/user-notifications/') && pathname.endsWith('/read') && request.method === 'PUT') {
+        const notifId = pathname.split('/api/user-notifications/')[1].replace('/read', '')
+        const { createClient } = await import('./lib/supabase')
+        const supabase = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY)
+        await supabase.from('user_notifications').update({ read: true }).eq('id', notifId)
+        return jsonResponse({ success: true })
+    }
+
     // POST /api/orders - Lista de pedidos
     if (pathname === '/api/orders' && request.method === 'POST') {
         return handleOrders(request, env, ctx)

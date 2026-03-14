@@ -35,20 +35,16 @@ function Dashboard() {
 
   const dismissNotification = async (id: string) => {
     setUserNotifications(prev => prev.filter(n => n.id !== id))
-    await supabase.from('user_notifications').update({ read: true }).eq('id', id)
+    fetch(`https://api.clicknich.com/api/user-notifications/${id}/read`, { method: 'PUT' }).catch(() => {})
   }
 
   // Buscar notificações não lidas do sistema/superadmin
   useEffect(() => {
     if (!user?.id) return
-    supabase
-      .from('user_notifications')
-      .select('id, title, message, type')
-      .eq('user_id', user.id)
-      .eq('read', false)
-      .order('created_at', { ascending: false })
-      .limit(5)
-      .then(({ data }) => { if (data) setUserNotifications(data) })
+    fetch(`https://api.clicknich.com/api/user-notifications?userId=${user.id}`)
+      .then(r => r.ok ? r.json() : null)
+      .then(d => { if (d?.notifications) setUserNotifications(d.notifications) })
+      .catch(() => {})
   }, [user?.id])
   useEffect(() => {
     const fetchAppsAndMarketplace = async () => {
