@@ -253,6 +253,20 @@ export const useFunnels = () => {
                 }
             }
 
+            // Copiar order bumps (checkout_offers ligados ao funnel_id)
+            const { data: orderBumps } = await supabase
+                .from('checkout_offers')
+                .select('*')
+                .eq('funnel_id', funnelId)
+                .eq('offer_type', 'order_bump')
+            if (orderBumps && orderBumps.length > 0) {
+                const newBumps = orderBumps.map(({ id: _id, created_at: _ca, updated_at: _ua, ...rest }) => ({
+                    ...rest,
+                    funnel_id: newFunnel.id,
+                }))
+                await supabase.from('checkout_offers').insert(newBumps)
+            }
+
             setFunnels(prev => [newFunnel, ...prev])
             return newFunnel.id
         } catch (error) {
