@@ -393,9 +393,20 @@ async function verifyStripeRedirectPayment(
 
     await grantStripeRedirectAccess(supabase, env, internalPaymentId, paymentIntent, purchaseId, thankyouToken, frontendUrl)
 
-    const redirectUrl = await resolveRedirectUrl(supabase, internalPaymentId, purchaseId, thankyouToken, frontendUrl)
+    // Re-ler o record para pegar o purchase_id/thankyou_token que realmente foi gravado
+    // (pode ter sido o webhook que ganhou o lock atômico, não este verify)
+    const { data: finalRecord } = await supabase
+        .from('stripe_redirect_payments')
+        .select('purchase_id, thankyou_token')
+        .eq('id', internalPaymentId)
+        .maybeSingle()
 
-    return json({ success: true, purchaseId, thankyouToken, redirectUrl })
+    const finalPurchaseId = finalRecord?.purchase_id || purchaseId
+    const finalThankyouToken = finalRecord?.thankyou_token || thankyouToken
+
+    const redirectUrl = await resolveRedirectUrl(supabase, internalPaymentId, finalPurchaseId, finalThankyouToken, frontendUrl)
+
+    return json({ success: true, purchaseId: finalPurchaseId, thankyouToken: finalThankyouToken, redirectUrl })
 }
 
 /**
@@ -544,6 +555,26 @@ async function grantStripeRedirectAccess(
     frontendUrl: string,
 ): Promise<void> {
     try {
+        // Lock atômico: só quem mudar access_granted de false → true continua.
+        // Se dois processos (verify + webhook) chegarem ao mesmo tempo, apenas um ganha.
+        const { data: claimedRows, error: claimError } = await supabase
+            .from('stripe_redirect_payments')
+            .update({
+                access_granted: true,
+                purchase_id: purchaseId,
+                thankyou_token: thankyouToken,
+                status: 'succeeded',
+                updated_at: new Date().toISOString(),
+            })
+            .eq('id', internalPaymentId)
+            .eq('access_granted', false)
+            .select('id')
+
+        if (claimError || !claimedRows || claimedRows.length === 0) {
+            // Outro processo já processou este pagamento — não duplicar
+            return
+        }
+
         const { data: record } = await supabase
             .from('stripe_redirect_payments')
             .select('*')
@@ -779,18 +810,6 @@ async function grantStripeRedirectAccess(
                     : Promise.resolve(),
             ])
         }
-
-        // Marcar acesso como concedido
-        await supabase
-            .from('stripe_redirect_payments')
-            .update({
-                access_granted: true,
-                purchase_id: purchaseId,
-                thankyou_token: thankyouToken,
-                status: 'succeeded',
-                updated_at: new Date().toISOString(),
-            })
-            .eq('id', internalPaymentId)
 
     } catch (err: any) {
         console.error('[grantStripeRedirectAccess] Error:', err)
