@@ -364,9 +364,9 @@ export const PaymentForm: React.FC<PaymentFormProps> = ({
                   onClick={() => setExpandedPaymentMethod(isActive ? null : methodId)}
                   className={baseClass}
                 >
-                  <div className="flex items-center justify-center h-[17px]">
+                  <div className="flex items-center justify-center h-[44px]">
                     {stripeMethod.icon_url
-                      ? <img src={stripeMethod.icon_url} alt={stripeMethod.label} className="h-5 w-auto object-contain" />
+                      ? <img src={stripeMethod.icon_url} alt={stripeMethod.label} className="h-11 w-auto object-contain" />
                       : <span className="text-[11px] font-semibold text-gray-700">{stripeMethod.label}</span>
                     }
                   </div>
@@ -388,8 +388,8 @@ export const PaymentForm: React.FC<PaymentFormProps> = ({
                 onClick={() => setExpandedPaymentMethod(isActive ? null : methodId)}
                 className={baseClass}
               >
-                <div className="flex items-center justify-center h-[17px]">
-                  <img src={mollieMethod.icon_url || getMollieIcon(methodId)} alt={mollieMethod.label} className="h-5 w-auto object-contain" />
+                <div className="flex items-center justify-center h-[44px]">
+                  <img src={mollieMethod.icon_url || getMollieIcon(methodId)} alt={mollieMethod.label} className="h-11 w-auto object-contain" />
                 </div>
                 <div className="text-[11px] text-gray-600 mt-1.5 text-center truncate">
                   {mollieMethod.label}
