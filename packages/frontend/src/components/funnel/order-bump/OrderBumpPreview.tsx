@@ -1,3 +1,4 @@
+import { useI18n } from '@/i18n'
 import type { Product, Checkout } from './types'
 
 const formatPrice = (value: number, currency?: string) => {
@@ -49,6 +50,8 @@ export default function OrderBumpPreview({
     textColor = '#111827',
     descriptionColor = '#6b7280',
 }: OrderBumpPreviewProps) {
+    const { t } = useI18n()
+
     // Calculate price
     let basePrice = 0
     if (selectedCheckout) {
@@ -75,7 +78,7 @@ export default function OrderBumpPreview({
 
     return (
         <div className="w-full min-w-0">
-            <label className="block text-sm text-gray-400 mb-2">Preview</label>
+            <label className="block text-sm text-gray-400 mb-2">{t('funnel_components.bump_preview_label')}</label>
 
             {/* Inline keyframes for blink */}
             <style>{`@keyframes ob-blink{0%,100%{opacity:1}50%{opacity:0.3}}`}</style>
@@ -145,7 +148,7 @@ export default function OrderBumpPreview({
             </div>
 
             <p className="text-xs text-zinc-500 mt-2">
-                {selectedProduct ? 'Preview' : 'Selecione um produto para ver o preview'}
+                {selectedProduct ? t('funnel_components.bump_preview_label') : t('funnel_components.bump_preview_hint')}
             </p>
         </div>
     )

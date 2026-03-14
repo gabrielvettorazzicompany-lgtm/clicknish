@@ -739,6 +739,8 @@
         "bump_gradient_dark": "Dark",
         "bump_gradient_light": "Light",
         "bump_gradient_white_to_color": "White → Color",
+        "bump_preview_label": "Preview",
+        "bump_preview_hint": "Select a product to see the preview",
         "configure_checkout_first": "Configure the page checkout first",
         "error_saving_bump": "Error saving order bump. Please try again.",
         "cannot_add_main": "You cannot add the main product as an order bump",

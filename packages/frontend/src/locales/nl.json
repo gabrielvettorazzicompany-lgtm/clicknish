@@ -738,6 +738,8 @@
         "bump_gradient_dark": "Donker",
         "bump_gradient_light": "Licht",
         "bump_gradient_white_to_color": "Wit → Kleur",
+        "bump_preview_label": "Voorbeeld",
+        "bump_preview_hint": "Selecteer een product om de voorbeeldweergave te zien",
         "configure_checkout_first": "Configure the page checkout first",
         "error_saving_bump": "Error saving order bump. Please try again.",
         "cannot_add_main": "You cannot add the main product as an order bump",

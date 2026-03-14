@@ -739,6 +739,8 @@
         "bump_gradient_dark": "Dunkel",
         "bump_gradient_light": "Hell",
         "bump_gradient_white_to_color": "Weiß → Farbe",
+        "bump_preview_label": "Vorschau",
+        "bump_preview_hint": "Wählen Sie ein Produkt aus, um die Vorschau zu sehen",
         "configure_checkout_first": "Konfiguriere zuerst den Seiten-Checkout",
         "error_saving_bump": "Fehler beim Speichern des Order Bumps. Bitte versuche es erneut.",
         "cannot_add_main": "Du kannst das Hauptprodukt nicht als Order Bump hinzufügen",
