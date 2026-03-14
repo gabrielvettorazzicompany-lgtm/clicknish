@@ -38,6 +38,15 @@ export interface OrderBump {
     show_product_image?: boolean
     discount_type?: 'percentage' | 'fixed' | 'none'
     discount_value?: number
+    // Style fields
+    bump_border_type?: 'none' | 'solid' | 'dashed'
+    bump_border_color?: string
+    bump_bg_color?: string
+    bump_show_arrow?: boolean
+    bump_arrow_color?: string
+    bump_text_color?: string
+    bump_bg_gradient?: string
+    bump_description_color?: string
 }
 
 export type ImageBlockSlot =

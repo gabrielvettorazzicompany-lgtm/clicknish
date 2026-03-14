@@ -38,6 +38,14 @@ const normalizeOffer = (item: any): OrderBump => {
         show_product_image: item.show_product_image,
         discount_type: item.discount_percentage ? 'percentage' : 'none',
         discount_value: item.discount_percentage,
+        bump_border_type: item.bump_border_type || 'none',
+        bump_border_color: item.bump_border_color || '#22c55e',
+        bump_bg_color: item.bump_bg_color || '#ffffff',
+        bump_show_arrow: item.bump_show_arrow || false,
+        bump_arrow_color: item.bump_arrow_color || '#f97316',
+        bump_text_color: item.bump_text_color || '#111827',
+        bump_bg_gradient: item.bump_bg_gradient || '',
+        bump_description_color: item.bump_description_color || '#6b7280',
     }
 }
 

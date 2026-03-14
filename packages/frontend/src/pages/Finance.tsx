@@ -24,7 +24,7 @@ export default function Finance() {
     const { t } = useI18n()
     const [sidebarOpen, setSidebarOpen] = useState(false)
     const [activeTab, setActiveTab] = useState<TabType>('withdrawals')
-    const [selectedSchedule, setSelectedSchedule] = useState<PayoutSchedule>('D+2')
+    const [selectedSchedule, setSelectedSchedule] = useState<PayoutSchedule>('D+5')
     const [scheduleOpen, setScheduleOpen] = useState(false)
     const [withdrawModalOpen, setWithdrawModalOpen] = useState(false)
     const [anticipationModalOpen, setAnticipationModalOpen] = useState(false)

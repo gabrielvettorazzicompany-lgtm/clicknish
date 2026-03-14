@@ -1,12 +1,12 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ArrowLeft, Camera, Save, User, Mail, Phone, Calendar } from 'lucide-react'
+import { ArrowLeft, Camera, Save, User, Mail, Phone, Calendar, Globe, DollarSign, Shield, Send, CheckCircle } from 'lucide-react'
 import Sidebar from '@/components/Sidebar'
 import Header from '@/components/Header'
 import { useAuthStore } from '@/stores/authStore'
 import { useOnboarding } from '@/contexts/OnboardingContext'
 import { supabase } from '@/services/supabase'
-import { useI18n } from '@/i18n'
+import { useI18n, type Language } from '@/i18n'
 
 declare global {
   interface Window {
@@ -14,14 +14,37 @@ declare global {
   }
 }
 
+const LANGUAGES: { value: Language; label: string }[] = [
+  { value: 'pt', label: 'Português' },
+  { value: 'en', label: 'English' },
+  { value: 'es', label: 'Español' },
+  { value: 'fr', label: 'Français' },
+  { value: 'de', label: 'Deutsch' },
+  { value: 'nl', label: 'Nederlands' },
+]
+
+const CURRENCIES = [
+  { value: 'USD', label: 'USD — Dólar Americano', symbol: '$' },
+  { value: 'EUR', label: 'EUR — Euro', symbol: '€' },
+  { value: 'BRL', label: 'BRL — Real Brasileiro', symbol: 'R$' },
+  { value: 'CHF', label: 'CHF — Franco Suíço', symbol: 'Fr' },
+]
+
 export default function AdminProfile() {
   const navigate = useNavigate()
   const { user, setUser } = useAuthStore()
   const { completeStep, currentStep } = useOnboarding()
-  const { t } = useI18n()
+  const { t, setLanguage } = useI18n()
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [loading, setLoading] = useState(false)
   const [avatarUpdateKey, setAvatarUpdateKey] = useState(0)
+  const [preferences, setPreferences] = useState<{ language: Language; currency: string }>({
+    language: 'pt',
+    currency: 'USD',
+  })
+  const [resetEmailLoading, setResetEmailLoading] = useState(false)
+  const [resetEmailSuccess, setResetEmailSuccess] = useState(false)
+  const [resetEmailError, setResetEmailError] = useState('')
   const [formData, setFormData] = useState({
     fullName: user?.user_metadata?.full_name || '',
     email: user?.email || '',
@@ -94,6 +117,14 @@ export default function AdminProfile() {
           bio: data.bio || '',
           avatar: avatarUrl
         })
+
+        // Carregar preferências salvas
+        const prefs = data.preferences || {}
+        const savedLang = prefs.language as Language
+        const lang: Language = ['pt', 'en', 'es', 'fr', 'de', 'nl'].includes(savedLang) ? savedLang : 'pt'
+        const currency = prefs.currency || 'USD'
+        setPreferences({ language: lang, currency })
+        setLanguage(lang)
       }
     } catch (error) {
       console.error('Error loading admin profile:', error)
@@ -121,7 +152,8 @@ export default function AdminProfile() {
         full_name: formData.fullName,
         phone: formData.phone,
         bio: formData.bio,
-        avatar_path: formData.avatar
+        avatar_path: formData.avatar,
+        preferences: { language: preferences.language, currency: preferences.currency }
       }
 
       let error
@@ -141,6 +173,9 @@ export default function AdminProfile() {
       }
 
       if (error) throw error
+
+      // Aplicar idioma imediatamente
+      setLanguage(preferences.language)
 
       // Atualizar o user store para refletir as mudanças na UI
       if (user) {
@@ -180,6 +215,24 @@ export default function AdminProfile() {
       alert(`${t('settings.admin_profile.error_saving')} ${error.message}`)
     } finally {
       setLoading(false)
+    }
+  }
+
+  const handleSendResetEmail = async () => {
+    if (!user?.email) return
+    setResetEmailLoading(true)
+    setResetEmailSuccess(false)
+    setResetEmailError('')
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(user.email, {
+        redirectTo: `${window.location.origin}/auth/reset-password`
+      })
+      if (error) throw error
+      setResetEmailSuccess(true)
+    } catch (err: any) {
+      setResetEmailError(err.message || t('settings.admin_profile.reset_email_error'))
+    } finally {
+      setResetEmailLoading(false)
     }
   }
 
@@ -457,6 +510,82 @@ export default function AdminProfile() {
                         {user?.last_sign_in_at ? formatDate(user.last_sign_in_at) : t('settings.admin_profile.never')}
                       </p>
                     </div>
+                  </div>
+                </div>
+
+                {/* Dashboard Preferences */}
+                <div className="mt-4 pt-3 border-t border-gray-200 dark:border-[#1e2139]">
+                  <h4 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-3 flex items-center gap-2">
+                    <Globe size={16} />
+                    {t('settings.admin_profile.dashboard_preferences')}
+                  </h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {/* Language */}
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        {t('settings.admin_profile.dashboard_language')}
+                      </label>
+                      <select
+                        value={preferences.language}
+                        onChange={(e) => setPreferences(p => ({ ...p, language: e.target.value as Language }))}
+                        className="w-full p-2 border border-gray-300 dark:border-[#252941] rounded-lg focus:outline-none focus:border-blue-500/50 text-sm bg-white dark:bg-[#0f1117] text-gray-900 dark:text-white"
+                      >
+                        {LANGUAGES.map(l => (
+                          <option key={l.value} value={l.value}>{l.label}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {/* Currency */}
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1 flex items-center gap-1">
+                        <DollarSign size={13} />
+                        {t('settings.admin_profile.default_currency')}
+                      </label>
+                      <select
+                        value={preferences.currency}
+                        onChange={(e) => setPreferences(p => ({ ...p, currency: e.target.value }))}
+                        className="w-full p-2 border border-gray-300 dark:border-[#252941] rounded-lg focus:outline-none focus:border-blue-500/50 text-sm bg-white dark:bg-[#0f1117] text-gray-900 dark:text-white"
+                      >
+                        {CURRENCIES.map(c => (
+                          <option key={c.value} value={c.value}>{c.value}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Security */}
+                <div className="mt-4 pt-3 border-t border-gray-200 dark:border-[#1e2139]">
+                  <h4 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-3 flex items-center gap-2">
+                    <Shield size={16} />
+                    {t('settings.admin_profile.security')}
+                  </h4>
+                  <div className="flex flex-col gap-2">
+                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                      {t('settings.admin_profile.reset_password_desc')}
+                    </p>
+                    {resetEmailSuccess ? (
+                      <div className="flex items-center gap-2 text-green-500 text-sm">
+                        <CheckCircle size={16} />
+                        <span>{t('settings.admin_profile.reset_email_sent')}</span>
+                      </div>
+                    ) : (
+                      <>
+                        {resetEmailError && (
+                          <p className="text-xs text-red-400">{resetEmailError}</p>
+                        )}
+                        <button
+                          type="button"
+                          onClick={handleSendResetEmail}
+                          disabled={resetEmailLoading}
+                          className="self-start flex items-center gap-2 px-3 py-1.5 rounded-lg border border-orange-500/40 text-orange-400 hover:bg-orange-500/10 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm font-medium"
+                        >
+                          <Send size={14} />
+                          {resetEmailLoading ? t('common.loading') : t('settings.admin_profile.send_reset_email')}
+                        </button>
+                      </>
+                    )}
                   </div>
                 </div>
               </div>

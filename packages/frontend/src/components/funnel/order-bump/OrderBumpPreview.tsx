@@ -18,6 +18,14 @@ interface OrderBumpPreviewProps {
     selectedCheckout: string
     products: Product[]
     checkouts: Checkout[]
+    borderType?: 'none' | 'solid' | 'dashed'
+    borderColor?: string
+    bgColor?: string
+    bgGradient?: string
+    showArrow?: boolean
+    arrowColor?: string
+    textColor?: string
+    descriptionColor?: string
 }
 
 export default function OrderBumpPreview({
@@ -31,11 +39,18 @@ export default function OrderBumpPreview({
     discount,
     selectedCheckout,
     products,
-    checkouts
+    checkouts,
+    borderType = 'none',
+    borderColor = '#22c55e',
+    bgColor = '#ffffff',
+    bgGradient,
+    showArrow = false,
+    arrowColor = '#f97316',
+    textColor = '#111827',
+    descriptionColor = '#6b7280',
 }: OrderBumpPreviewProps) {
     // Calculate price
     let basePrice = 0
-
     if (selectedCheckout) {
         const checkout = checkouts.find(c => c.id === selectedCheckout)
         basePrice = checkout?.final_price || 0
@@ -48,72 +63,89 @@ export default function OrderBumpPreview({
         ? basePrice * (1 - discount / 100)
         : basePrice
 
+    const product = products.find(p => p.id === selectedProduct)
+    const currency = product?.currency
+
+    const borderStyle: React.CSSProperties =
+        borderType === 'none'
+            ? { border: '1px solid #e5e7eb' }
+            : borderType === 'solid'
+                ? { border: `3px solid ${borderColor}` }
+                : { border: `3px dashed ${borderColor}` }
+
     return (
-        <div>
-            <label className="block text-sm text-gray-400 mb-2">
-                Preview
-            </label>
+        <div className="w-full min-w-0">
+            <label className="block text-sm text-gray-400 mb-2">Preview</label>
+
+            {/* Inline keyframes for blink */}
+            <style>{`@keyframes ob-blink{0%,100%{opacity:1}50%{opacity:0.3}}`}</style>
+
             <div
-                className={`p-4 rounded-lg border transition-all ${selectedProduct
-                    ? 'bg-zinc-900 border-zinc-700'
-                    : 'bg-white border-zinc-300'
-                    }`}
+                style={{ ...(bgGradient ? { background: bgGradient } : { backgroundColor: bgColor }), ...borderStyle, borderRadius: '10px', padding: '12px', overflow: 'hidden', boxSizing: 'border-box', width: '100%' }}
             >
-                <div className="flex items-start gap-3">
-                    <input
-                        type="checkbox"
-                        checked={!!selectedProduct}
-                        readOnly
-                        className="mt-1 w-4 h-4 rounded border-zinc-400 accent-black focus:ring-0"
-                    />
+                <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', overflow: 'hidden', width: '100%', minWidth: 0 }}>
+                    {/* Arrow */}
+                    {showArrow && (
+                        <svg
+                            style={{
+                                color: arrowColor,
+                                flexShrink: 0,
+                                marginTop: '2px',
+                                animation: 'ob-blink 1.2s ease-in-out infinite',
+                            }}
+                            width="38" height="24" viewBox="0 0 40 20" fill="currentColor"
+                        >
+                            <path d="M0,6 L26,6 L26,0 L40,10 L26,20 L26,14 L0,14 Z" />
+                        </svg>
+                    )}
+
+                    {/* Checkbox */}
+                    <div style={{ flexShrink: 0, marginTop: '2px' }}>
+                        <div className="w-[18px] h-[18px] rounded border-2 border-gray-400 bg-white" />
+                    </div>
+
+                    {/* Image */}
                     {showProductImage && selectedProduct && selectedProductImageUrl && (
                         <img
                             src={selectedProductImageUrl}
                             alt={productName}
-                            className="w-16 h-16 object-cover rounded-lg border border-zinc-700 flex-shrink-0"
+                            className="w-14 h-14 object-cover rounded-lg"
+                            style={{ flexShrink: 0 }}
                         />
                     )}
-                    <div className="flex-1 min-w-0">
-                        <div className={`text-sm font-bold mb-1 ${selectedProduct ? 'text-white' : 'text-black'
-                            }`}>
+
+                    {/* Content */}
+                    <div style={{ flex: 1, minWidth: 0, maxWidth: '100%', overflow: 'hidden' }}>
+                        <div style={{ fontSize: '14px', fontWeight: 'bold', lineHeight: '1.2', marginBottom: '2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: textColor }}>
                             {callToAction}
                         </div>
-                        <div className={`text-sm font-medium ${selectedProduct ? 'text-zinc-300' : 'text-gray-900'}`}>
-                            {productName}
-                        </div>
-                        <div className={`text-xs mt-1 break-words ${selectedProduct ? 'text-zinc-400' : 'text-gray-600'}`}>
-                            {productDescription}
-                        </div>
+                        <div style={{ fontSize: '13px', fontWeight: 500, color: '#374151', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{productName}</div>
+                        <div style={{ fontSize: '12px', color: descriptionColor, marginTop: '2px', lineHeight: '1.4', maxHeight: '9.8em', overflow: 'hidden', wordBreak: 'break-all', whiteSpace: 'pre-wrap' }}>{productDescription}</div>
+
                         {selectedProduct && (
-                            <div className="mt-2 flex items-center gap-2">
+                            <div className="mt-1.5 flex items-center gap-2">
                                 {applyDiscount && discount > 0 ? (
                                     <>
-                                        <span className="text-xs text-zinc-500 line-through">
-                                            {formatPrice(basePrice, products.find(p => p.id === selectedProduct)?.currency)}
+                                        <span className="text-xs text-gray-400 line-through">
+                                            {formatPrice(basePrice, currency)}
                                         </span>
-                                        <span className="text-sm font-bold text-white">
-                                            {formatPrice(discountedPrice, products.find(p => p.id === selectedProduct)?.currency)}
+                                        <span className="text-sm font-bold text-gray-900">
+                                            {formatPrice(discountedPrice, currency)}
                                         </span>
                                     </>
                                 ) : (
-                                    <span className="text-sm font-bold text-white">
-                                        {formatPrice(basePrice, products.find(p => p.id === selectedProduct)?.currency)}
+                                    <span className="text-sm font-bold text-gray-900">
+                                        {formatPrice(basePrice, currency)}
                                     </span>
                                 )}
                             </div>
                         )}
                     </div>
-                    {selectedProduct && (
-                        <div className="flex items-center justify-center w-4 h-4 rounded-full bg-black flex-shrink-0">
-                            <svg className="w-2.5 h-2.5 text-white" fill="currentColor" viewBox="0 0 16 16">
-                                <path d="M13.854 3.646a.5.5 0 0 1 0 .708l-7 7a.5.5 0 0 1-.708 0l-3.5-3.5a.5.5 0 1 1 .708-.708L6.5 10.293l6.646-6.647a.5.5 0 0 1 .708 0z" />
-                            </svg>
-                        </div>
-                    )}
                 </div>
             </div>
+
             <p className="text-xs text-zinc-500 mt-2">
-                {selectedProduct ? 'Selected' : 'Select a product to see the preview'}
+                {selectedProduct ? 'Preview' : 'Selecione um produto para ver o preview'}
             </p>
         </div>
     )

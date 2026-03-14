@@ -39,6 +39,15 @@ export interface OrderBump {
     offer_position?: number
     checkout_offer_id?: string
     product?: Product
+    // Style fields
+    bump_border_type?: 'none' | 'solid' | 'dashed'
+    bump_border_color?: string
+    bump_bg_color?: string
+    bump_show_arrow?: boolean
+    bump_arrow_color?: string
+    bump_text_color?: string
+    bump_bg_gradient?: string
+    bump_description_color?: string
 }
 
 export interface OrderBumpFormData {
@@ -51,4 +60,16 @@ export interface OrderBumpFormData {
     productDescription: string
     showProductImage: boolean
     selectedProductImageUrl?: string
+    // Style fields
+    borderType: 'none' | 'solid' | 'dashed'
+    borderColor: string
+    bgColor: string
+    showArrow: boolean
+    arrowColor: string
+    textColor: string
+    bgType: 'solid' | 'gradient'
+    bgGradientFrom: string
+    bgGradientTo: string
+    bgGradientDir: string
+    descriptionColor: string
 }

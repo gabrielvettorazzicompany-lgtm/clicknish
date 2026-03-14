@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { X, AlertCircle } from 'lucide-react'
+import { X, AlertCircle, Lock } from 'lucide-react'
 import { useI18n } from '@/i18n'
 
 export type PayoutSchedule = 'D+2' | 'D+5' | 'D+12'
@@ -80,9 +80,16 @@ export default function WithdrawModal({ isOpen, onClose, availableBalance, curre
                 <div className="mb-5">
                     <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-2">{t('finance.withdraw_modal.release_period')}</label>
                     <div className="grid grid-cols-3 gap-2">
-                        {(['D+2', 'D+5', 'D+12'] as PayoutSchedule[]).map((key) => {
+                        {/* D+2 — bloqueado, requer solicitação */}
+                        <div className="relative flex flex-col items-center py-3 px-2 rounded-xl border border-gray-200 dark:border-white/10 text-center opacity-50 cursor-not-allowed select-none">
+                            <Lock className="w-3.5 h-3.5 text-gray-400 mb-0.5" />
+                            <span className="text-base font-bold text-gray-400">D+2</span>
+                            <span className="text-[10px] mt-0.5 text-gray-400">{t('finance.withdraw_modal.payout_fast')}</span>
+                            <span className="text-[10px] font-semibold mt-1 text-amber-400">{PAYOUT_FEES['D+2'].percentage}%</span>
+                        </div>
+                        {(['D+5', 'D+12'] as PayoutSchedule[]).map((key) => {
                             const info = PAYOUT_FEES[key]
-                            const labelKey = key === 'D+2' ? 'payout_fast' : key === 'D+5' ? 'payout_standard' : 'payout_economy'
+                            const labelKey = key === 'D+5' ? 'payout_standard' : 'payout_economy'
                             return (
                                 <button
                                     key={key}
@@ -99,6 +106,9 @@ export default function WithdrawModal({ isOpen, onClose, availableBalance, curre
                             )
                         })}
                     </div>
+                    <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-1.5">
+                        D+2 requer solicitação — entre em contato com o suporte.
+                    </p>
                 </div>
 
                 {/* Resumo de taxas */}
