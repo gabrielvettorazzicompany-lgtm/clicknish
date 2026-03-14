@@ -172,6 +172,7 @@ export function buildAccessEmailHtml(opts: {
 }): { subject: string; html: string; text: string } {
     const { lang, customerName, customerEmail, productName, productsHtml, loginUrl, accentColor = '#667eea', supportEmail } = opts
     const i18n = accessEmailI18n[lang]
+    const effectiveSupportEmail = supportEmail || 'suporte@clicknich.com'
 
     const subject = i18n.subject(productName)
 
@@ -209,13 +210,12 @@ export function buildAccessEmailHtml(opts: {
                   3. ${i18n.instructionStep3}
                 </p>
               </div>
-              ${supportEmail ? `
               <table width="100%" cellpadding="0" cellspacing="0" style="margin-top:24px;">
                 <tr>
                   <td style="background:#f8fafc;border:1px solid #e5e7eb;border-radius:8px;padding:20px;">
                     <p style="color:#111827;font-size:14px;font-weight:bold;margin:0 0 8px;">${i18n.supportTitle}</p>
                     <p style="color:#6b7280;font-size:13px;margin:0 0 12px;line-height:1.6;">${i18n.supportBody}</p>
-                    <p style="color:#374151;font-size:13px;margin:0 0 12px;">${i18n.supportLabel} <a href="mailto:${supportEmail}" style="color:${accentColor};text-decoration:none;font-weight:500;">${supportEmail}</a></p>
+                    <p style="color:#374151;font-size:13px;margin:0 0 12px;">${i18n.supportLabel} <a href="mailto:${effectiveSupportEmail}" style="color:${accentColor};text-decoration:none;font-weight:500;">${effectiveSupportEmail}</a></p>
                     <p style="color:#6b7280;font-size:12px;margin:0;line-height:1.6;">${i18n.supportNote}</p>
                   </td>
                 </tr>
@@ -227,7 +227,7 @@ export function buildAccessEmailHtml(opts: {
                     <p style="color:#6b7280;font-size:13px;margin:0;line-height:1.6;">${i18n.guaranteeBody}</p>
                   </td>
                 </tr>
-              </table>` : ''}
+              </table>
               <div style="margin-top:32px;padding-top:20px;border-top:1px solid #e5e7eb;text-align:center;">
                 <p style="color:#9ca3af;font-size:11px;margin:0;">© ${new Date().getFullYear()} ClickNich. All rights reserved.</p>
               </div>
@@ -240,7 +240,7 @@ export function buildAccessEmailHtml(opts: {
 </body>
 </html>`
 
-    const text = `${i18n.greeting} ${customerName || customerEmail},\n\n${i18n.body}\n\n${productName}\n\n${i18n.instructionsTitle}\n1. ${i18n.instructionStep1}\n2. ${customerEmail}\n3. ${i18n.instructionStep3}\n\n${loginUrl ? `${i18n.buttonText}: ${loginUrl}\n\n` : ''}${supportEmail ? `${i18n.supportTitle}\n${i18n.supportBody}\n${i18n.supportLabel} ${supportEmail}\n\n${i18n.guaranteeTitle}\n${i18n.guaranteeBody}\n\n` : ''}© ${new Date().getFullYear()} ClickNich.`
+    const text = `${i18n.greeting} ${customerName || customerEmail},\n\n${i18n.body}\n\n${productName}\n\n${i18n.instructionsTitle}\n1. ${i18n.instructionStep1}\n2. ${customerEmail}\n3. ${i18n.instructionStep3}\n\n${loginUrl ? `${i18n.buttonText}: ${loginUrl}\n\n` : ''}${i18n.supportTitle}\n${i18n.supportBody}\n${i18n.supportLabel} ${effectiveSupportEmail}\n\n${i18n.guaranteeTitle}\n${i18n.guaranteeBody}\n\n© ${new Date().getFullYear()} ClickNich.`
 
     return { subject, html, text }
 }
