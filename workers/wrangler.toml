@@ -1,5 +1,6 @@
 name = "clicknich-api"
 main = "src/index.ts"
+account_id = "0de13f5f17765141be3b48f76a5dafc7"
 compatibility_date = "2024-01-01"
 compatibility_flags = ["nodejs_compat"]
 workers_dev = false
