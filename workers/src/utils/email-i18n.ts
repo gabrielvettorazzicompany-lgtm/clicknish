@@ -216,7 +216,7 @@ export function buildAccessEmailHtml(opts: {
                 ${productsHtml}
               </div>
               ${loginUrl ? `<div style="margin:30px 0;text-align:center;"><a href="${loginUrl}" style="background:${accentColor};color:white;padding:14px 32px;text-decoration:none;border-radius:6px;display:inline-block;font-weight:bold;font-size:16px;">${i18n.buttonText}</a></div>` : ''}
-              ${supportEmail ? `<table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:20px;"><tr><td style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:18px 20px;"><p style="color:#166534;font-size:14px;font-weight:bold;margin:0 0 6px;">${i18n.producerSupportTitle}</p><p style="color:#4b5563;font-size:13px;margin:0 0 10px;">${i18n.producerSupportLabel}</p><a href="mailto:${supportEmail}" style="color:${accentColor};font-size:13px;font-weight:500;text-decoration:none;">&#x2709;&#xFE0F; ${supportEmail}</a></td></tr></table>` : ''}
+              ${supportEmail ? `<table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:20px;"><tr><td style="background:#f8fafc;border:1px solid #e5e7eb;border-radius:8px;padding:20px;"><p style="color:#111827;font-size:14px;font-weight:bold;margin:0 0 8px;">${i18n.producerSupportTitle}</p><p style="color:#6b7280;font-size:13px;margin:0 0 12px;line-height:1.6;">${i18n.producerSupportLabel}</p><a href="mailto:${supportEmail}" style="color:${accentColor};font-size:13px;font-weight:500;text-decoration:none;">${supportEmail}</a></td></tr></table>` : ''}
               <div style="background:#f3f4f6;padding:15px;border-radius:6px;margin-top:20px;">
                 <p style="color:#666;font-size:13px;margin:0;">
                   <strong>${i18n.instructionsTitle}</strong><br>
