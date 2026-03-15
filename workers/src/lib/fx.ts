@@ -36,11 +36,11 @@ const COUNTRY_TO_CURRENCY: Record<string, string> = {
     'CH': 'CHF',
     // América do Norte
     'CA': 'CAD',
-    // América Latina
-    'MX': 'MXN',
-    'CO': 'COP',
-    'CL': 'CLP',
-    'PE': 'PEN',
+    // América Latina - DESABILITADO: Forçar USD
+    // 'MX': 'MXN',  // ← Comentado: México agora usa USD
+    // 'CO': 'COP',  // ← Comentado: Colômbia agora usa USD  
+    // 'CL': 'CLP',  // ← Comentado: Chile agora usa USD
+    // 'PE': 'PEN',  // ← Comentado: Peru agora usa USD
     // Todos os outros países → USD via fallback
 }
 
