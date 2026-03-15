@@ -270,6 +270,16 @@ export async function handleProcessStripePayment(
             },
         }
 
+        // Fix para Revolut: forçar redirect mais agressivo
+        if (stripeMethod === 'revolut_pay') {
+            paymentIntentParams.automatic_payment_methods = { enabled: false }
+            paymentIntentParams.payment_method_options = {
+                revolut_pay: {
+                    capture_method: 'automatic'
+                }
+            }
+        }
+
         const paymentIntent = await stripe.paymentIntents.create(paymentIntentParams)
 
         // Salvar registro pendente
