@@ -137,13 +137,10 @@ export default function CheckoutPublic() {
         return null
     })[0]
 
-    // ⚡ Estados do checkout
+    // ⚡ Se dados já disponíveis no HTML, começa sem loading (zero skeleton)
     const [loading, setLoading] = useState(!snap)
     const [reloadKey, setReloadKey] = useState(0)
     const [fetchError, setFetchError] = useState(false)
-    const [stripeVerifying, setStripeVerifying] = useState(false)
-    const [stripeApproved, setStripeApproved] = useState<string | null>(null) // redirectUrl após aprovação
-    const [paymentMonitoring, setPaymentMonitoring] = useState(false)
     const [product, setProduct] = useState<Product | null>(snap?.product ?? null)
     const [checkout, setCheckout] = useState<Checkout | null>(snap?.checkout ?? null)
     const [finalCheckoutId, setFinalCheckoutId] = useState<string | null>(snap?.checkoutId ?? null)
@@ -175,6 +172,7 @@ export default function CheckoutPublic() {
     const [mollieEnabledMethods, setMollieEnabledMethods] = useState<Array<{ id: string; label: string; description?: string; icon_url?: string }>>([])
     const [mollieVerifying, setMollieVerifying] = useState(false)
     const [stripeEnabledMethods, setStripeEnabledMethods] = useState<Array<{ id: string; label: string; icon_url?: string | null }>>([])
+    const [stripeVerifying, setStripeVerifying] = useState(false)
 
     // Capture UTM params once from the URL when the checkout opens
     // Persiste por 30 dias no localStorage (igual Hotmart/PerfectPay)
@@ -268,7 +266,7 @@ export default function CheckoutPublic() {
             })
     }, [])
 
-    // Verificar retorno do Stripe redirect (iDEAL, Bancontact, Revolut, etc.)
+    // Verificar retorno do Stripe redirect (iDEAL, Bancontact, etc.)
     useEffect(() => {
         const p = new URLSearchParams(window.location.search)
         const stripeReturn = p.get('stripe_return')
@@ -276,114 +274,29 @@ export default function CheckoutPublic() {
         if (stripeReturn !== '1' || !stripePaymentId) return
 
         setStripeVerifying(true)
-
-        // Revolut pode demorar alguns segundos para processar o webhook após o redirect.
-        // Tentamos até 15x com intervalo de 2s (30s total) antes de desistir.
-        let attempts = 0
-        const MAX_ATTEMPTS = 15
-        const RETRY_INTERVAL = 2000
-
-        const tryVerify = () => {
-            attempts++
-            fetch('https://api.clicknich.com/api/process-stripe-payment', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ action: 'verify', paymentId: stripePaymentId }),
-            })
-                .then(r => r.json())
-                .then((result: any) => {
-                    if (result.success && result.redirectUrl) {
-                        sessionStorage.removeItem('stripe_payment_polling')
-                        // Em vez de redirecionar automaticamente, mostrar modal de confirmação
-                        setStripeVerifying(false)
-                        setStripeApproved(result.redirectUrl)
-                    } else if (attempts < MAX_ATTEMPTS) {
-                        console.log(`[Stripe verify] Attempt ${attempts}/${MAX_ATTEMPTS}, retrying...`)
-                        setTimeout(tryVerify, RETRY_INTERVAL)
-                    } else {
-                        console.warn('[Stripe verify] Max attempts reached, payment may still be processing')
-                        window.history.replaceState({}, '', window.location.pathname)
-                        setStripeVerifying(false)
-                        setLoading(true)
-                        setReloadKey(k => k + 1)
-                    }
-                })
-                .catch(() => {
-                    if (attempts < MAX_ATTEMPTS) {
-                        setTimeout(tryVerify, RETRY_INTERVAL)
-                    } else {
-                        window.history.replaceState({}, '', window.location.pathname)
-                        setStripeVerifying(false)
-                        setLoading(true)
-                        setReloadKey(k => k + 1)
-                    }
-                })
-        }
-
-        tryVerify()
-    }, [])
-
-    // Polling para verificar pagamentos Revolut aprovados em background
-    useEffect(() => {
-        let pollInterval: NodeJS.Timeout | null = null
-        let lastPaymentId: string | null = null
-
-        const startPolling = (paymentId: string) => {
-            if (pollInterval) clearInterval(pollInterval)
-            
-            setPaymentMonitoring(true)
-            
-            pollInterval = setInterval(async () => {
-                try {
-                    const response = await fetch('https://api.clicknich.com/api/process-stripe-payment', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ action: 'verify', paymentId }),
-                    })
-                    
-                    const result = await response.json()
-                    if (result.success && result.redirectUrl) {
-                        if (pollInterval) clearInterval(pollInterval)
-                        setPaymentMonitoring(false)
-                        sessionStorage.removeItem('stripe_payment_polling')
-                        console.log('[Revolut Polling] Payment verified, showing confirmation modal...')
-                        setStripeApproved(result.redirectUrl)
-                    }
-                } catch (error) {
-                    console.warn('[Revolut Polling] Error:', error)
+        fetch('https://api.clicknich.com/api/process-stripe-payment', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'verify', paymentId: stripePaymentId }),
+        })
+            .then(r => r.json())
+            .then((result: any) => {
+                if (result.success && result.redirectUrl) {
+                    window.location.href = result.redirectUrl
+                } else {
+                    // Pagamento falhou ou sem redirectUrl — limpar params e carregar checkout normalmente
+                    window.history.replaceState({}, '', window.location.pathname)
+                    setStripeVerifying(false)
+                    setLoading(true)
+                    setReloadKey(k => k + 1) // dispara o useEffect principal (sem chamar fetchData manualmente)
                 }
-            }, 3000) // Check a cada 3 segundos
-        }
-
-        // Monitor para novos pagamentos criados
-        const checkForNewPayments = () => {
-            const currentPayment = sessionStorage.getItem('stripe_payment_polling')
-            if (currentPayment && currentPayment !== lastPaymentId) {
-                lastPaymentId = currentPayment
-                console.log('[Revolut Polling] Started monitoring payment:', currentPayment)
-                startPolling(currentPayment)
-                
-                // Para polling após 5 minutos
-                setTimeout(() => {
-                    if (pollInterval) {
-                        clearInterval(pollInterval)
-                        setPaymentMonitoring(false)
-                        sessionStorage.removeItem('stripe_payment_polling')
-                        console.log('[Revolut Polling] Timeout reached, stopping poll')
-                    }
-                }, 300000) // 5 minutos
-            }
-        }
-
-        // Verificar imediatamente e depois a cada 1 segundo
-        checkForNewPayments()
-        const monitorInterval = setInterval(checkForNewPayments, 1000)
-
-        return () => {
-            if (pollInterval) clearInterval(pollInterval)
-            clearInterval(monitorInterval)
-            setPaymentMonitoring(false)
-        }
+            })
+            .catch(() => {
+                window.history.replaceState({}, '', window.location.pathname)
+                setStripeVerifying(false)
+                setLoading(true)
+                setReloadKey(k => k + 1)
+            })
     }, [])
 
     // Buscar métodos Mollie habilitados — filtros dependem do modo
@@ -1237,36 +1150,6 @@ export default function CheckoutPublic() {
                     <div className="bg-white rounded-2xl p-8 flex flex-col items-center gap-4 shadow-xl">
                         <div className="w-10 h-10 border-4 border-blue-500/30 border-t-blue-500 rounded-full animate-spin" />
                         <p className="text-sm font-medium text-gray-700">Verificando pagamento...</p>
-                    </div>
-                </div>
-            )}
-            {paymentMonitoring && !stripeApproved && (
-                <div className="fixed bottom-4 right-4 z-40 bg-blue-600 text-white px-4 py-3 rounded-lg shadow-lg flex items-center gap-3">
-                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                    <div>
-                        <p className="text-sm font-medium">Monitorando pagamento</p>
-                        <p className="text-xs text-blue-100">Aguardando aprovação...</p>
-                    </div>
-                </div>
-            )}
-            {stripeApproved && (
-                <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4">
-                    <div className="bg-white rounded-2xl p-8 flex flex-col items-center gap-6 shadow-xl max-w-sm w-full">
-                        <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center">
-                            <svg className="w-8 h-8 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                            </svg>
-                        </div>
-                        <div className="text-center">
-                            <p className="text-lg font-bold text-gray-900">Pagamento aprovado!</p>
-                            <p className="text-sm text-gray-500 mt-1">Seu pagamento foi confirmado com sucesso.</p>
-                        </div>
-                        <button
-                            onClick={() => { window.location.href = stripeApproved }}
-                            className="w-full py-3 px-6 bg-green-500 hover:bg-green-600 text-white font-semibold rounded-xl transition-colors text-base"
-                        >
-                            Continuar →
-                        </button>
                     </div>
                 </div>
             )}

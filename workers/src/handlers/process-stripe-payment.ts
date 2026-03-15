@@ -270,17 +270,14 @@ export async function handleProcessStripePayment(
             },
         }
 
-        // Fix para Revolut: forçar redirect mais agressivo e configuração específica
+        // Fix para Revolut: forçar redirect mais agressivo
         if (stripeMethod === 'revolut_pay') {
             paymentIntentParams.automatic_payment_methods = { enabled: false }
             paymentIntentParams.payment_method_options = {
                 revolut_pay: {
-                    capture_method: 'automatic',
-                    setup_future_usage: 'none'  // Evita múltiplas autorizações
+                    capture_method: 'automatic'
                 }
             }
-            // Log específico para debug Revolut
-            console.log(`[Revolut] Creating payment intent with return_url: ${returnUrl}`)
         }
 
         const paymentIntent = await stripe.paymentIntents.create(paymentIntentParams)

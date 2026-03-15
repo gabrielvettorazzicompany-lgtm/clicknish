@@ -549,55 +549,7 @@ function CheckoutDigitalForm(props: CheckoutDigitalProps) {
                 })
                 const stripeResult = await stripeResponse.json()
                 if (stripeResult.redirectUrl) {
-                    // Armazenar paymentId para monitoramento em background
-                    if (stripeResult.paymentId) {
-                        sessionStorage.setItem('stripe_payment_polling', stripeResult.paymentId)
-                    }
-                    
-                    // 🔧 FIX REVOLUT: Abre em popup e monitora pagamento
-                    if (stripeMethod === 'revolut_pay') {
-                        const popup = window.open(stripeResult.redirectUrl, 'revolut_payment', 'width=600,height=700,scrollbars=yes,resizable=yes')
-                        const paymentId = stripeResult.paymentId
-
-                        // Monitorar aprovação via polling
-                        const checkPayment = async () => {
-                            try {
-                                const verifyResponse = await fetch('https://api.clicknich.com/api/process-stripe-payment', {
-                                    method: 'POST',
-                                    headers: { 'Content-Type': 'application/json' },
-                                    body: JSON.stringify({ action: 'verify', paymentId }),
-                                })
-                                const result = await verifyResponse.json()
-                                if (result.success && result.redirectUrl) {
-                                    popup?.close()
-                                    sessionStorage.removeItem('stripe_payment_polling')
-                                    window.location.href = result.redirectUrl
-                                    return true
-                                }
-                                return false
-                            } catch {
-                                return false
-                            }
-                        }
-
-                        // Polling a cada 2 segundos
-                        const pollInterval = setInterval(async () => {
-                            if (popup?.closed) {
-                                clearInterval(pollInterval)
-                                return
-                            }
-                            const success = await checkPayment()
-                            if (success) clearInterval(pollInterval)
-                        }, 2000)
-
-                        // Cleanup após 10 minutos
-                        setTimeout(() => clearInterval(pollInterval), 600000)
-
-                        return { success: false } // Não redirecionar ainda
-                    } else {
-                        // Outros métodos: redirect normal
-                        window.location.href = stripeResult.redirectUrl
-                    }
+                    window.location.href = stripeResult.redirectUrl
                     return { success: false }
                 }
                 if (!stripeResult.success) throw new Error(stripeResult.error || 'Stripe payment failed')
