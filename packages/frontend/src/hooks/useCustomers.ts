@@ -160,13 +160,40 @@ export function useCustomers() {
                 }
             }
 
-            // Deduplicar por email
-            const seen = new Set<string>()
-            setCustomers(allResults.filter(c => {
-                if (seen.has(c.email)) return false
-                seen.add(c.email)
-                return true
-            }).sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()))
+            // CORREÇÃO: Em vez de deduplicar por email, agrupar preservando contexto
+            // Agrupar por email mas manter informações de todas as apps
+            const emailGroups: Record<string, Customer[]> = {}
+            allResults.forEach(customer => {
+                if (!emailGroups[customer.email]) {
+                    emailGroups[customer.email] = []
+                }
+                emailGroups[customer.email].push(customer)
+            })
+
+            // Para filtro "Todos", criar representação unificada por email
+            const unifiedCustomers: Customer[] = []
+            Object.entries(emailGroups).forEach(([email, customers]) => {
+                // Ordenar por data de criação (mais recente primeiro)
+                customers.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+
+                // Usar dados do registro mais recente como base
+                const primaryCustomer = customers[0]
+
+                // Criar registro unificado com contexto de apps múltiplas
+                const unifiedCustomer: Customer = {
+                    ...primaryCustomer,
+                    // Adicionar metadata sobre múltiplas apps (se aplicável)
+                    _appCount: customers.length,
+                    _allApps: customers.map(c => c.application_id),
+                    _originalRecords: customers
+                }
+
+                unifiedCustomers.push(unifiedCustomer)
+            })
+
+            setCustomers(unifiedCustomers.sort((a, b) =>
+                new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+            ))
         } catch {
             setCustomers([])
             setError('Erro ao carregar todos os clientes')
@@ -280,16 +307,33 @@ export function useCustomers() {
             const { data: session } = await supabase.auth.getSession()
             const token = session?.session?.access_token || SUPABASE_ANON_KEY
 
-            const res = await fetch(
-                `${SUPABASE_URL}/rest/v1/user_product_access?user_id=eq.${customer.user_id}&application_id=eq.${selectedApp}&select=product_id`,
-                { headers: { 'Authorization': `Bearer ${token}`, 'apikey': SUPABASE_ANON_KEY } }
-            )
-            const data = await res.json()
-            const accessIds = new Set<string>()
-            if (Array.isArray(data)) data.forEach((a: any) => accessIds.add(a.product_id))
+            // Para clientes com múltiplas apps, verificar acessos em todos os user_ids
+            const userIdsToCheck: string[] = []
+
+            if (customer._originalRecords && customer._originalRecords.length > 0) {
+                // Cliente unificado - verificar acessos em todos os user_ids
+                userIdsToCheck.push(...customer._originalRecords.map(r => r.user_id))
+            } else {
+                // Cliente específico de app
+                userIdsToCheck.push(customer.user_id)
+            }
+
+            const allAccessIds = new Set<string>()
+
+            // Verificar acessos para cada user_id
+            for (const userId of userIdsToCheck) {
+                const res = await fetch(
+                    `${SUPABASE_URL}/rest/v1/user_product_access?user_id=eq.${userId}&application_id=eq.${selectedApp}&select=product_id`,
+                    { headers: { 'Authorization': `Bearer ${token}`, 'apikey': SUPABASE_ANON_KEY } }
+                )
+                const data = await res.json()
+                if (Array.isArray(data)) {
+                    data.forEach((a: any) => allAccessIds.add(a.product_id))
+                }
+            }
 
             const access: Record<string, boolean> = {}
-            productsList.forEach(p => { access[p.id] = accessIds.has(p.id) })
+            productsList.forEach(p => { access[p.id] = allAccessIds.has(p.id) })
             setCustomerProducts(access)
         } catch (err) {
             console.error('Error fetching customer access:', err)

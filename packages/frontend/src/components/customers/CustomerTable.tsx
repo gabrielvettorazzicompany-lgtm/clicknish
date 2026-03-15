@@ -87,8 +87,18 @@ export default function CustomerTable({
                                                 {customer.full_name?.charAt(0).toUpperCase() || customer.email.charAt(0).toUpperCase()}
                                             </span>
                                         </div>
-                                        <div>
-                                            <div className="font-medium text-gray-900 dark:text-gray-100 text-sm">{customer.full_name || customer.email}</div>
+                                        <div className="flex flex-col">
+                                            <div className="flex items-center gap-2">
+                                                <span className="font-medium text-gray-900 dark:text-gray-100 text-sm">
+                                                    {customer.full_name || customer.email}
+                                                </span>
+                                                {customer._appCount && customer._appCount > 1 && (
+                                                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300"
+                                                        title={`Cliente existe em ${customer._appCount} apps`}>
+                                                        {customer._appCount} apps
+                                                    </span>
+                                                )}
+                                            </div>
                                             <div className="text-xs text-gray-600 dark:text-gray-500">{customer.email}</div>
                                         </div>
                                     </div>

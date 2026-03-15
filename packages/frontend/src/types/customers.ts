@@ -32,6 +32,10 @@ export interface Customer {
     status?: string
     last_login?: string
     created_at?: string
+    // Metadata para filtro "Todos" - informações de apps múltiplas
+    _appCount?: number
+    _allApps?: string[]
+    _originalRecords?: Customer[]
 }
 
 export interface CombinedItem {
