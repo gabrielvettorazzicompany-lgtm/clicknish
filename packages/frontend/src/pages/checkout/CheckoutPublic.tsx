@@ -137,10 +137,12 @@ export default function CheckoutPublic() {
         return null
     })[0]
 
-    // ⚡ Se dados já disponíveis no HTML, começa sem loading (zero skeleton)
+    // ⚡ Estados do checkout
     const [loading, setLoading] = useState(!snap)
     const [reloadKey, setReloadKey] = useState(0)
     const [fetchError, setFetchError] = useState(false)
+    const [stripeVerifying, setStripeVerifying] = useState(false)
+    const [paymentMonitoring, setPaymentMonitoring] = useState(false)
     const [product, setProduct] = useState<Product | null>(snap?.product ?? null)
     const [checkout, setCheckout] = useState<Checkout | null>(snap?.checkout ?? null)
     const [finalCheckoutId, setFinalCheckoutId] = useState<string | null>(snap?.checkoutId ?? null)
@@ -172,7 +174,6 @@ export default function CheckoutPublic() {
     const [mollieEnabledMethods, setMollieEnabledMethods] = useState<Array<{ id: string; label: string; description?: string; icon_url?: string }>>([])
     const [mollieVerifying, setMollieVerifying] = useState(false)
     const [stripeEnabledMethods, setStripeEnabledMethods] = useState<Array<{ id: string; label: string; icon_url?: string | null }>>([])
-    const [stripeVerifying, setStripeVerifying] = useState(false)
 
     // Capture UTM params once from the URL when the checkout opens
     // Persiste por 30 dias no localStorage (igual Hotmart/PerfectPay)
@@ -297,6 +298,69 @@ export default function CheckoutPublic() {
                 setLoading(true)
                 setReloadKey(k => k + 1)
             })
+    }, [])
+
+    // Polling para verificar pagamentos Revolut aprovados em background
+    useEffect(() => {
+        let pollInterval: NodeJS.Timeout | null = null
+        let lastPaymentId: string | null = null
+
+        const startPolling = (paymentId: string) => {
+            if (pollInterval) clearInterval(pollInterval)
+            
+            setPaymentMonitoring(true)
+            
+            pollInterval = setInterval(async () => {
+                try {
+                    const response = await fetch('https://api.clicknich.com/api/process-stripe-payment', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ action: 'verify', paymentId }),
+                    })
+                    
+                    const result = await response.json()
+                    if (result.success && result.redirectUrl) {
+                        if (pollInterval) clearInterval(pollInterval)
+                        setPaymentMonitoring(false)
+                        sessionStorage.removeItem('stripe_payment_polling')
+                        console.log('[Revolut Polling] Payment verified, redirecting...')
+                        window.location.href = result.redirectUrl
+                    }
+                } catch (error) {
+                    console.warn('[Revolut Polling] Error:', error)
+                }
+            }, 3000) // Check a cada 3 segundos
+        }
+
+        // Monitor para novos pagamentos criados
+        const checkForNewPayments = () => {
+            const currentPayment = sessionStorage.getItem('stripe_payment_polling')
+            if (currentPayment && currentPayment !== lastPaymentId) {
+                lastPaymentId = currentPayment
+                console.log('[Revolut Polling] Started monitoring payment:', currentPayment)
+                startPolling(currentPayment)
+                
+                // Para polling após 5 minutos
+                setTimeout(() => {
+                    if (pollInterval) {
+                        clearInterval(pollInterval)
+                        setPaymentMonitoring(false)
+                        sessionStorage.removeItem('stripe_payment_polling')
+                        console.log('[Revolut Polling] Timeout reached, stopping poll')
+                    }
+                }, 300000) // 5 minutos
+            }
+        }
+
+        // Verificar imediatamente e depois a cada 1 segundo
+        checkForNewPayments()
+        const monitorInterval = setInterval(checkForNewPayments, 1000)
+
+        return () => {
+            if (pollInterval) clearInterval(pollInterval)
+            clearInterval(monitorInterval)
+            setPaymentMonitoring(false)
+        }
     }, [])
 
     // Buscar métodos Mollie habilitados — filtros dependem do modo
@@ -1150,6 +1214,15 @@ export default function CheckoutPublic() {
                     <div className="bg-white rounded-2xl p-8 flex flex-col items-center gap-4 shadow-xl">
                         <div className="w-10 h-10 border-4 border-blue-500/30 border-t-blue-500 rounded-full animate-spin" />
                         <p className="text-sm font-medium text-gray-700">Verificando pagamento...</p>
+                    </div>
+                </div>
+            )}
+            {paymentMonitoring && (
+                <div className="fixed bottom-4 right-4 z-40 bg-blue-600 text-white px-4 py-3 rounded-lg shadow-lg flex items-center gap-3">
+                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    <div>
+                        <p className="text-sm font-medium">Monitorando pagamento</p>
+                        <p className="text-xs text-blue-100">Aguardando aprovação...</p>
                     </div>
                 </div>
             )}
